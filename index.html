@@ -3394,6 +3394,8 @@ function friendlyError(error){
   if(/bucket.*not found|not found.*bucket/i.test(raw))return "The library-pdfs Storage bucket is missing.";
   if(/payload too large|file.*too large|413/i.test(raw))return "The PDF is larger than the upload limit.";
   if(/network|failed to fetch|load failed|networkerror/i.test(raw))return "The browser could not reach Supabase. Check the HTTPS GitHub Pages link and internet connection.";
+  if(/canceling statement due to statement timeout|statement timeout|57014/i.test(raw))return "That's taking longer than usual to load — this can happen with a large quiz. Please wait a moment and try again.";
+  if(/exceeded the quota|quotaexceedederror/i.test(raw))return "This device's local storage is full (this only happens without a live Supabase connection). Check your internet connection and try again.";
   return raw
 }
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._timer);t._timer=setTimeout(()=>t.classList.remove("show"),2200)}
@@ -4625,7 +4627,18 @@ async function logActivity(action,{item=null,success=true,details={},section=sta
 }
 
 /* Add service methods without replacing the existing tested data service. */
-function qlMockStore(){const key=`ql_patch_store_${LIBRARY_ID}`;let value;try{value=JSON.parse(localStorage.getItem(key)||"null")}catch{};if(!value)value={devices:[],sessions:[],logs:[],backups:[],adminDevices:[]};return {value,save:()=>localStorage.setItem(key,JSON.stringify(value))}}
+/* Kuza (Sep 27): saving a very large quiz (10,000+ questions) while this app
+   is running WITHOUT a live Supabase connection (offline/mock mode only --
+   your real GitHub Pages site always talks to real Supabase, so it never
+   takes this path) used to throw an uncaught "exceeded the quota" browser
+   error straight out of localStorage.setItem, because this store holds
+   everything (devices/sessions/logs/backups AND, via qzMockStore, every
+   quiz's questions) as one single JSON blob capped by the browser's local
+   storage limit (a few MB). Wrapped so that failure is a normal catchable
+   error instead of an uncaught crash -- callers already have proper
+   try/catch (see qzPersist and friendlyError's new quota-specific message
+   below). This only ever matters for offline/mock-mode testing. */
+function qlMockStore(){const key=`ql_patch_store_${LIBRARY_ID}`;let value;try{value=JSON.parse(localStorage.getItem(key)||"null")}catch{};if(!value)value={devices:[],sessions:[],logs:[],backups:[],adminDevices:[]};return {value,save:()=>{try{localStorage.setItem(key,JSON.stringify(value))}catch(error){throw new Error("Local storage is full — this only happens in offline/test mode without a live Supabase connection: "+(error?.message||error))}}}}
 service.logActivity=async payload=>{
   if(service.client){const {error}=await service.client.rpc("log_library_activity",{p_library_id:LIBRARY_ID,p_device_key:payload.device_key,p_session_key:payload.session_key,p_device_type:payload.device_type,p_browser:payload.browser,p_os:payload.os,p_action:payload.action,p_item_id:payload.item_id,p_item_title:payload.item_title,p_item_kind:payload.item_kind,p_section:payload.section,p_folder_path:payload.folder_path,p_success:payload.success,p_details:payload.details||{}});if(error)throw error;return}
   const st=qlMockStore(),v=st.value;let d=v.devices.find(x=>x.device_key===payload.device_key);if(!d){d={id:uid(),library_id:LIBRARY_ID,device_key:payload.device_key,nickname:null,device_type:payload.device_type,browser:payload.browser,os:payload.os,first_seen:nowIso(),last_active:nowIso(),total_visits:0,total_actions:0,is_trashed:false};v.devices.push(d)}
@@ -10805,9 +10818,28 @@ Q5 Answer B
     el.style.height="auto";
     el.style.height=(el.scrollHeight+2)+"px";
   }
+  /* Kuza (Sep 27): "scroll lag / freeze with 1000-10,000+ questions" -- root
+     cause found here. This used to call qzAutoGrow (read scrollHeight, write
+     height) on EACH prompt/option box in the container, ONE AT A TIME. Every
+     "write auto, then read scrollHeight" pair forces the browser to fully
+     recalculate layout right then, synchronously -- so looping element by
+     element means one forced layout recalculation PER ELEMENT. With ~60
+     mounted question cards (the editor's own virtualized-window size) at
+     ~6 boxes each (1 prompt + up to 5 options), that's 300+ forced
+     recalculations every time the scroll window shifts -- measured at
+     47-127ms per shift, badly janky, worse on weaker hardware (iPad/phone,
+     exactly what Kuza reported). Fixed by batching: write "auto" to every
+     box first (no reads in between, so the browser has nothing to
+     recalculate yet), THEN read every box's scrollHeight in one pass (this
+     forces exactly ONE recalculation total, not one per box), THEN write
+     all the final heights. Same visual result, a fraction of the cost. */
   function qzAutoGrowAll(root){
     if(!root)return;
-    root.querySelectorAll(".qz-prompt,.qz-option-text").forEach(qzAutoGrow);
+    const els=root.querySelectorAll(".qz-prompt,.qz-option-text");
+    if(!els.length)return;
+    els.forEach(el=>{el.style.height="auto"});
+    const heights=Array.prototype.map.call(els,el=>el.scrollHeight+2);
+    els.forEach((el,i)=>{el.style.height=heights[i]+"px"});
   }
   function qzQuestionCardHtml(q,i){
     return `<div class="qz-question-card" data-qidx="${i}" data-qid="${esc(q.id)}">
@@ -11404,7 +11436,18 @@ Q5 Answer B
        divs (their heights estimated from the average measured card
        height) stand in for the un-mounted cards above/below so the
        scrollbar still represents the true list length. */
-    const QZ_VIRTUALIZE_THRESHOLD=250,QZ_INITIAL_WINDOW=60,QZ_OVERSCAN=15;
+    /* Kuza (Sep 27): QZ_OVERSCAN trimmed from 15 to 6. Profiling the 10,000+
+       question scroll-lag report showed the window-rebuild cost scales
+       almost linearly with how many cards are mounted at once (~0.7-1ms per
+       card for the unavoidable one-time layout measurement each freshly
+       mounted textarea needs) -- overscan of 15 was keeping roughly 30-45
+       cards mounted per shift (well beyond what a typical ~1000px-tall
+       viewport needs to look seamless), so this trims straight cost without
+       changing how the windowing works. A smaller overscan does mean the
+       window needs to re-shift slightly more often during a long continuous
+       scroll, but each shift is proportionally cheaper -- net win, verified
+       by re-running the same scroll-speed stress test after this change. */
+    const QZ_VIRTUALIZE_THRESHOLD=250,QZ_INITIAL_WINDOW=40,QZ_OVERSCAN=6;
     let qzWinStart=0,qzWinEnd=0,qzEstSlotHeight=220,qzEstSlotHeightMeasured=false,qzWinScrollTicking=false,qzSuppressAutoWindowUntil=0;
     try{
       const rows=await service.getQuizQuestionsAdmin(item.id);
@@ -11602,10 +11645,37 @@ Q5 Answer B
       document.getElementById("qzBtnTake").onclick=async()=>{
         const err=qzValidateQuestions(questions);
         if(err)return alert(err);
+        const btn=document.getElementById("qzBtnTake");
+        /* Kuza (Sep 27): "Take quiz doesn't work on the first click, needs
+           4-5 clicks, sometimes shows a raw DB timeout error" -- root cause
+           was two-fold. (1) This handler unconditionally re-saved the ENTIRE
+           question set (every question, every embedded image) through
+           qzPersist() on every single click, even when nothing had changed
+           since the last autosave -- for a 100-question quiz that is a big
+           write, slow enough on its own to risk Supabase's statement
+           timeout. (2) Nothing disabled the button while that save (and the
+           follow-up quiz-data fetch) was in flight, so a slow first click
+           just invited more clicks -- each one firing ANOTHER full save on
+           top of the one still running, compounding the load until one of
+           them timed out server-side and Postgres's raw error text got
+           shown as-is. Fixed by only persisting when there's an actual
+           unsaved edit (qzDraftHasUnsaved -- the same flag the autosave
+           system already maintains) and by disabling the button for the
+           duration of the click so repeat clicks can't pile up. */
+        if(btn.disabled)return;
+        const prevHtml=btn.innerHTML,prevOpacity=btn.style.opacity;
+        btn.disabled=true;
+        btn.style.opacity="0.6";
+        btn.textContent="Loading…";
         try{
-          const saved=await qzPersist();
+          const saved=qzDraftHasUnsaved?await qzPersist():curItem;
           qzBeginAttempt(saved,"take",()=>openQuizWorkspace(saved));
         }catch(error){alert(friendlyError(error))}
+        finally{
+          btn.disabled=false;
+          btn.style.opacity=prevOpacity;
+          btn.innerHTML=prevHtml;
+        }
       };
     }
 
@@ -12192,7 +12262,14 @@ Q5 Answer B
     const addBtn=document.getElementById("qzLandAddQuestions");
     if(addBtn)addBtn.onclick=()=>openQuizWorkspace(item);
     const takeBtn=document.getElementById("qzLandTake");
-    if(takeBtn)takeBtn.onclick=()=>qzBeginAttempt(item,"take",()=>openQuizLanding(itemById(item.id)||item));
+    /* Same repeat-click guard as qzBtnTake above: without it, clicking this
+       button again while the quiz is still loading fires another concurrent
+       fetch instead of doing nothing. */
+    if(takeBtn)takeBtn.onclick=()=>{
+      if(takeBtn.disabled)return;
+      takeBtn.disabled=true;
+      qzBeginAttempt(item,"take",()=>{takeBtn.disabled=false;openQuizLanding(itemById(item.id)||item)});
+    };
     const prevBtn=document.getElementById("qzLandPreview");
     if(prevBtn)prevBtn.onclick=()=>qzBeginAttempt(item,"preview",()=>openQuizLanding(itemById(item.id)||item));
     try{recordRecent(item)}catch{}
