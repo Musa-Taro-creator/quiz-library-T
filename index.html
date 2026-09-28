@@ -16571,14 +16571,15 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 
     const card=document.createElement("div");
     card.className="ql-share-profile-card";
-    card.innerHTML=`<div class="ql-share-profile-top"><div class="ql-share-profile-copy"><small>Public Quiz ID</small><div class="ql-share-public-id">Loading…</div></div><button class="ql-share-copy-btn" type="button" disabled>Copy</button></div><div class="ql-share-profile-note">Students use this public ID to send you quiz copies. Your real Supabase user UUID stays hidden.</div>`;
+    card.innerHTML=`<div class="ql-share-profile-top"><div class="ql-share-profile-copy"><small>Public Quiz ID</small><div class="ql-share-public-id">Loading…</div></div><button class="ql-share-copy-btn" type="button" disabled>Copy</button></div>`;
     host.prepend(card);
 
     const profile=await ensureShareProfile();
     if(!card.isConnected)return;
     if(!profile){
       card.querySelector(".ql-share-public-id").textContent="Setup required";
-      card.querySelector(".ql-share-profile-note").innerHTML=`Run <strong>${SHARE_SETUP_FILE}</strong> once in Supabase to enable your public Quiz ID.`;
+      {let note=card.querySelector(".ql-share-profile-note");if(!note){note=document.createElement("div");note.className="ql-share-profile-note";card.appendChild(note)}
+      note.innerHTML=`Run <strong>${SHARE_SETUP_FILE}</strong> once in Supabase to enable your public Quiz ID.`;}
       return;
     }
 
