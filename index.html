@@ -14843,7 +14843,7 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
   }
   async function activate(){
     syncMode();if(!isStudentAccount()){state.studentWorkspaceReady=false;document.body.classList.remove("student-edit-mode");return}
-    try{await refresh();if(service.client){try{if(state.realtime)await service.client.removeChannel(state.realtime)}catch{};try{if(state.studentWorkspaceChannel)await service.client.removeChannel(state.studentWorkspaceChannel)}catch{};let timer=null;const rerun=()=>{clearTimeout(timer);timer=setTimeout(refresh,140)};state.studentWorkspaceChannel=service.client.channel(`student-workspace-${LIBRARY_ID}-${state.user.id}`).on("postgres_changes",{event:"*",schema:"public",table:TABLE,filter:`user_id=eq.${state.user.id}`},rerun).on("postgres_changes",{event:"*",schema:"public",table:"library_items",filter:`library_id=eq.${LIBRARY_ID}`},rerun).subscribe(status=>setConnection(status==="SUBSCRIBED"))}}catch(error){setupMissing(error)}
+    try{await refresh();if(service.client){try{if(state.realtime)await service.client.removeChannel(state.realtime)}catch{};try{if(state.studentWorkspaceChannel)await service.client.removeChannel(state.studentWorkspaceChannel)}catch{};let timer=null;const rerun=()=>{clearTimeout(timer);timer=setTimeout(refresh,140)};state.studentWorkspaceChannel=service.client.channel(`student-workspace-${LIBRARY_ID}-${state.user.id}`).on("postgres_changes",{event:"*",schema:"public",table:TABLE,filter:`user_id=eq.${state.user.id}`},change=>{if(isOwnQuizEcho(change))return;rerun()}).on("postgres_changes",{event:"*",schema:"public",table:"library_items",filter:`library_id=eq.${LIBRARY_ID}`},rerun).subscribe(status=>setConnection(status==="SUBSCRIBED"))}}catch(error){setupMissing(error)}
   }
   async function studentUpdate(id,patch,{personalize=true}={}){const current=itemById(id)||fromRow((await fetchRows()).find(r=>r.id===id)||{});if(!current?.id)throw new Error("Item not found in My Library.");const next={...cleanItem(current),...patch,updated_at:nowIso()};const onlyFavorite=Object.keys(patch).every(k=>["student_favorite","updated_at"].includes(k));return await upsertRow(next,{personalized:onlyFavorite?false:personalize,preservePersonalized:onlyFavorite||!personalize})}
   async function studentInsert(p){return await upsertRow({...p,library_id:LIBRARY_ID,student_favorite:!!p.student_favorite,created_at:p.created_at||nowIso(),updated_at:nowIso()},{personalized:true})}
@@ -14860,14 +14860,39 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
 
   // Student quizzes live inside the private item payload. Shared quizzes remain readable,
   // but once the student edits one, its questions/settings become private to that account.
-  if(shared.saveQuizQuestions)service.saveQuizQuestions=async(itemId,questions,settings)=>{if(!qlIsStudentWorkspace())return await shared.saveQuizQuestions(itemId,questions,settings);return await studentUpdate(itemId,{quiz_settings:settings,_student_questions:(questions||[]).map((q,i)=>({...q,id:q.id||uid(),question_position:i}))})};
+  if(shared.saveQuizQuestions)service.saveQuizQuestions=async(itemId,questions,settings)=>{if(!qlIsStudentWorkspace())return await shared.saveQuizQuestions(itemId,questions,settings);markOwnQuizWrite(itemId);return await studentUpdate(itemId,{quiz_settings:settings,_student_questions:(questions||[]).map((q,i)=>({...q,id:q.id||uid(),question_position:i}))})};
   /* Kuza (Sep 28): the editor's autosave sends plain edits (no questions
-     added/removed) through saveQuizQuestionsPartial, which had no student
-     override -- so a student's edits went to the shared quiz_questions RPC
-     instead of their own My Library copy, and only survived as this
-     device's local draft. Merge the changed questions into the student's
-     private copy instead. */
-  if(shared.saveQuizQuestionsPartial)service.saveQuizQuestionsPartial=async(itemId,changedQuestions,settings)=>{if(!qlIsStudentWorkspace())return await shared.saveQuizQuestionsPartial(itemId,changedQuestions,settings);const item=itemById(itemId);const base=Array.isArray(item?._student_questions)?item._student_questions:await service.getQuizQuestionsAdmin(itemId);const byId=new Map((base||[]).map(q=>[q.id,q]));(changedQuestions||[]).forEach(c=>{const {position,...rest}=c;byId.set(c.id,{...(byId.get(c.id)||{}),...rest,id:c.id,question_position:position})});const merged=[...byId.values()].sort((a,b)=>(a.question_position||0)-(b.question_position||0));return await studentUpdate(itemId,{quiz_settings:settings,_student_questions:merged})};
+     added/removed) through saveQuizQuestionsPartial. It had no student
+     override, so a student's edits went to the shared quiz_questions RPC
+     ("not authorized") instead of their own My Library copy. And the
+     student copy keeps every question inside one payload row, so even a
+     correct save re-uploaded all of them -- typing one letter in a
+     10,000-question quiz sent the whole quiz again. Now only the changed
+     questions are sent, to student_patch_quiz_questions (see
+     supabase/student_patch_quiz_questions.sql), which swaps them into the
+     stored copy in place. If that function isn't installed yet (or the
+     copy has no private questions yet), fall back to a full save so
+     nothing is ever lost. */
+  const ownQuizWrites=new Map();
+  const markOwnQuizWrite=id=>ownQuizWrites.set(String(id),Date.now());
+  const isOwnQuizEcho=change=>{const id=String(change?.new?.id||change?.old?.id||"");const t=ownQuizWrites.get(id);return !!t&&Date.now()-t<20000};
+  if(shared.saveQuizQuestionsPartial)service.saveQuizQuestionsPartial=async(itemId,changedQuestions,settings)=>{
+    if(!qlIsStudentWorkspace())return await shared.saveQuizQuestionsPartial(itemId,changedQuestions,settings);
+    const item=itemById(itemId);
+    const hasPrivate=Array.isArray(item?._student_questions);
+    const base=hasPrivate?item._student_questions:await service.getQuizQuestionsAdmin(itemId);
+    const byId=new Map((base||[]).map(q=>[q.id,q]));
+    (changedQuestions||[]).forEach(c=>{const {position,...rest}=c;byId.set(c.id,{...(byId.get(c.id)||{}),...rest,id:c.id,question_position:position})});
+    const merged=[...byId.values()].sort((a,b)=>(a.question_position||0)-(b.question_position||0));
+    if(hasPrivate&&!MOCK_MODE&&service.client){
+      markOwnQuizWrite(itemId);
+      const {data,error}=await service.client.rpc("student_patch_quiz_questions",{p_library_id:String(LIBRARY_ID),p_item_id:String(itemId),p_changed:changedQuestions||[],p_settings:settings||{}});
+      if(!error){const stamp=data||nowIso();return {...item,quiz_settings:settings,_student_questions:merged,updated_at:stamp,_student_personalized:true}}
+      console.warn("student_patch_quiz_questions unavailable -- falling back to a full save",error);
+    }
+    markOwnQuizWrite(itemId);
+    return await studentUpdate(itemId,{quiz_settings:settings,_student_questions:merged});
+  };
   if(shared.getQuizQuestionsAdmin)service.getQuizQuestionsAdmin=async itemId=>{if(!qlIsStudentWorkspace())return await shared.getQuizQuestionsAdmin(itemId);const item=itemById(itemId);if(Array.isArray(item?._student_questions))return item._student_questions.slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0));try{return await shared.getQuizQuestionsAdmin(itemId)}catch{return []}};
   if(shared.getQuizForTaking)service.getQuizForTaking=async itemId=>{if(!qlIsStudentWorkspace())return await shared.getQuizForTaking(itemId);const item=itemById(itemId),qs=Array.isArray(item?._student_questions)?item._student_questions:null;if(qs)return {title:item.title||"Quiz",settings:item.quiz_settings||{},questions:qs.slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0)).map(q=>({id:q.id,type:q.type,prompt:q.prompt,options:q.options,points:q.points,image:q.image,allow_multiple:!!q.allow_multiple,images:q.images||[],session_label:q.session_label||null}))};return await shared.getQuizForTaking(itemId)};
   function gradeLocal(q,given){if(q.type==="mcq"){if(Array.isArray(q.correct_answer)){if(!Array.isArray(given))return false;const n=a=>[...new Set(a.map(Number))].sort((a,b)=>a-b).join(",");return n(given)===n(q.correct_answer)}return String(given)===String(q.correct_answer)}if(q.type==="true_false")return (given===true||given==="true")===(q.correct_answer===true||q.correct_answer==="true");if(q.type==="short_answer"){const accepted=Array.isArray(q.correct_answer)?q.correct_answer:[q.correct_answer],g=String(given??"").trim().toLowerCase();return accepted.some(a=>String(a??"").trim().toLowerCase()===g)}return false}
