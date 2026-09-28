@@ -16437,6 +16437,76 @@ window.addEventListener("popstate",()=>setTimeout(syncProfileUi,0));q("modalClos
 </script>
 
 
+<style id="qlNeonAppSkin">
+/* Kuza: Neon Lines skin for the whole library screen (sidebar, top bar,
+   quick actions, documents grid / list, menus). Same layout; only colour. */
+body.ql-neon{background:#07070d!important;color:#eaf2ff}
+body.ql-neon::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:repeating-linear-gradient(115deg,transparent 0 80px,rgba(255,170,40,.16) 81px,transparent 83px),repeating-linear-gradient(65deg,transparent 0 110px,rgba(0,230,255,.13) 111px,transparent 113px),radial-gradient(circle at 85% 0%,rgba(255,140,40,.18),transparent 40%),radial-gradient(circle at 0% 100%,rgba(0,220,255,.16),transparent 45%),#07070d}
+body.ql-neon .app{position:relative;z-index:1}
+body.ql-neon .app,body.ql-neon .main,body.ql-neon .content,body.ql-neon .page-heading,body.ql-neon .subbar{background:transparent!important}
+/* sidebar */
+body.ql-neon .sidebar{background:rgba(10,10,20,.82)!important;border-right:1px solid rgba(0,229,255,.18)!important;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+body.ql-neon .header-brand-name{color:#eaf2ff!important}
+body.ql-neon .header-mode-status{color:#39ff88!important}
+body.ql-neon .sidebar .nav button{color:#b9c6dd!important;background:transparent!important}
+body.ql-neon .sidebar .nav button .nav-icon,body.ql-neon .sidebar .nav button svg{color:#7fdcf0!important;stroke:currentColor}
+body.ql-neon .sidebar .nav button:hover{background:rgba(255,255,255,.05)!important}
+body.ql-neon .sidebar .nav button.active{color:#eaf2ff!important;background:linear-gradient(90deg,rgba(0,229,255,.18),rgba(57,255,136,.08))!important;box-shadow:inset 3px 0 0 #00e5ff,0 0 18px rgba(0,229,255,.18)!important}
+body.ql-neon .sidebar .nav button.active .nav-icon,body.ql-neon .sidebar .nav button.active svg{color:#00e5ff!important}
+/* top bar */
+body.ql-neon .topbar{background:rgba(10,10,20,.72)!important;border-bottom:1px solid rgba(0,229,255,.16)!important;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+body.ql-neon .student-header-search,body.ql-neon .search-box{background:rgba(255,255,255,.05)!important;border-color:rgba(0,229,255,.32)!important;color:#eaf2ff!important}
+body.ql-neon #studentHeaderSearchInput,body.ql-neon #searchInput{background:transparent!important;border-color:transparent!important;color:#eaf2ff!important}
+body.ql-neon #studentHeaderSearchInput::placeholder,body.ql-neon #searchInput::placeholder{color:#7f8ca6!important}
+body.ql-neon .student-header-search-icon{color:#00e5ff!important}
+body.ql-neon .new-btn{background:linear-gradient(90deg,#ff8a00,#39ff88)!important;color:#111!important;border:0!important;box-shadow:0 0 18px rgba(57,255,136,.3)!important}
+body.ql-neon .view-btn{background:rgba(255,255,255,.06)!important;color:#00e5ff!important;border-color:rgba(0,229,255,.3)!important}
+body.ql-neon .student-account-chip{background:rgba(255,255,255,.04)!important;border-color:rgba(0,229,255,.4)!important;box-shadow:0 0 16px rgba(0,229,255,.25)!important}
+/* quick actions */
+body.ql-neon .admin-quick-actions{background:transparent!important;border-bottom:1px solid rgba(0,229,255,.12)!important}
+body.ql-neon .admin-quick-actions button{background:rgba(16,16,28,.82)!important;color:#eaf2ff!important;border:1px solid rgba(0,229,255,.3)!important;box-shadow:0 0 14px rgba(0,229,255,.1)!important}
+body.ql-neon .admin-quick-actions button:hover{border-color:#00e5ff!important;box-shadow:0 0 18px rgba(0,229,255,.3)!important}
+/* heading + filter */
+body.ql-neon .page-title{color:#eaf2ff!important}
+body.ql-neon .page-heading .breadcrumbs,body.ql-neon #breadcrumbs,body.ql-neon .item-count{color:#93a3c0!important}
+body.ql-neon .filter-btn{background:rgba(255,255,255,.05)!important;color:#00e5ff!important;border-color:rgba(0,229,255,.32)!important}
+/* documents grid */
+body.ql-neon .content .item-card{background:rgba(16,16,28,.84)!important;border:1px solid rgba(0,229,255,.24)!important;box-shadow:0 0 18px rgba(0,229,255,.08)!important}
+body.ql-neon .content .item-card:hover{border-color:rgba(0,229,255,.6)!important;box-shadow:0 0 24px rgba(0,229,255,.22)!important}
+body.ql-neon .content .item-card.selected{border-color:#39ff88!important;box-shadow:0 0 0 2px #39ff88,0 0 24px rgba(57,255,136,.3)!important}
+body.ql-neon .item-title{color:#eaf2ff!important}
+body.ql-neon .item-sub,body.ql-neon .search-result-meta,body.ql-neon .search-path{color:#93a3c0!important}
+body.ql-neon .row-btn{background:transparent!important;color:#93a3c0!important}
+body.ql-neon .row-btn.star.on{color:#ffb020!important}
+body.ql-neon .doc-badge.quiz{background:linear-gradient(135deg,rgba(99,102,241,.35),rgba(168,85,247,.3))!important;color:#e0d9ff!important;box-shadow:0 0 18px rgba(139,92,246,.35)!important}
+/* list view */
+body.ql-neon .admin-document-table,body.ql-neon .list-head{background:transparent!important;color:#93a3c0!important;border-color:rgba(0,229,255,.16)!important}
+body.ql-neon .item-row{background:rgba(16,16,28,.8)!important;border-color:rgba(0,229,255,.16)!important;color:#eaf2ff!important}
+body.ql-neon .item-row:hover{background:rgba(0,229,255,.07)!important}
+body.ql-neon .item-row.selected{box-shadow:inset 3px 0 0 #39ff88!important}
+body.ql-neon .item-row *{border-color:rgba(0,229,255,.12)}
+/* empty state */
+body.ql-neon .empty,body.ql-neon .empty-icon{color:#93a3c0!important}
+/* menus (view / sort / item ⋮) */
+body.ql-neon .menu{background:rgba(12,12,22,.96)!important;border:1px solid rgba(0,229,255,.3)!important;box-shadow:0 0 26px rgba(0,229,255,.18),0 18px 40px rgba(0,0,0,.5)!important;color:#eaf2ff!important}
+body.ql-neon .menu button,body.ql-neon .menu a{color:#eaf2ff!important;background:transparent!important}
+body.ql-neon .menu button:hover{background:rgba(0,229,255,.1)!important}
+body.ql-neon .menu hr,body.ql-neon .menu .menu-sep{border-color:rgba(0,229,255,.16)!important;background:rgba(0,229,255,.16)!important}
+body.ql-neon .menu .danger,body.ql-neon .menu .danger-text{color:#ff6b8a!important}
+body.ql-neon .menu .checked:before,body.ql-neon .filter-menu .checked:before{color:#39ff88!important}
+body.ql-neon .sidebar .nav button.student-profile-nav.active,body.ql-neon .sidebar .nav button.student-profile-nav:hover{background:rgba(0,229,255,.14)!important;color:#00e5ff!important;box-shadow:0 0 0 1px rgba(0,229,255,.5),0 0 18px rgba(0,229,255,.3)!important}
+body.ql-neon .sidebar .nav button.student-profile-nav .nav-icon{color:#00e5ff!important}
+/* selection + trash toolbars */
+body.ql-neon .selection-bar,body.ql-neon #trashToolbar{background:rgba(12,12,22,.94)!important;border:1px solid rgba(0,229,255,.3)!important;color:#eaf2ff!important}
+body.ql-neon .selection-bar .text-btn{color:#00e5ff!important}
+body.ql-neon .selection-bar .done-btn{background:linear-gradient(90deg,#ff8a00,#39ff88)!important;color:#111!important}
+body.ql-neon .check-circle{accent-color:#39ff88}
+/* toast */
+body.ql-neon .toast{background:rgba(12,12,22,.95)!important;color:#eaf2ff!important;border:1px solid rgba(0,229,255,.35)!important}
+/* the profile page already draws its own neon canvas: let it sit on the page background */
+body.ql-neon .profile-content.pfs-neon{background:transparent!important}
+</style>
+<script id="qlNeonAppSkinOn">document.body.classList.add("ql-neon")</script>
 <script id="studentOnlyAdminGuard">
 (function(){
   if(!STUDENT_ONLY_BUILD)return;
