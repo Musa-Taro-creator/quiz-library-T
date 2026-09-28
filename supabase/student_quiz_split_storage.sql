@@ -21,8 +21,9 @@
 --   4. Removes the big arrays from the My Library rows and marks those quizzes
 --      as "_student_q_split": true so the app reads them from the new table.
 -- Nothing is deleted without a backup copy first.
-
-begin;
+--
+-- The SQL Editor runs this whole script as one transaction: if any step
+-- fails, nothing is changed.
 
 -- ---------------------------------------------------------------- tables --
 
@@ -196,8 +197,6 @@ update public.student_library_items s
                          else '{}'::jsonb end
  where jsonb_typeof(s.payload -> '_student_questions') = 'array'
     or jsonb_typeof(s.payload -> '_student_attempts')  = 'array';
-
-commit;
 
 -- Make the new tables and functions visible to the API right away.
 notify pgrst, 'reload schema';
