@@ -3160,6 +3160,15 @@ body.has-student-profile:not(.admin-mode) .top-settings{
 }
 </style>
 
+<style id="qzAutoAdvanceSwitch">
+/* Kuza (Sep 28): On/Off switch for the Auto-Advance window */
+.qz-aa-toggle-row{margin:6px 0 14px}
+#qzAutoAdvOptions{transition:opacity .2s ease}
+#qzAutoAdvOptions #qzBehAutoAdvSpeedWrap{margin-top:16px}
+#qzAutoAdvOptions.qz-aa-off{opacity:.45;pointer-events:none}
+.qz-beh-row.qz-beh-row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:560px){.qz-beh-row.qz-beh-row-2{grid-template-columns:1fr}}
+</style>
 <style id="qzSectionsEmeraldGold">
 /* Kuza (Sep 28): Sections window -- approved "Emerald & Gold" Glassmorphism +
    Liquid Glass design (option 9). Scoped to #qzSubDialogBox.qz-sections-glass. */
@@ -9542,6 +9551,10 @@ html,body{overscroll-behavior-y:none}
      the exact same UI/logic that used to live inside qzBehAutoAdvWrap. */
   function openAutoAdvanceSettings(settings,onSave){
     let autoAdv=qzBehaviorAutoAdvance(settings);
+    /* Kuza (Sep 28): "i want turn on/off button" -- a real On/Off switch on
+       top; the choice below is now just WHICH on-mode (correct only /
+       always). Switching back On restores the last on-mode used. */
+    let lastOn=autoAdv.mode!=="off"?autoAdv.mode:(["correct","always"].includes(settings?.auto_advance?.last_on)?settings.auto_advance.last_on:"correct");
     const speedPresets=[{v:0.6,label:"Fast"},{v:1.2,label:"Normal"},{v:2.5,label:"Slow"}];
     const isPreset=v=>speedPresets.some(p=>p.v===v);
     qzOpenSubDialog(`
@@ -9550,13 +9563,17 @@ html,body{overscroll-behavior-y:none}
         <div><h3>Auto-Advance</h3><div class="qz-beh-head-sub">Move to the next question automatically after answering.</div></div>
         <button type="button" class="qz-tools-close qz-beh-close" id="qzAutoAdvClose" aria-label="Close">✕</button>
       </div>
-      <div class="qz-beh-label">Auto-advance after answering</div>
-      <div class="qz-beh-row qz-beh-row-3">
-        <label class="qz-beh-choice gray ${autoAdv.mode==="off"?"is-active":""}"><input type="radio" name="qzBehAutoAdvMode" value="off" ${autoAdv.mode==="off"?"checked":""}><span class="qz-beh-check"></span><div class="qz-beh-choice-icon"><svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg></div><strong>Off</strong><span class="qz-beh-sub">Stay put until you move manually</span></label>
-        <label class="qz-beh-choice amber ${autoAdv.mode==="correct"?"is-active":""}"><input type="radio" name="qzBehAutoAdvMode" value="correct" ${autoAdv.mode==="correct"?"checked":""}><span class="qz-beh-check"></span><div class="qz-beh-choice-icon"><svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m4 12 5 5L20 6"/></svg></div><strong>On correct only</strong><span class="qz-beh-sub">Incorrect answers stay so you can review them</span></label>
-        <label class="qz-beh-choice green ${autoAdv.mode==="always"?"is-active":""}"><input type="radio" name="qzBehAutoAdvMode" value="always" ${autoAdv.mode==="always"?"checked":""}><span class="qz-beh-check"></span><div class="qz-beh-choice-icon"><svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m6 5 7 7-7 7M13 5l7 7-7 7"/></svg></div><strong>Always</strong><span class="qz-beh-sub">Moves on after any answer, right or wrong</span></label>
+      <div class="qz-shf-toggle-row qz-aa-toggle-row">
+        <div class="qz-shf-toggle-copy"><strong>Auto-Advance</strong><span id="qzAutoAdvStatus">${autoAdv.mode==="off"?"Off — you move to the next question yourself.":"On — moves to the next question automatically."}</span></div>
+        <button type="button" class="qz-shf-switch ${autoAdv.mode!=="off"?"on":""}" id="qzAutoAdvSwitch" role="switch" aria-checked="${autoAdv.mode!=="off"}" aria-label="Auto-Advance on or off"></button>
       </div>
-      <div id="qzBehAutoAdvSpeedWrap" style="display:${autoAdv.mode==="off"?"none":"block"}">
+      <div id="qzAutoAdvOptions" class="${autoAdv.mode==="off"?"qz-aa-off":""}">
+      <div class="qz-beh-label">When to move on</div>
+      <div class="qz-beh-row qz-beh-row-2">
+        <label class="qz-beh-choice amber ${lastOn==="correct"?"is-active":""}"><input type="radio" name="qzBehAutoAdvMode" value="correct" ${lastOn==="correct"?"checked":""}><span class="qz-beh-check"></span><div class="qz-beh-choice-icon"><svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m4 12 5 5L20 6"/></svg></div><strong>On correct only</strong><span class="qz-beh-sub">Incorrect answers stay so you can review them</span></label>
+        <label class="qz-beh-choice green ${lastOn==="always"?"is-active":""}"><input type="radio" name="qzBehAutoAdvMode" value="always" ${lastOn==="always"?"checked":""}><span class="qz-beh-check"></span><div class="qz-beh-choice-icon"><svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m6 5 7 7-7 7M13 5l7 7-7 7"/></svg></div><strong>Always</strong><span class="qz-beh-sub">Moves on after any answer, right or wrong</span></label>
+      </div>
+      <div id="qzBehAutoAdvSpeedWrap">
         <div class="qz-beh-label">Speed</div>
         <div class="qz-beh-segmented">
           ${speedPresets.map(p=>`<label><input type="radio" name="qzBehAutoAdvSpeed" value="${p.v}" ${autoAdv.delay===p.v?"checked":""}><span>${p.label}</span></label>`).join("")}
@@ -9567,16 +9584,25 @@ html,body{overscroll-behavior-y:none}
           <span>seconds before it moves on</span>
         </div>
       </div>
+      </div>
     `);
-    const commit=()=>onSave({...settings,auto_advance:{mode:autoAdv.mode,delay:autoAdv.delay}});
+    const commit=()=>onSave({...settings,auto_advance:{mode:autoAdv.mode,delay:autoAdv.delay,last_on:lastOn}});
     document.getElementById("qzAutoAdvClose").onclick=qzCloseSubDialog;
+    const sw=document.getElementById("qzAutoAdvSwitch");
+    sw.onclick=()=>{
+      const turnOn=autoAdv.mode==="off";
+      autoAdv={...autoAdv,mode:turnOn?lastOn:"off"};
+      sw.classList.toggle("on",turnOn);sw.setAttribute("aria-checked",String(turnOn));
+      document.getElementById("qzAutoAdvOptions").classList.toggle("qz-aa-off",!turnOn);
+      document.getElementById("qzAutoAdvStatus").textContent=turnOn?"On — moves to the next question automatically.":"Off — you move to the next question yourself.";
+      commit();
+    };
     document.querySelectorAll('input[name="qzBehAutoAdvMode"]').forEach(r=>{
       r.onchange=()=>{
-        autoAdv={...autoAdv,mode:r.value};
+        lastOn=r.value;
+        if(autoAdv.mode!=="off")autoAdv={...autoAdv,mode:r.value};
         document.querySelectorAll(".qz-beh-choice").forEach(el=>el.classList.remove("is-active"));
         r.closest(".qz-beh-choice").classList.add("is-active");
-        const speedWrap=document.getElementById("qzBehAutoAdvSpeedWrap");
-        if(speedWrap)speedWrap.style.display=autoAdv.mode==="off"?"none":"block";
         commit();
       };
     });
