@@ -3247,6 +3247,21 @@ body.has-student-profile:not(.admin-mode) .top-settings{
 @media(max-width:900px){.qz-res-neon .qz-neo-grid{grid-template-columns:1fr}.qz-res-neon .qz-neo-summary{position:static}}
 @media(max-width:640px){#qzPageBody.qz-res-neon .qz-neo-att{grid-template-columns:minmax(0,1fr) auto!important;row-gap:8px}.qz-res-neon .qz-neo-bar{grid-column:1/-1;order:3}.qz-res-neon .qz-neo-head h2{font-size:24px}.qz-res-neon .qz-neo-head{flex-wrap:wrap}}
 </style>
+<style id="qzFindBarStyle">
+.qz-find-bar{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 14px);transform:translateX(-50%);z-index:2147482000;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);padding:8px 8px 8px 12px;border-radius:999px;color:#7f1d1d;background:rgba(255,255,255,.94);border:1px solid rgba(239,68,68,.35);box-shadow:0 14px 34px rgba(127,29,29,.22),inset 0 1px 0 #fff;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);font-size:14.5px;animation:qzFindIn .22s ease}
+.qz-find-bar.ok{color:#065f46;border-color:rgba(16,185,129,.4);box-shadow:0 14px 34px rgba(6,95,70,.2)}
+.qz-find-ico{flex-shrink:0;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:900;color:#fff;background:linear-gradient(135deg,#f87171,#dc2626)}
+.qz-find-bar.ok .qz-find-ico{background:linear-gradient(135deg,#34d399,#059669)}
+.qz-find-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qz-find-txt b{font-weight:800}
+.qz-find-count{margin-left:6px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:750;background:rgba(239,68,68,.12)}
+.qz-find-nav,.qz-find-x{flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;cursor:pointer;font-size:22px;line-height:1;color:#7f1d1d;background:rgba(239,68,68,.1)}
+.qz-find-x{font-size:20px;color:#475569;background:rgba(22,32,58,.06)}
+.qz-find-nav[hidden]{display:none}
+.qz-question-card.qz-find-hit{outline:3px solid #ef4444;outline-offset:3px;box-shadow:0 0 0 8px rgba(239,68,68,.15)!important;transition:outline-color .3s}
+.qz-autosave-status.qz-autosave-find{color:#dc2626!important;font-weight:750;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+@keyframes qzFindIn{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
+</style>
 <style id="qzAskLine">
 .qz-ask{display:block;margin-top:.65em;padding-left:12px;border-left:4px solid var(--exam-accent,#6366f1);font-weight:800}
 </style>
@@ -11946,9 +11961,13 @@ Q5 Answer B
        students see, which stays whatever the last successful Save Quiz
        wrote via qzPersist(). */
     let qzDraftTimer=null,qzDraftHasUnsaved=false;
-    function qzSetAutosaveStatus(text){
+    function qzSetAutosaveStatus(text,findable){
       const el=document.getElementById("qzAutosaveStatus");
-      if(el)el.textContent=text;
+      if(!el)return;
+      el.textContent=text;
+      el.classList.toggle("qz-autosave-find",!!findable);
+      el.onclick=findable?()=>qzOpenFindBar(0):null;
+      el.setAttribute("role",findable?"button":"status");
     }
     function qzTimeNow(){return new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}
     function qzSaveDraftNow(){
@@ -11992,7 +12011,11 @@ Q5 Answer B
     function qzRunServerSave(){
       if(qzServerSaving){qzServerSaveQueued=true;return}
       if(!qzDraftHasUnsaved)return;
-      if(qzValidateQuestions(questions))return; /* incomplete -- local draft still covers it, try again next edit */
+      if(qzValidateQuestions(questions)){ /* incomplete -- local draft still covers it, try again next edit */
+        const n=qzProblemList().length;
+        if(n)qzSetAutosaveStatus(`⚠ Can't save yet — ${n} question${n===1?"":"s"} need${n===1?"s":""} fixing · Find`,true);
+        return;
+      }
       qzServerSaving=true;
       qzAttemptServerSave(0);
     }
@@ -12019,6 +12042,7 @@ Q5 Answer B
     }
     function qzMarkUnsaved(){
       qzDraftHasUnsaved=true;
+      if(document.getElementById("qzFindBar")){clearTimeout(qzMarkUnsaved._ft);qzMarkUnsaved._ft=setTimeout(qzFindRefresh,250)}
       qzSetAutosaveStatus("● Unsaved changes");
       clearTimeout(qzDraftTimer);
       qzDraftTimer=setTimeout(qzSaveDraftNow,700);
@@ -12167,7 +12191,8 @@ Q5 Answer B
       document.getElementById("qzBtnShareExternal").onclick=()=>{openExternalQuizShare(curItem)};
       document.getElementById("qzBtnTake").onclick=async()=>{
         const err=qzValidateQuestions(questions);
-        if(err)return alert(err);
+        if(err){if(questions.length)return qzOpenFindBar(0);return alert(err)}
+        qzCloseFindBar();
         const btn=document.getElementById("qzBtnTake");
         /* Kuza (Sep 27): "Take quiz doesn't work on the first click, needs
            4-5 clicks, sometimes shows a raw DB timeout error" -- root cause
@@ -12202,6 +12227,83 @@ Q5 Answer B
       };
     }
 
+    /* Kuza: "can you set a find" -- the short reason one question can't be
+       saved/taken (or null), used by the Find bar below to jump to it. */
+    function qzQuestionProblem(q){
+      if(!q.prompt||!q.prompt.trim())return "needs question text";
+      if(q.type==="mcq"){
+        const normOpts=(q.options||[]).map(qzNormOpt);
+        if(normOpts.filter(o=>o.text.trim()).length<2)return "needs at least 2 filled-in options";
+        if(Array.isArray(q.correct_answer)){
+          if(!q.correct_answer.length||!q.correct_answer.every(idx=>normOpts[idx]&&normOpts[idx].text.trim()))return "needs a correct answer marked";
+        }else if(q.correct_answer==null||!(normOpts[q.correct_answer]&&normOpts[q.correct_answer].text.trim()))return "needs a correct answer marked";
+      }
+      if(q.type==="short_answer"&&(!Array.isArray(q.correct_answer)||!q.correct_answer.length))return "needs at least one accepted answer";
+      return null;
+    }
+    function qzProblemList(){
+      const out=[];
+      for(let i=0;i<questions.length;i++){const m=qzQuestionProblem(questions[i]);if(m)out.push({idx:i,msg:m})}
+      return out;
+    }
+    let qzFindCursor=0;
+    function qzCloseFindBar(){document.getElementById("qzFindBar")?.remove()}
+    /* Floating bar: "Question 12 needs question text · 1 of 3  ‹ ›  ×".
+       Arrows jump (scroll + red highlight + focus) to each problem; the list
+       is re-checked on every jump and while typing, and the bar says
+       "All fixed" and goes away once nothing is left. */
+    function qzOpenFindBar(startIdx){
+      let bar=document.getElementById("qzFindBar");
+      if(!bar){
+        bar=document.createElement("div");
+        bar.id="qzFindBar";bar.className="qz-find-bar";bar.setAttribute("role","status");
+        bar.innerHTML=`<span class="qz-find-ico">!</span><span class="qz-find-txt" id="qzFindTxt"></span>
+          <button type="button" class="qz-find-nav" id="qzFindPrev" aria-label="Previous problem">‹</button>
+          <button type="button" class="qz-find-nav" id="qzFindNext" aria-label="Next problem">›</button>
+          <button type="button" class="qz-find-x" id="qzFindClose" aria-label="Close">×</button>`;
+        (document.getElementById("qzPageOverlay")||document.body).appendChild(bar);
+        bar.querySelector("#qzFindPrev").onclick=()=>qzFindGo(-1);
+        bar.querySelector("#qzFindNext").onclick=()=>qzFindGo(1);
+        bar.querySelector("#qzFindClose").onclick=qzCloseFindBar;
+      }
+      const list=qzProblemList();
+      qzFindCursor=Math.max(0,list.findIndex(p=>p.idx>=(startIdx||0)));
+      qzFindGo(0);
+    }
+    function qzFindRefresh(){
+      const bar=document.getElementById("qzFindBar");
+      if(!bar)return null;
+      if(!document.getElementById("qzAutosaveStatus")){qzCloseFindBar();return null} /* left the editor */
+      const list=qzProblemList();
+      const txt=bar.querySelector("#qzFindTxt");
+      if(!list.length){
+        bar.classList.add("ok");txt.textContent="All fixed ✓ — your quiz can be saved";
+        bar.querySelectorAll(".qz-find-nav").forEach(b=>b.hidden=true);
+        clearTimeout(bar._t);bar._t=setTimeout(qzCloseFindBar,1800);
+        return list;
+      }
+      bar.classList.remove("ok");clearTimeout(bar._t);
+      bar.querySelectorAll(".qz-find-nav").forEach(b=>b.hidden=list.length<2);
+      qzFindCursor=Math.min(qzFindCursor,list.length-1);
+      const p=list[qzFindCursor];
+      txt.innerHTML=`<b>Question ${p.idx+1}</b> ${esc(p.msg)}${list.length>1?` <span class="qz-find-count">${qzFindCursor+1} of ${list.length}</span>`:""}`;
+      return list;
+    }
+    function qzFindGo(step){
+      const list=qzProblemList();
+      if(list.length)qzFindCursor=((qzFindCursor+step)%list.length+list.length)%list.length;
+      qzFindRefresh();
+      const p=list[qzFindCursor];
+      if(!p)return;
+      qzHighlightAndScrollToIdx(p.idx);
+      const card=document.querySelector(`.qz-question-card[data-qidx="${p.idx}"]`);
+      if(!card)return;
+      card.classList.add("qz-find-hit");
+      setTimeout(()=>card.classList.remove("qz-find-hit"),2600);
+      const focusEl=p.msg==="needs question text"?card.querySelector(".qz-prompt")
+        :p.msg.includes("options")?[...card.querySelectorAll(".qz-option-text")].find(x=>!x.value.trim()):null;
+      if(focusEl)try{focusEl.focus({preventScroll:true})}catch(e){}
+    }
     function qzValidateQuestions(qs){
       if(!qs.length)return "Add at least one question.";
       for(const q of qs){
