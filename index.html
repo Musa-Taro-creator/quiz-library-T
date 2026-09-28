@@ -13975,6 +13975,21 @@ Q5 Answer B
     const prefs=qzExamPrefs((state.items.find(x=>x.id===item.id)||item).quiz_settings||rawSettings);
     /* Saves this quiz's look (page style / navigation side / text size) to
        the quiz itself, debounced so rapid Text size taps send one write. */
+    /* Kuza: tools changed during a quiz are remembered by that quiz (saved
+       to its settings in the account), not just for this attempt. Only the
+       given keys are written, on top of the quiz's stored settings. */
+    async function qzSaveQuizTools(newSettings,keys){
+      const idx=state.items.findIndex(x=>x.id===item.id);
+      if(idx<0)return false;
+      const ns={...(state.items[idx].quiz_settings||{})};
+      keys.forEach(k=>{if(newSettings[k]===undefined)delete ns[k];else ns[k]=newSettings[k]});
+      try{
+        const updated=await service.updateItem(item.id,{quiz_settings:ns});
+        const j=state.items.findIndex(x=>x.id===item.id);
+        if(j>=0)state.items[j]=updated||{...state.items[j],quiz_settings:ns};
+        return true;
+      }catch(e){toast("Could not save this quiz's settings");return false}
+    }
     let qzLookTimer=null;
     function qzSaveQuizLook(){
       clearTimeout(qzLookTimer);
@@ -14621,7 +14636,7 @@ Q5 Answer B
           immediate=qzBehaviorImmediate(quiz.settings);
           autoAdvance=qzBehaviorAutoAdvance(quiz.settings);
           clearTimeout(qzAutoAdvanceTimer);
-          toast("Quiz behavior updated for this attempt");
+          qzSaveQuizTools(newSettings,["layout","show_answer_immediately"]).then(ok=>ok&&toast("Quiz behavior saved for this quiz"));
           renderShell();
         });
       };
@@ -14631,7 +14646,7 @@ Q5 Answer B
           quiz.settings=newSettings;
           autoAdvance=qzBehaviorAutoAdvance(quiz.settings);
           clearTimeout(qzAutoAdvanceTimer);
-          toast("Auto-advance updated for this attempt");
+          qzSaveQuizTools(newSettings,["auto_advance"]).then(ok=>ok&&toast("Auto-advance saved for this quiz"));
           renderShell();
         });
       };
@@ -14642,7 +14657,7 @@ Q5 Answer B
           rawSettings=newSettings;
           quiz.settings=newSettings;
           qzApplyShuffleForSession();
-          toast("Shuffle updated for this attempt");
+          qzSaveQuizTools(newSettings,["shuffle_mode","shuffle","session_overrides"]).then(ok=>ok&&toast("Shuffle saved for this quiz"));
           renderShell();
         });
       };
