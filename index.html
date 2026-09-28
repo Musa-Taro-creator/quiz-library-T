@@ -11719,7 +11719,22 @@ Q5 Answer B
       document.getElementById("qzBtnSessions").onclick=()=>{
         openQuizSessions(curItem,questions,settings,(newQuestions,newSettings)=>{questions=newQuestions;settings=newSettings;rerenderQuestions();renderShell();qzMarkUnsaved()});
       };
-      document.getElementById("qzBtnResults").onclick=()=>{openQuizResults(curItem)};
+      document.getElementById("qzBtnResults").onclick=()=>{
+        /* Kuza (Sep 28): closing Results (Close or ✕) dropped back to the
+           Documents page instead of the quiz editor. Results renders into
+           the same #qzPageBody, so park the editor's live nodes (keeps any
+           unsaved edits and all wired handlers) and put them back on close,
+           restoring the scroll position too. */
+        const pageBody=document.getElementById("qzPageBody");
+        const scroller=qzMainScroller();
+        const bodyY=pageBody.scrollTop,innerY=scroller&&scroller!==pageBody?scroller.scrollTop:0;
+        const editorNodes=[...pageBody.childNodes];
+        openQuizResults(curItem,()=>{
+          pageBody.replaceChildren(...editorNodes);
+          pageBody.scrollTop=bodyY;
+          const s=qzMainScroller();if(s&&s!==pageBody)s.scrollTop=innerY;
+        });
+      };
       document.getElementById("qzBtnShare").onclick=()=>{try{shareOne(curItem)}catch(error){alert(friendlyError(error))}};
       document.getElementById("qzBtnShareExternal").onclick=()=>{openExternalQuizShare(curItem)};
       document.getElementById("qzBtnTake").onclick=async()=>{
@@ -14506,7 +14521,7 @@ Q5 Answer B
      place"): beyond the score table, admins get a per-question breakdown
      (which questions people miss most) and can expand any attempt to see
      exactly what that person answered on every question. */
-  async function openQuizResults(item){
+  async function openQuizResults(item,onBack){
     /* Kuza (Sep 26): "at result button when open it make it show full
        screen like when click finish exam" -- reuses the same full-page
        overlay (qzOpenPage/qzPageTopbar/#qzPageBody) and the exact
@@ -14517,8 +14532,10 @@ Q5 Answer B
     qzOpenPage(true);
     const bodyEl=document.getElementById("qzPageBody");
     bodyEl.innerHTML=`${qzPageTopbar()}<div class="qz-runner-result qz-results-v2"><h2>${esc(item.title)} — Results</h2><div id="qzResultsBody" class="qz-results-body"><div class="status">Loading results…</div></div><div class="qz-results-footer"><button id="qzResultsClose" class="btn primary">Close</button></div></div>`;
-    document.getElementById("qzTopClose").onclick=()=>qzClosePage();
-    document.getElementById("qzResultsClose").onclick=()=>qzClosePage();
+    /* onBack: opened from the quiz editor -- return there instead of closing the whole page. */
+    const closeResults=()=>{if(onBack)onBack();else qzClosePage()};
+    document.getElementById("qzTopClose").onclick=closeResults;
+    document.getElementById("qzResultsClose").onclick=closeResults;
     try{
       const externalPromise=service.listExternalQuizAttemptsForOwner
         ?service.listExternalQuizAttemptsForOwner(item.id).catch(error=>{if(qzExternalShareSetupError(error))return [];throw error})
