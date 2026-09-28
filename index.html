@@ -9504,7 +9504,7 @@ html,body{overscroll-behavior-y:none}
   function openShuffleSettings(allQs,settings,onSave){
     let liveSettings=settings;
     const names=qzSessionNames(allQs);
-    const destinations=[{value:"",label:`All Questions (${allQs.length})`},...names.map(n=>({value:n,label:`${n} (${allQs.filter(q=>q.session_label===n).length})`}))];
+    const destinations=[{value:"",label:`All Questions (${allQs.length})`},...names.map(n=>({value:n,label:`${n} (${allQs.filter(q=>qzInSess(q,n)).length})`}))];
     let destination="";
     let mode=qzShuffleMode(liveSettings);
     let on=mode!=="off";
@@ -9579,7 +9579,7 @@ html,body{overscroll-behavior-y:none}
      therefore its visible number) ever changes afterward. */
   function qzDestinationOptions(questions){
     const names=qzSessionNames(questions);
-    return [{value:"",label:`All Questions (${questions.filter(q=>!q.session_label).length})`},...names.map(n=>({value:n,label:`${n} (${questions.filter(q=>q.session_label===n).length})`}))];
+    return [{value:"",label:`All Questions (${questions.length})`},...names.map(n=>({value:n,label:`${n} (${questions.filter(q=>qzInSess(q,n)).length})`}))];
   }
   /* Same session list as qzDestinationOptions, but for VIEWING/filtering
      rather than assigning: "All Questions" here means the full union across
@@ -9588,11 +9588,11 @@ html,body{overscroll-behavior-y:none}
      Manager's Quick Fix tab. */
   function qzSessionFilterOptions(questions){
     const names=qzSessionNames(questions);
-    return [{value:"",label:`All Questions (${questions.length})`},...names.map(n=>({value:n,label:`${n} (${questions.filter(q=>q.session_label===n).length})`}))];
+    return [{value:"",label:`All Questions (${questions.length})`},...names.map(n=>({value:n,label:`${n} (${questions.filter(q=>qzInSess(q,n)).length})`}))];
   }
   function qzScopeIndices(questions,destination){
     if(!destination)return questions.map((_,i)=>i);
-    const arr=[];questions.forEach((q,i)=>{if(q.session_label===destination)arr.push(i)});
+    const arr=[];questions.forEach((q,i)=>{if(qzInSess(q,destination))arr.push(i)});
     return arr;
   }
   /* Given the CURRENT `questions` array (before any insertion/removal), work
@@ -10155,7 +10155,7 @@ Q5 Answer B
       q.correct_answer=correct_answer;
       q.allow_multiple=sMulti;
       q.explanation=sExplain.trim();
-      q.session_label=destination||null;
+      qzSetSess(q,destination?[destination]:[]);
       const insertAt=qzComputeInsertIndex(questions,destination,position,refId);
       questions.splice(insertAt,0,q);
       sExplain="";sShowExplain=false;sPoints=1;sAnswerKeyOpen=false;
@@ -10387,11 +10387,38 @@ Q5 Answer B
      big quiz can be split into smaller chunks. When at least one question
      has a session assigned and sessions are turned on, students pick a
      session before starting and only answer that session's questions. */
+  /* Kuza (Sep 28): sessions are COPIES, not cuts. A question can belong
+     to several sessions at once (q.session_labels, an array); All Questions
+     always keeps every question. q.session_label is kept in sync with the
+     first entry so older code/data paths still read something sensible,
+     and data saved before this change (only session_label) still works. */
+  function qzSessOf(q){
+    if(!q)return [];
+    if(Array.isArray(q.session_labels))return q.session_labels.filter(Boolean);
+    return q.session_label?[q.session_label]:[];
+  }
+  function qzInSess(q,name){return !!name&&qzSessOf(q).includes(name)}
+  function qzSetSess(q,names){
+    const list=[...new Set((names||[]).filter(Boolean).map(String))];
+    q.session_labels=list;q.session_label=list[0]||null;
+    return q;
+  }
+  function qzAddSess(q,name){if(name&&!qzInSess(q,name))qzSetSess(q,[...qzSessOf(q),name]);return q}
+  function qzRemoveSess(q,name){if(qzInSess(q,name))qzSetSess(q,qzSessOf(q).filter(n=>n!==name));return q}
+  /* Session registry: the quiz's saved list of session names
+     (settings.session_names), so a session exists -- and shows up in every
+     destination list (Add New Questions, Move Questions, Shuffle, exam
+     menus) -- as soon as it's created, even before any question is in it.
+     Set whenever a quiz's editor/exam/results opens (qzUseSessionRegistry). */
+  let qzSessionRegistry=[];
+  function qzUseSessionRegistry(settings){qzSessionRegistry=Array.isArray(settings?.session_names)?settings.session_names.filter(Boolean).map(String):[]}
   function qzSessionNames(qs){
-    const names=[];
-    qs.forEach(q=>{if(q.session_label&&!names.includes(q.session_label))names.push(q.session_label)});
+    const names=[...qzSessionRegistry];
+    (qs||[]).forEach(q=>qzSessOf(q).forEach(n=>{if(!names.includes(n))names.push(n)}));
     return names;
   }
+  /* sessions that actually have questions -- for places where you TAKE a session */
+  function qzTakeableSessionNames(qs){return qzSessionNames(qs).filter(n=>(qs||[]).some(q=>qzInSess(q,n)))}
   /* Round 4 note 8: "from where to where (total)" for a named session — the
      1-based positions (within the given question list, in its current
      order) of the first and last question assigned to that session, plus
@@ -10399,7 +10426,7 @@ Q5 Answer B
      "40 (1)" when the session is a single question. */
   function qzSessionRangeInfo(qs,name){
     const idxs=[];
-    qs.forEach((q,i)=>{if(q.session_label===name)idxs.push(i+1)});
+    qs.forEach((q,i)=>{if(qzInSess(q,name))idxs.push(i+1)});
     if(!idxs.length)return null;
     return {from:Math.min(...idxs),to:Math.max(...idxs),count:idxs.length};
   }
