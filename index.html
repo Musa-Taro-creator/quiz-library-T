@@ -16526,6 +16526,29 @@ body.ql-neon .overlay .modal .status.success{background:rgba(57,255,136,.1)!impo
 body.ql-neon .overlay .modal .btn:not(.primary){background:rgba(255,255,255,.08)!important;color:#eaf2ff!important;border-color:transparent!important}
 body.ql-neon .overlay .modal .btn.primary{background:linear-gradient(90deg,#ff8a00,#39ff88)!important;color:#111!important;border:0!important}
 body.ql-neon .overlay .modal .btn:disabled{opacity:.45}
+/* small windows opened on top of the app (Random Quiz, ...) */
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist){background:repeating-linear-gradient(115deg,transparent 0 70px,rgba(255,170,40,.08) 71px,transparent 73px),#0c0c18!important;color:#eaf2ff!important;border:1px solid rgba(0,229,255,.35)!important;box-shadow:0 0 34px rgba(0,229,255,.18),0 30px 80px rgba(0,0,0,.55)!important}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) *{border-color:rgba(0,229,255,.25)}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) h1,body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) h2,body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) h3,body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) strong,body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) b,body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) label{color:#eaf2ff!important}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) p,body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) small,body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) span,body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) div{color:inherit}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) [class*="sub"],body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) .qz-rand-quiz-count,body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) .qz-rand-pool-total{color:#93a3c0!important}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) input:not([type=checkbox]):not([type=radio]){background:rgba(255,255,255,.05)!important;color:#eaf2ff!important;border-color:rgba(0,229,255,.32)!important}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) input::placeholder{color:#7f8ca6!important}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) input[type=checkbox]{accent-color:#39ff88}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) .qz-rand-quiz-row{background:rgba(16,16,28,.85)!important;color:#eaf2ff!important}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) .qz-rand-pill{background:rgba(255,255,255,.05)!important;color:#eaf2ff!important;border-color:rgba(0,229,255,.3)!important}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) .qz-rand-pill.active,body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) .qz-rand-pill[aria-pressed="true"]{background:rgba(57,255,136,.14)!important;color:#39ff88!important;border-color:#39ff88!important}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) .qz-rand-pill.qz-rand-disabled,body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) .qz-rand-pill:disabled{opacity:.35}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) button:not(.qz-rand-pill){background:rgba(255,255,255,.08)!important;color:#eaf2ff!important;border-color:transparent!important}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) button.primary,body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) .btn.primary{background:linear-gradient(90deg,#ff8a00,#39ff88)!important;color:#111!important}
+body.ql-neon #qzSubDialogBox:has(.qz-rand-quizlist) [class*="icon"]{background:rgba(0,229,255,.12)!important}
+/* Trash toolbar */
+body.ql-neon .trash-summary-copy strong,body.ql-neon .trash-summary-copy{color:#eaf2ff!important}
+body.ql-neon .trash-summary-copy span,body.ql-neon .trash-summary-copy small{color:#93a3c0!important}
+body.ql-neon .trash-summary-icon{background:rgba(255,60,90,.14)!important}
+body.ql-neon .trash-toolbar-actions .btn{background:rgba(255,255,255,.08)!important;color:#eaf2ff!important;border:1px solid rgba(0,229,255,.3)!important}
+body.ql-neon .trash-toolbar-actions .btn.danger{color:#ff6b8a!important;border-color:rgba(255,60,90,.4)!important;background:rgba(255,60,90,.1)!important}
+body.ql-neon .trash-toolbar-actions .btn:disabled{opacity:.45}
 /* toast */
 body.ql-neon .toast{background:rgba(12,12,22,.95)!important;color:#eaf2ff!important;border:1px solid rgba(0,229,255,.35)!important}
 /* the profile page already draws its own neon canvas: let it sit on the page background */
