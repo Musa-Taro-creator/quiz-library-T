@@ -14365,7 +14365,7 @@ Q5 Answer B
           </div>
         </div>`:""}
         <div class="qz-tools-section">
-          <div class="qz-tools-label">Reading</div>
+          <div class="qz-tools-label">Page style</div>
           <div class="qz-tools-theme-grid">${QZ_THEMES.map(t=>`<button type="button" class="qz-tools-theme-card ${prefs.theme===t?"active":""}" data-theme="${t}"><span class="qz-tools-theme-icon">${QZ_THEME_ICON_SVG[t]}</span><span class="qz-tools-theme-lbl">${QZ_THEME_LABELS[t]}</span></button>`).join("")}</div>
         </div>
         <div class="qz-tools-section">
@@ -14397,7 +14397,7 @@ Q5 Answer B
         const layoutLbl=horizontal?"Horizontal":"Vertical";
         const fbLbl=immediate?"Instant feedback":"Submit at the end";
         const advLbl=autoAdvance.mode==="off"?"Off":`${autoAdvance.mode==="correct"?"On correct only":"Always"} (${autoAdvance.delay}s)`;
-        const ok=confirm(`Copy this quiz's behavior to all ${quizItems.length} quizzes in your account?\n\nLayout: ${layoutLbl}\nWhen to show answers: ${fbLbl}\nAuto-advance: ${advLbl}\n\nReading theme, navigation side and text size already apply to every quiz on this device, so only these behavior settings need copying. Each quiz's own questions are left untouched.`);
+        const ok=confirm(`Copy this quiz's behavior to all ${quizItems.length} quizzes in your account?\n\nLayout: ${layoutLbl}\nWhen to show answers: ${fbLbl}\nAuto-advance: ${advLbl}\n\nPage style, navigation side and text size already apply to every quiz on this device, so only these behavior settings need copying. Each quiz's own questions are left untouched.`);
         if(!ok)return;
         closeToolsPanel();
         let count=0;
