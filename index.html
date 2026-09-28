@@ -3260,11 +3260,11 @@ body.has-student-profile:not(.admin-mode) .top-settings{
 .qz-aa2-ico{flex-shrink:0;width:54px;height:54px;border-radius:17px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#22d3ee,#0ea5b8 45%,#6366f1);box-shadow:0 10px 24px rgba(14,165,184,.4),inset 0 1px 0 rgba(255,255,255,.5)}
 .qz-aa2-head h3{margin:0;font-size:20px;font-weight:800;letter-spacing:-.01em}
 .qz-aa2-head p{margin:3px 0 0;font-size:13px;color:#64748b}
-.qz-aa2-count{margin:20px 0 14px;display:flex;align-items:baseline;gap:8px;padding:14px 16px;border-radius:18px;background:linear-gradient(135deg,rgba(14,165,184,.1),rgba(99,102,241,.1));border:1px solid rgba(99,102,241,.14)}
-.qz-aa2-count b{font-size:30px;font-weight:850;line-height:1;background:linear-gradient(135deg,#0ea5b8,#6366f1);-webkit-background-clip:text;background-clip:text;color:transparent}
-.qz-aa2-count span{font-size:14px;font-weight:600;color:#475569}
-.qz-aa2-rows{display:flex;flex-direction:column;gap:8px}
-.qz-aa2-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.75);border:1px solid rgba(22,32,58,.07);box-shadow:0 2px 8px rgba(30,50,110,.05);cursor:pointer;transition:opacity .18s,background .18s}
+.qz-aa2-rows{display:flex;flex-direction:column;gap:7px}
+.qz-aa2-sec{display:flex;align-items:baseline;justify-content:space-between;margin:18px 4px 8px}
+.qz-aa2-sec-t{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#64748b}
+.qz-aa2-sec-n{font-size:12px;font-weight:750;padding:3px 10px;border-radius:999px;color:#0e7490;background:linear-gradient(135deg,rgba(34,211,238,.16),rgba(99,102,241,.14))}
+.qz-aa2-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,.75);border:1px solid rgba(22,32,58,.07);box-shadow:0 2px 8px rgba(30,50,110,.05);cursor:pointer;transition:opacity .18s,background .18s}
 .qz-aa2-row.off{opacity:.5;background:rgba(255,255,255,.4)}
 .qz-aa2-rico{flex-shrink:0;width:36px;height:36px;border-radius:11px;display:grid;place-items:center;color:#fff;background:var(--c);box-shadow:0 5px 12px color-mix(in srgb,var(--c) 40%,transparent)}
 .qz-aa2-rtxt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
@@ -9365,19 +9365,37 @@ html,body{overscroll-behavior-y:none}
      old plain confirm() is replaced by this glass card. Each behavior
      setting has its own switch (all on by default) so only the ticked ones
      are copied; a progress bar runs while quizzes save, then a done state. */
-  function qzOpenApplyAllDialog({quizItems,currentId,horizontal,immediate,autoAdvance,save}){
+  function qzOpenApplyAllDialog({quizItems,currentId,horizontal,immediate,autoAdvance,shuffleMode,prefs,save,saveAccount}){
     document.getElementById("qzApplyAllOverlay")?.remove();
     const n=quizItems.length;
     const advLbl=autoAdvance.mode==="off"?"Off":`${autoAdvance.mode==="correct"?"On correct only":"Always"} · ${autoAdvance.delay}s`;
-    const rows=[
+    const ts=Number(prefs.textSize)||0;
+    const quizRows=[
       {k:"layout",t:"Layout",v:horizontal?"Horizontal":"Vertical",c:"#6366f1",
        i:'<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M12 5v14"/>'},
       {k:"feedback",t:"When to show answers",v:immediate?"Instant feedback":"At the end",c:"#10b981",
        i:'<path d="M20 6 9 17l-5-5"/>'},
       {k:"auto",t:"Auto-Advance",v:advLbl,c:"#f43f5e",
-       i:'<path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/>'}
+       i:'<path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/>'},
+      {k:"shuffle",t:"Shuffle",v:QZ_SHUFFLE_LABELS[shuffleMode]||"Off",c:"#0369a1",
+       i:'<path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/>'}
     ];
-    const pick={layout:true,feedback:true,auto:true};
+    const acctRows=[
+      {k:"theme",t:"Page style",v:QZ_THEME_LABELS[prefs.theme]||"Plain White",c:"#a855f7",
+       i:'<circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.3"/><circle cx="12" cy="7.5" r="1.3"/><circle cx="15.5" cy="10" r="1.3"/><path d="M12 21a3 3 0 0 1 0-6h2"/>'},
+      {k:"side",t:"Navigation side",v:prefs.navSide==="left"?"Left":"Right",c:"#f59e0b",
+       i:prefs.navSide==="left"?'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v16"/>':'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M15 4v16"/>'},
+      {k:"text",t:"Text size",v:ts===0?"Default":(ts>0?"+":"")+ts,c:"#2563eb",
+       i:'<path d="M4 19 9 5l5 14"/><path d="M5.8 14h6.4"/><path d="M15 19l3-8 3 8"/><path d="M16 16.5h4"/>'}
+    ];
+    const pick={layout:true,feedback:true,auto:true,shuffle:true,theme:true,side:true,text:true};
+    const QK=["layout","feedback","auto","shuffle"],AK=["theme","side","text"];
+    const rowHtml=r=>`
+        <label class="qz-aa2-row" data-k="${r.k}">
+          <span class="qz-aa2-rico" style="--c:${r.c}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">${r.i}</svg></span>
+          <span class="qz-aa2-rtxt"><span class="qz-aa2-rt">${r.t}</span><span class="qz-aa2-rv">${r.v}</span></span>
+          <input type="checkbox" checked data-k="${r.k}"><span class="qz-aa2-sw" aria-hidden="true"></span>
+        </label>`;
     const ov=document.createElement("div");
     ov.id="qzApplyAllOverlay";ov.className="qz-aa2-overlay";
     ov.innerHTML=`<div class="qz-aa2-card" role="dialog" aria-modal="true" aria-labelledby="qzAa2Title">
@@ -9385,21 +9403,17 @@ html,body{overscroll-behavior-y:none}
       <button type="button" class="qz-aa2-x" id="qzAa2X" aria-label="Close">×</button>
       <div class="qz-aa2-head">
         <div class="qz-aa2-ico"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg></div>
-        <div><h3 id="qzAa2Title">Apply to All Quizzes</h3><p>Copy this quiz's settings to every quiz you own</p></div>
+        <div><h3 id="qzAa2Title">Apply to All Quizzes</h3><p>Use this quiz's tools everywhere</p></div>
       </div>
-      <div class="qz-aa2-count"><b>${n}</b><span>quiz${n===1?"":"zes"} will be updated</span></div>
-      <div class="qz-aa2-rows">${rows.map(r=>`
-        <label class="qz-aa2-row" data-k="${r.k}">
-          <span class="qz-aa2-rico" style="--c:${r.c}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">${r.i}</svg></span>
-          <span class="qz-aa2-rtxt"><span class="qz-aa2-rt">${r.t}</span><span class="qz-aa2-rv">${r.v}</span></span>
-          <input type="checkbox" checked data-k="${r.k}"><span class="qz-aa2-sw" aria-hidden="true"></span>
-        </label>`).join("")}
-      </div>
-      <div class="qz-aa2-note"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Questions are never changed. Page style, navigation side and text size are already shared by all quizzes on this device.</span></div>
+      <div class="qz-aa2-sec"><span class="qz-aa2-sec-t">Every quiz</span><span class="qz-aa2-sec-n">${n} quiz${n===1?"":"zes"}</span></div>
+      <div class="qz-aa2-rows">${quizRows.map(rowHtml).join("")}</div>
+      <div class="qz-aa2-sec"><span class="qz-aa2-sec-t">Your account</span><span class="qz-aa2-sec-n">all devices</span></div>
+      <div class="qz-aa2-rows">${acctRows.map(rowHtml).join("")}</div>
+      <div class="qz-aa2-note"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>Questions are never changed. Your account settings show up on your iPad, computer and phone the next time a quiz opens.</span></div>
       <div class="qz-aa2-prog" hidden><div class="qz-aa2-bar"><i id="qzAa2Fill"></i></div><span id="qzAa2ProgTxt">Applying…</span></div>
       <div class="qz-aa2-foot">
         <button type="button" class="qz-aa2-btn qz-aa2-cancel" id="qzAa2Cancel">Cancel</button>
-        <button type="button" class="qz-aa2-btn qz-aa2-go" id="qzAa2Go">Apply to ${n} quiz${n===1?"":"zes"}</button>
+        <button type="button" class="qz-aa2-btn qz-aa2-go" id="qzAa2Go">Apply</button>
       </div>
     </div>`;
     document.body.appendChild(ov);
@@ -9410,37 +9424,54 @@ html,body{overscroll-behavior-y:none}
     ov.addEventListener("click",e=>{if(e.target===ov)close()});
     ov.querySelector("#qzAa2X").onclick=close;
     ov.querySelector("#qzAa2Cancel").onclick=close;
-    const sync=()=>{const any=pick.layout||pick.feedback||pick.auto;go.disabled=!any||!n;
+    const anyQ=()=>n>0&&QK.some(k=>pick[k]),anyA=()=>AK.some(k=>pick[k]);
+    const sync=()=>{go.disabled=!anyQ()&&!anyA();
+      go.textContent=anyQ()?`Apply to ${n} quiz${n===1?"":"zes"}`:"Save to account";
       ov.querySelectorAll(".qz-aa2-row").forEach(r=>r.classList.toggle("off",!pick[r.dataset.k]))};
     ov.querySelectorAll('.qz-aa2-row input').forEach(cb=>cb.onchange=()=>{pick[cb.dataset.k]=cb.checked;sync()});
     sync();
     go.onclick=async()=>{
       if(busy)return;busy=true;
+      const doQ=anyQ(),doA=anyA();
       card.classList.add("busy");
       ov.querySelector(".qz-aa2-prog").hidden=false;
       ov.querySelectorAll(".qz-aa2-row input").forEach(cb=>cb.disabled=true);
       go.disabled=true;ov.querySelector("#qzAa2Cancel").disabled=true;
       const fill=ov.querySelector("#qzAa2Fill"),txt=ov.querySelector("#qzAa2ProgTxt");
-      let done=0,ok=0;
-      const queue=[...quizItems].sort((a,b)=>(a.id===currentId?-1:b.id===currentId?1:0));
-      const worker=async()=>{while(queue.length){const it=queue.shift();
-        const ns={...(it.quiz_settings||{})};
-        if(pick.layout)ns.layout=horizontal?"horizontal":"vertical";
-        if(pick.feedback)ns.show_answer_immediately=immediate;
-        if(pick.auto)ns.auto_advance={...(ns.auto_advance||{}),mode:autoAdvance.mode,delay:autoAdvance.delay};
-        try{await save(it,ns);ok++}catch(e){}
-        done++;fill.style.width=(done/n*100)+"%";txt.textContent=`Applying… ${done} / ${n}`;}};
-      await Promise.all(Array.from({length:Math.min(4,n)},worker));
+      const total=(doQ?n:0)+(doA?1:0);
+      let done=0,ok=0,acctOk=true;
+      const tick=()=>{done++;fill.style.width=(done/total*100)+"%";txt.textContent=`Applying… ${done} / ${total}`};
+      if(doA){
+        const cur=qzExamPrefs();
+        const ui={theme:pick.theme?prefs.theme:cur.theme,navSide:pick.side?prefs.navSide:cur.navSide,textSize:pick.text?ts:cur.textSize,at:Date.now()};
+        try{await saveAccount(ui)}catch(e){acctOk=false}
+        tick();
+      }
+      if(doQ){
+        const queue=[...quizItems].sort((a,b)=>(a.id===currentId?-1:b.id===currentId?1:0));
+        const worker=async()=>{while(queue.length){const it=queue.shift();
+          const ns={...(it.quiz_settings||{})};
+          if(pick.layout)ns.layout=horizontal?"horizontal":"vertical";
+          if(pick.feedback)ns.show_answer_immediately=immediate;
+          if(pick.auto)ns.auto_advance={...(ns.auto_advance||{}),mode:autoAdvance.mode,delay:autoAdvance.delay};
+          if(pick.shuffle){ns.shuffle_mode=shuffleMode;ns.shuffle=shuffleMode!=="off"}
+          try{await save(it,ns);ok++}catch(e){}
+          tick();}};
+        await Promise.all(Array.from({length:Math.min(4,n)},worker));
+      }
       busy=false;
       card.classList.remove("busy");card.classList.add("done");
-      const failed=n-ok;
+      const failed=(doQ?n-ok:0),bad=failed||!acctOk;
+      const parts=[];
+      if(doQ)parts.push(`${ok} quiz${ok===1?"":"zes"} updated`);
+      if(doA)parts.push(acctOk?"saved to your account":"account not saved");
       card.innerHTML=`<div class="qz-aa2-glow"></div><div class="qz-aa2-done">
-        <div class="qz-aa2-check ${failed?"warn":""}"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${failed?'<path d="M12 8v5M12 16h.01"/>':'<path d="M20 6 9 17l-5-5"/>'}</svg></div>
-        <h3>${failed?"Almost done":"All set!"}</h3>
-        <p>${ok} quiz${ok===1?"":"zes"} updated${failed?` · ${failed} could not be saved, try again`:""}</p>
+        <div class="qz-aa2-check ${bad?"warn":""}"><svg viewBox="0 0 24 24" width="38" height="38" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${bad?'<path d="M12 8v5M12 16h.01"/>':'<path d="M20 6 9 17l-5-5"/>'}</svg></div>
+        <h3>${bad?"Almost done":"All set!"}</h3>
+        <p>${parts.join(" · ")}${failed?` · ${failed} could not be saved, try again`:""}</p>
         <button type="button" class="qz-aa2-btn qz-aa2-go" id="qzAa2Ok">Done</button></div>`;
       card.querySelector("#qzAa2Ok").onclick=close;
-      if(!failed)setTimeout(()=>{if(document.body.contains(ov))close()},2200);
+      if(!bad)setTimeout(()=>{if(document.body.contains(ov))close()},2200);
     };
   }
   function qzOpenSubDialog(html){
@@ -13829,7 +13860,13 @@ Q5 Answer B
   function qzExamPrefs(){
     try{
       const raw=localStorage.getItem("ql_exam_ui_prefs_v2");
-      const p=raw?JSON.parse(raw):{};
+      let p=raw?JSON.parse(raw):{};
+      /* Page style / navigation side / text size saved to the account by
+         Apply to All Quizzes (user_metadata.ql_exam_ui_prefs). The newer of
+         the account copy and this device's last change wins, so every device
+         picks up an Apply, and a later change on one device still sticks. */
+      const acct=state?.user?.user_metadata?.ql_exam_ui_prefs;
+      if(acct&&typeof acct==="object"&&(Number(acct.at)||0)>(Number(p.at)||0))p={...p,...acct};
       /* Round 5 note 4: navMode is intentionally left undefined/null when the
          user has never manually chosen one — that "no preference yet" state
          is what lets qzEffectiveNavMode() fall back to the responsive
@@ -13850,7 +13887,7 @@ Q5 Answer B
       return {navSide:p.navSide==="left"?"left":"right",navMode:p.navMode==="side"||p.navMode==="top"?p.navMode:null,theme:QZ_THEMES.includes(p.theme)?p.theme:"plainwhite",textSize};
     }catch{return {navSide:"right",navMode:null,theme:"plainwhite",textSize:0}}
   }
-  function qzSaveExamPrefs(p){try{localStorage.setItem("ql_exam_ui_prefs_v2",JSON.stringify(p))}catch{}}
+  function qzSaveExamPrefs(p){try{localStorage.setItem("ql_exam_ui_prefs_v2",JSON.stringify({...p,at:Date.now()}))}catch{}}
   /* Kuza's unbounded Text Size stepper: each +/- step is an 8% font-size
      change, compounding with no cap. Consumed as the --qz-text-scale CSS
      custom property (see applyPrefsToShell/renderShell + the qz-run-prompt/
@@ -14484,7 +14521,7 @@ Q5 Answer B
       document.getElementById("qzToolsPanel").innerHTML=`
         <div class="qz-tools-head"><span class="qz-tools-head-title"><span class="qz-tools-head-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3"/><circle cx="4" cy="12" r="2.2" fill="currentColor" stroke="none"/><circle cx="12" cy="10" r="2.2" fill="currentColor" stroke="none"/><circle cx="20" cy="14" r="2.2" fill="currentColor" stroke="none"/></svg></span>Tools</span><button type="button" class="qz-tools-close" id="qzToolsClose" aria-label="Close">✕</button></div>
         ${qlCanMutate()?`<div class="qz-tools-section qz-tools-links">
-          <button type="button" class="qz-tools-row-icon" id="qzToolsApplyAll"><span class="qz-tools-row-badge" style="background:#0ea5b8"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><rect x="7" y="7" width="13" height="13" rx="2"/><path d="M4 15V5a2 2 0 0 1 2-2h10"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Apply to All Quizzes</span><span class="qz-tools-row-t2">Copies Layout, Feedback timing &amp; Auto-Advance to every quiz you own</span></span><span class="qz-tools-row-chev">›</span></button>
+          <button type="button" class="qz-tools-row-icon" id="qzToolsApplyAll"><span class="qz-tools-row-badge" style="background:#0ea5b8"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><rect x="7" y="7" width="13" height="13" rx="2"/><path d="M4 15V5a2 2 0 0 1 2-2h10"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Apply to All Quizzes</span><span class="qz-tools-row-t2">Copies these tools to every quiz &amp; all your devices</span></span><span class="qz-tools-row-chev">›</span></button>
         </div>`:""}
         ${qzEffectiveNavMode(prefs)==="side"?`<div class="qz-tools-section">
           <div class="qz-tools-label">Navigation side</div>
@@ -14526,6 +14563,15 @@ Q5 Answer B
         qzOpenApplyAllDialog({
           quizItems:state.items.filter(x=>x.kind==="quiz"&&!x.is_trashed),
           currentId:item.id,horizontal,immediate,autoAdvance,
+          shuffleMode:qzShuffleMode(quiz.settings),prefs:{...prefs},
+          saveAccount:async ui=>{
+            if(service.client?.auth?.updateUser){
+              const {data,error}=await service.client.auth.updateUser({data:{ql_exam_ui_prefs:ui}});
+              if(error)throw error;
+              if(data?.user)state.user={...(state.user||{}),user_metadata:data.user.user_metadata};
+            }else state.user={...(state.user||{}),user_metadata:{...(state.user?.user_metadata||{}),ql_exam_ui_prefs:ui}};
+            qzSaveExamPrefs({...prefs,theme:ui.theme,navSide:ui.navSide,textSize:ui.textSize});
+          },
           save:async(it,newSettings)=>{
             const updated=await service.updateItem(it.id,{quiz_settings:newSettings});
             const idx=state.items.findIndex(x=>x.id===it.id);
