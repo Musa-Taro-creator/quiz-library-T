@@ -7149,7 +7149,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
        chooses Guest/Anonymous or Require student name when creating the link,
        so do not force the normal Student account gate for this one route. */
     let externalQuizShare=false;
-    try{externalQuizShare=!!new URLSearchParams(location.search||"").get("quiz_share")}catch{}
+    try{const sp=new URLSearchParams(location.search||"");externalQuizShare=!!(sp.get("quiz_share")||sp.get("s"))}catch{}
     if(externalQuizShare){authGateVisible(false);return}
     const accountRequired=STUDENT_ONLY_BUILD||state.library.student_access_private===true;
     if(!accountRequired||state.isAdmin){authGateVisible(false);return}
@@ -9113,6 +9113,21 @@ html,body{overscroll-behavior-y:none}
     if(error)throw error;
     const row=Array.isArray(data)?data[0]:data;
     return row||null;
+  };
+  /* Short links (supabase/external_share_short_links.sql): ?s=CODE stands for
+     ?quiz_share=TOKEN. Both return null when that SQL is not installed. */
+  service.createShortShareLink=async function(token){
+    if(!service.client)return null;
+    const {data,error}=await service.client.rpc("ql_create_short_link",{p_share_token:String(token||"")});
+    if(error)return null;
+    return typeof data==="string"&&data?data:null;
+  };
+  service.resolveShortShareLink=async function(code){
+    if(!service.client)throw new Error("External sharing requires Supabase.");
+    const {data,error}=await service.client.rpc("ql_resolve_short_link",{p_code:String(code||"")});
+    if(error)throw error;
+    if(!data)throw new Error("This shared quiz link is invalid or no longer available.");
+    return String(data);
   };
   service.getExternalQuizShare=async function(token){
     if(!service.client)throw new Error("External sharing requires Supabase.");
@@ -13114,7 +13129,7 @@ Q5 Answer B
     try{if(String(name||"").trim())localStorage.setItem(`ql_quiz_last_name_${LIBRARY_ID}`,String(name).trim())}catch{}
   }
   function qzExternalShareToken(){
-    try{return String(new URLSearchParams(location.search||"").get("quiz_share")||"").trim()}catch{return ""}
+    try{return String(new URLSearchParams(location.search||"").get("quiz_share")||window.__qlShortShareToken||"").trim()}catch{return ""}
   }
   function qzExternalIdentityMode(){
     if(qzExternalShareToken()&&(window.__qlExternalQuizIdentityMode==="guest"||window.__qlExternalQuizIdentityMode==="name"))return window.__qlExternalQuizIdentityMode;
@@ -13214,6 +13229,12 @@ Q5 Answer B
     }));
     return {version:1,kind:"quiz",settings:{...(item.quiz_settings||{})},questions};
   }
+  function qzShortShareUrl(code){
+    const url=new URL(location.href);
+    url.search="";url.hash="";
+    url.searchParams.set("s",String(code||""));
+    return url.toString();
+  }
   function qzExternalShareUrl(token){
     const url=new URL(location.href);
     url.search="";url.hash="";
@@ -13266,7 +13287,8 @@ Q5 Answer B
         const row=await service.createExternalQuizShare(item.id,item.title,identityMode,packet);
         const token=row?.share_token||row?.token;
         if(!token)throw new Error("Share link was created without a token.");
-        const link=qzExternalShareUrl(token);
+        const shortCode=await service.createShortShareLink(token).catch(()=>null);
+        const link=shortCode?qzShortShareUrl(shortCode):qzExternalShareUrl(token);
         $("#qzExternalShareLink").value=link;
         created.classList.remove("hidden");
         status.classList.add("success");status.textContent=identityMode==="name"?"Link ready — students will enter their name before starting.":"Link ready — students can start as anonymous guests.";
@@ -13569,7 +13591,7 @@ Q5 Answer B
   function qzLeaveExternalShareHere(){
 
     window.__qlExternalQuizIdentityMode="";
-    try{const url=new URL(location.href);url.searchParams.delete("quiz_share");url.searchParams.delete("quiz_identity");url.searchParams.delete("share_identity");history.replaceState(null,"",url.pathname+(url.search||"")+(url.hash||""))}catch{}
+    try{const url=new URL(location.href);url.searchParams.delete("quiz_share");url.searchParams.delete("s");window.__qlShortShareToken="";url.searchParams.delete("quiz_identity");url.searchParams.delete("share_identity");history.replaceState(null,"",url.pathname+(url.search||"")+(url.hash||""))}catch{}
     qzClosePage();
     try{render();window.__quizTest?.enforceLibraryAccess?.()}catch{}
   }
@@ -13590,6 +13612,19 @@ Q5 Answer B
     setTimeout(fallback,400);
   }
   async function qzOpenExternalShareFromUrl(){
+    let shortCode="";
+    try{const sp=new URLSearchParams(location.search||"");if(!sp.get("quiz_share"))shortCode=String(sp.get("s")||"").trim()}catch{}
+    if(shortCode&&!window.__qlShortShareToken&&!qzExternalRouteOpened){
+      try{window.__qlShortShareToken=await service.resolveShortShareLink(shortCode)}
+      catch(error){
+        qzExternalRouteOpened=true;
+        qzOpenPage(true);
+        const body=document.getElementById("qzPageBody");
+        body.innerHTML=qzPageTopbar()+`<div class="qz-runner-start"><h2>Shared Quiz</h2><div class="status error">${esc(friendlyError(error))}</div></div>`;
+        document.getElementById("qzTopClose").onclick=qzLeaveExternalShare;
+        return;
+      }
+    }
     const token=qzExternalShareToken();
     if(!token||qzExternalRouteOpened)return;
     qzExternalRouteOpened=true;
