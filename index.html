@@ -3160,6 +3160,118 @@ body.has-student-profile:not(.admin-mode) .top-settings{
 }
 </style>
 
+<style id="qzSectionsEmeraldGold">
+/* Kuza (Sep 28): Sections window -- approved "Emerald & Gold" Glassmorphism +
+   Liquid Glass design (option 9). Scoped to #qzSubDialogBox.qz-sections-glass. */
+#qzSubDialogBox.qz-sections-glass{--sg-text:#f3f7ee;--sg-muted:#b6cbb9;--sg-panel:rgba(10,50,38,.45);--sg-panel2:rgba(30,90,68,.38);--sg-line:rgba(255,236,180,.22);--sg-edge:rgba(255,220,140,.14);
+  --sg-gold:#e8c267;--sg-gold2:#b8892e;--sg-good:#7ee8a8;--sg-bad:#ff8a7a;--sg-chip:rgba(232,194,103,.16);--sg-chipText:#f2d48c;--sg-hi:rgba(255,240,200,.3);
+  width:min(96vw,1240px);max-height:92vh;padding:0;overflow:hidden;border-radius:34px;color:var(--sg-text);
+  background:radial-gradient(40% 50% at 8% 12%,rgba(31,138,91,.9) 0,transparent 70%),radial-gradient(45% 55% at 92% 8%,rgba(15,92,74,.95) 0,transparent 70%),radial-gradient(50% 60% at 60% 105%,rgba(201,166,70,.55) 0,transparent 70%),#07231b;
+  border:1.5px solid var(--sg-line);box-shadow:0 30px 90px rgba(0,0,0,.55),inset 0 1px 0 var(--sg-hi),inset 0 0 0 1px var(--sg-edge)}
+#qzSubDialogBox.qz-sections-glass *{box-sizing:border-box}
+.qz-sec{position:relative;display:flex;flex-direction:column;max-height:92vh;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+.qz-sec::before{content:"";position:absolute;inset:0 0 auto 0;height:140px;background:linear-gradient(180deg,var(--sg-hi),transparent);opacity:.35;pointer-events:none;border-radius:34px 34px 0 0}
+.qz-sec svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.qz-sec-glass{position:relative;border-radius:24px;background:var(--sg-panel2);-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);border:1px solid var(--sg-line);box-shadow:inset 0 1px 0 var(--sg-hi),0 10px 30px rgba(0,0,0,.25)}
+.qz-sec-head{display:flex;align-items:flex-start;gap:16px;padding:26px 30px 16px;position:relative;z-index:1}
+.qz-sec-logo{width:52px;height:52px;border-radius:18px;display:grid;place-items:center;flex-shrink:0;color:#10261d;background:linear-gradient(135deg,var(--sg-gold),var(--sg-gold2));box-shadow:0 0 22px rgba(232,194,103,.35),inset 0 1px 0 rgba(255,255,255,.55)}
+.qz-sec-logo svg{width:24px;height:24px}
+.qz-sec-kicker{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--sg-muted)}
+.qz-sec-titles{min-width:0}
+.qz-sec-titles h3{margin:2px 0 4px;font-size:30px;font-weight:850;letter-spacing:-.02em;color:var(--sg-text)}
+.qz-sec-titles p{margin:0;color:var(--sg-muted);font-size:14.5px;line-height:1.5;max-width:640px}
+.qz-sec-titles b{color:var(--sg-text)}
+.qz-sec-head-actions{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.qz-sec-saved{display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:999px;font-size:13.5px;font-weight:750;color:var(--sg-good);background:rgba(126,232,168,.12);border:1px solid rgba(126,232,168,.32);white-space:nowrap}
+.qz-sec-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 18px;border-radius:999px;font:inherit;font-size:14px;font-weight:750;color:var(--sg-text);cursor:pointer;white-space:nowrap;
+  background:var(--sg-panel2);border:1px solid var(--sg-line);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 4px 14px rgba(0,0,0,.18);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.qz-sec-btn:hover{border-color:rgba(232,194,103,.5)}
+.qz-sec-btn:disabled{opacity:.45;cursor:not-allowed}
+.qz-sec-icon{width:42px;padding:0}
+.qz-sec-primary{color:#10261d;border-color:rgba(255,236,180,.45);background:linear-gradient(135deg,var(--sg-gold),var(--sg-gold2));box-shadow:0 0 18px rgba(232,194,103,.3),inset 0 1px 0 rgba(255,255,255,.5)}
+.qz-sec-danger{color:var(--sg-bad)}
+.qz-sec-sm{height:36px;padding:0 13px;font-size:13px}
+.qz-sec-body{position:relative;z-index:1;padding:4px 30px 30px;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;display:flex;flex-direction:column;gap:18px}
+.qz-sec-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.qz-sec-stat{padding:16px 18px;display:flex;align-items:center;gap:14px}
+.qz-sec-stat b{display:block;font-size:26px;font-weight:850;letter-spacing:-.02em;line-height:1.1}
+.qz-sec-stat span:not(.qz-sec-ic){font-size:13px;color:var(--sg-muted);font-weight:600}
+.qz-sec-ic{width:40px;height:40px;border-radius:14px;display:inline-grid;place-items:center;background:var(--sg-chip);color:var(--sg-chipText);flex-shrink:0}
+.qz-sec-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.qz-sec-card{padding:20px 22px}
+.qz-sec-card h4{margin:0;font-size:17px;font-weight:800;display:flex;align-items:center;gap:10px;color:var(--sg-text)}
+.qz-sec-card h4 .qz-sec-ic{width:34px;height:34px;border-radius:12px}
+.qz-sec-desc{margin:6px 0 14px 44px;color:var(--sg-muted);font-size:13.5px}
+.qz-sec-note{margin:10px 0 0;color:var(--sg-muted);font-size:12.5px}
+.qz-sec-muted{color:var(--sg-muted);font-size:13.5px}
+.qz-sec-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.qz-sec-cardtop{justify-content:space-between;margin-bottom:6px}
+.qz-sec-seg{display:inline-flex;padding:4px;border-radius:999px;background:var(--sg-chip);gap:4px;margin-bottom:12px;max-width:100%}
+.qz-sec-seg button{border:0;background:transparent;padding:8px 14px;border-radius:999px;font:inherit;font-size:13px;font-weight:750;color:var(--sg-muted);cursor:pointer}
+.qz-sec-seg button.on{background:var(--sg-panel2);color:var(--sg-text);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 3px 10px rgba(0,0,0,.2)}
+.qz-sec-field{height:44px;border-radius:14px;padding:0 14px;background:rgba(5,30,22,.35);border:1px solid var(--sg-line);color:var(--sg-text);font:inherit;font-size:14px;outline:none;max-width:100%}
+.qz-sec-field:focus,.qz-sec-field:focus-within{border-color:rgba(232,194,103,.65);box-shadow:0 0 0 3px rgba(232,194,103,.15)}
+.qz-sec-field::placeholder,.qz-sec-search input::placeholder{color:rgba(182,203,185,.75)}
+input.qz-sec-field{width:100%}
+select.qz-sec-field{appearance:auto;min-width:150px}
+.qz-sec-field option{background:#0d3a2c;color:#f3f7ee}
+.qz-sec-num{width:110px!important}
+.qz-sec-grow{flex:1;min-width:160px}
+.qz-sec-search{display:flex;align-items:center;gap:8px;color:var(--sg-muted)}
+.qz-sec-search input{flex:1;min-width:0;border:0;background:transparent;color:var(--sg-text);font:inherit;font-size:14px;outline:none;height:100%}
+.qz-sec-sort{display:flex;align-items:center;gap:8px;color:var(--sg-muted);font-size:13px;font-weight:600}
+.qz-sec-sort select{height:38px}
+.qz-sec-item{display:flex;align-items:center;gap:14px;padding:12px 14px;margin-top:10px;border-radius:20px}
+.qz-sec-item.active{border-color:rgba(232,194,103,.7);box-shadow:0 0 0 2px rgba(232,194,103,.25),inset 0 1px 0 var(--sg-hi)}
+.qz-sec-badge{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-weight:850;font-size:16px;color:#10261d;flex-shrink:0;background:linear-gradient(135deg,var(--sg-gold),var(--sg-gold2));box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+.qz-sec-meta{min-width:0;flex:1}
+.qz-sec-meta b{display:block;font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qz-sec-meta small{display:block;color:var(--sg-muted);font-size:12.5px;margin-top:2px}
+.qz-sec-bar{width:150px;height:8px;border-radius:99px;background:var(--sg-chip);overflow:hidden;flex-shrink:0}
+.qz-sec-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--sg-gold),var(--sg-gold2))}
+.qz-sec-acts{display:flex;gap:8px;flex-shrink:0}
+.qz-sec-empty{padding:18px;text-align:center;color:var(--sg-muted);font-size:14px}
+.qz-sec-bulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:10px 12px;border-radius:16px;background:rgba(232,194,103,.1);border:1px solid rgba(232,194,103,.3)}
+.qz-sec-bulk select{height:36px}
+.qz-sec-table{margin-top:12px;border-radius:18px;overflow:hidden}
+.qz-sec-tr{display:grid;grid-template-columns:34px 54px minmax(0,1fr) minmax(0,340px);align-items:center;gap:10px;padding:10px 16px;border-top:1px solid rgba(243,247,238,.08);font-size:14px}
+.qz-sec-th{border-top:0;font-size:12px;font-weight:800;color:var(--sg-muted);text-transform:uppercase;letter-spacing:.06em}
+.qz-sec-q{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qz-sec-cb input{width:18px;height:18px;accent-color:#e8c267;cursor:pointer}
+.qz-sec-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.qz-sec-chip{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 6px 0 11px;border-radius:999px;font:inherit;font-size:12.5px;font-weight:750;background:var(--sg-chip);color:var(--sg-chipText);border:1px solid rgba(242,212,140,.25)}
+.qz-sec-chip button{border:0;background:transparent;color:inherit;font-size:15px;line-height:1;cursor:pointer;padding:0 4px;opacity:.75}
+.qz-sec-chip button:hover{opacity:1}
+select.qz-sec-chip-add{width:72px;flex:0 0 auto;padding:0 10px;background:transparent;border-style:dashed;color:var(--sg-muted);cursor:pointer;appearance:none;-webkit-appearance:none}
+.qz-sec-chip-add option{background:#0d3a2c;color:#f3f7ee}
+.qz-sec-pager{display:flex;align-items:center;gap:6px;padding:12px 16px;flex-wrap:wrap}
+.qz-sec-page{min-width:34px;height:34px;padding:0 8px;border-radius:11px;border:0;background:transparent;font:inherit;font-size:13px;font-weight:750;color:var(--sg-muted);cursor:pointer}
+.qz-sec-page.on{background:linear-gradient(135deg,var(--sg-gold),var(--sg-gold2));color:#10261d}
+.qz-sec-page:disabled{opacity:.35;cursor:not-allowed}
+.qz-sec-gap{color:var(--sg-muted);padding:0 2px}
+.qz-sec-pager em{margin-left:auto;font-style:normal;color:var(--sg-muted);font-size:13px}
+@media (max-width:900px){
+  .qz-sec-grid2{grid-template-columns:1fr}
+  .qz-sec-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .qz-sec-bar{display:none}
+}
+@media (max-width:700px){
+  #qzSubDialogBox.qz-sections-glass{width:100vw;max-height:100vh;border-radius:0}
+  .qz-sec{max-height:100vh}
+  .qz-sec-head{flex-wrap:wrap;padding:18px 16px 10px}
+  .qz-sec-titles h3{font-size:24px}
+  .qz-sec-head-actions{margin-left:0;width:100%}
+  .qz-sec-saved{display:none}
+  .qz-sec-body{padding:4px 14px 20px}
+  .qz-sec-desc{margin-left:0}
+  .qz-sec-item{flex-wrap:wrap}
+  .qz-sec-acts{width:100%;justify-content:flex-end}
+  .qz-sec-tr{grid-template-columns:30px 40px minmax(0,1fr)}
+  .qz-sec-th span:last-child{display:none}
+  .qz-sec-chips{grid-column:3}
+  .qz-sec-q{white-space:normal}
+}
+</style>
 </head>
 <body class="student-only-build">
 <div id="setupScreen" class="setup-screen">
@@ -8733,11 +8845,11 @@ html,body{overscroll-behavior-y:none}
       const {data,error}=await service.client.rpc("get_quiz_for_taking",{p_item_id:itemId});
       if(error)throw error;
       const rows=(data||[]).slice().sort((a,b)=>a.question_position-b.question_position);
-      return {title:item?.title||rows[0]?.title||"Quiz",settings:item?.quiz_settings||rows[0]?.quiz_settings||{},questions:rows.map(r=>({id:r.id,type:r.type,prompt:r.prompt,options:r.options,points:r.points,image:r.image,allow_multiple:!!r.allow_multiple,images:r.images||[],session_label:r.session_label||null}))};
+      return {title:item?.title||rows[0]?.title||"Quiz",settings:item?.quiz_settings||rows[0]?.quiz_settings||{},questions:rows.map(r=>({id:r.id,type:r.type,prompt:r.prompt,options:r.options,points:r.points,image:r.image,allow_multiple:!!r.allow_multiple,images:r.images||[],session_label:r.session_label||null,session_labels:qzSessOf(r)}))};
     }
     const st=qzMockStore();
     const rows=st.value.quizQuestions.filter(q=>q.item_id===itemId).slice().sort((a,b)=>a.question_position-b.question_position);
-    return {title:item?.title||"Quiz",settings:item?.quiz_settings||{},questions:rows.map(r=>({id:r.id,type:r.type,prompt:r.prompt,options:r.options,points:r.points,image:r.image,allow_multiple:!!r.allow_multiple,images:r.images||[],session_label:r.session_label||null}))};
+    return {title:item?.title||"Quiz",settings:item?.quiz_settings||{},questions:rows.map(r=>({id:r.id,type:r.type,prompt:r.prompt,options:r.options,points:r.points,image:r.image,allow_multiple:!!r.allow_multiple,images:r.images||[],session_label:r.session_label||null,session_labels:qzSessOf(r)}))};
   };
   service.submitQuizAttempt=async function(itemId,takerName,takerIdentifier,answers,startedAt,meta=null){
     if(service.client){
@@ -10169,7 +10281,7 @@ Q5 Answer B
       const inserted=bulkParsed.map(q=>{
         const clean={...q};
         delete clean._needsReview;
-        return {...clean,id:uid(),image:null,images:[],explanation:"",session_label:destination||null};
+        return qzSetSess({...clean,id:uid(),image:null,images:[],explanation:""},destination?[destination]:[]);
       });
       const insertAt=qzComputeInsertIndex(questions,destination,position,refId);
       questions.splice(insertAt,0,...inserted);
@@ -10253,7 +10365,7 @@ Q5 Answer B
       let targetScope=qzScopeIndices(questions,mvTargetSession);
       if(mode==="cut")targetScope=targetScope.filter(i=>!mvSelected.has(questions[i].id));
       const afterOpts=targetScope.map(i=>`<option value="after:${esc(questions[i].id)}" ${mvPosition==="after:"+questions[i].id?"selected":""}>After Q${i+1}: ${esc((questions[i].prompt||"(untitled)").slice(0,50))}</option>`).join("");
-      return `<option value="beginning" ${mvPosition==="beginning"?"selected":""}>Beginning of session</option>${afterOpts}<option value="end" ${mvPosition==="end"?"selected":""}>End of session</option>`;
+      return `<option value="beginning" ${mvPosition==="beginning"?"selected":""}>Beginning of section</option>${afterOpts}<option value="end" ${mvPosition==="end"?"selected":""}>End of section</option>`;
     }
     function html(){
       const fromOpts=qzSessionFilterOptions(questions);
@@ -10272,12 +10384,12 @@ Q5 Answer B
           <button type="button" class="qz-mvq-mode-opt ${mode==="cut"?"active":""}" data-mode="cut">${cutIcon}<span>Cut (Move)</span></button>
           <button type="button" class="qz-mvq-mode-opt ${mode==="copy"?"active":""}" data-mode="copy">${copyIcon}<span>Copy</span></button>
         </div>
-        <div class="qz-mvq-mode-hint">${mode==="cut"?"Cut — selected questions leave their current session and land only in the destination.":"Copy — selected questions stay right where they are, and a duplicate is added to the destination."}</div>
+        <div class="qz-mvq-mode-hint">${mode==="cut"?"Cut — selected questions leave the section they were picked from and join the destination section. All Questions always keeps them.":"Copy — selected questions also join the destination section (nothing is duplicated). Copying into All Questions makes real duplicate questions."}</div>
 
         <div class="qz-mvq-field">
           <label>Select questions from</label>
           <select id="qzMvqSource">${fromOpts.map(o=>`<option value="${esc(o.value)}" ${mvSource===o.value?"selected":""}>${esc(o.label)}</option>`).join("")}</select>
-          <div class="qz-mvq-hint">Choose a session (or All Questions) to load its questions below, then tick the ones you want.</div>
+          <div class="qz-mvq-hint">Choose a section (or All Questions) to load its questions below, then tick the ones you want.</div>
           <div class="qz-mvq-toolrow"><button type="button" class="qz-mvq-btn-ghost" id="qzMvqSelectAll">Select All Shown</button><button type="button" class="qz-mvq-btn-ghost" id="qzMvqClearAll">Clear All</button></div>
         </div>
 
@@ -10296,12 +10408,12 @@ Q5 Answer B
             <input type="checkbox" class="qz-mvq-check" data-qid="${esc(qq.id)}" ${mvSelected.has(qq.id)?"checked":""}>
             <span class="qz-mvq-check-num">${i+1}</span>
             <span class="qz-mvq-check-text">${esc((qq.prompt||"(untitled question)").slice(0,110))}</span>
-            <span class="qz-mvq-check-badge">${qq.session_label?esc(qq.session_label):"All Questions"}</span>
+            <span class="qz-mvq-check-badge">${qzSessOf(qq).length?esc(qzSessOf(qq).join(", ")):"All Questions"}</span>
           </label>`;
         }).join(""):'<div class="qz-empty-questions">No questions here yet.</div>'}</div>
 
         <div class="qz-mvq-footer">
-          <div class="qz-mvq-footer-field"><label>${mode==="cut"?"Move to session":"Copy to session"}</label><select id="qzMvqTarget">${destOpts.map(o=>`<option value="${esc(o.value)}" ${mvTargetSession===o.value?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
+          <div class="qz-mvq-footer-field"><label>${mode==="cut"?"Move to section":"Copy to section"}</label><select id="qzMvqTarget">${destOpts.map(o=>`<option value="${esc(o.value)}" ${mvTargetSession===o.value?"selected":""}>${esc(o.label)}</option>`).join("")}</select></div>
           <div class="qz-mvq-footer-field"><label>Position</label><select id="qzMvqPosition">${movePositionOptionsHtml()}</select></div>
           <button type="button" class="qz-mvq-action-btn ${mode}" id="qzMvqApply">${actionIcon}<span>${actionWord} ${n} Question${n===1?"":"s"}</span></button>
         </div>
@@ -10351,7 +10463,9 @@ Q5 Answer B
             const idx=questions.findIndex(q=>q.id===id);
             if(idx>=0)moved.push(...questions.splice(idx,1));
           });
-          moved.forEach(q=>{q.session_label=mvTargetSession||null});
+          /* Move: leave the section it was picked from (if any) and join the
+             destination section; its other sections are kept. */
+          moved.forEach(q=>{if(mvSource)qzRemoveSess(q,mvSource);if(mvTargetSession)qzAddSess(q,mvTargetSession)});
           const insertIndex=qzComputeInsertIndex(questions,mvTargetSession,position,refId);
           questions.splice(insertIndex,0,...moved);
           mvSelected.clear();
@@ -10361,7 +10475,15 @@ Q5 Answer B
           render();
         }else{
           const originals=questions.filter(q=>mvSelected.has(q.id));
-          const copies=originals.map(q=>{const c=JSON.parse(JSON.stringify(q));c.id=uid();c.session_label=mvTargetSession||null;return c});
+          /* Copy into a section: sections are copies, so the question simply
+             joins it too -- no duplicate question in All Questions. */
+          if(mvTargetSession){
+            originals.forEach(q=>qzAddSess(q,mvTargetSession));
+            mvSelected.clear();mvNumberText="";hooks.refreshList();
+            toast(`Added ${originals.length} question${originals.length===1?"":"s"} to ${mvTargetSession}`);
+            render();return;
+          }
+          const copies=originals.map(q=>{const c=JSON.parse(JSON.stringify(q));c.id=uid();qzSetSess(c,[]);return c});
           const insertIndex=qzComputeInsertIndex(questions,mvTargetSession,position,refId);
           questions.splice(insertIndex,0,...copies);
           mvSelected.clear();
@@ -10398,6 +10520,7 @@ Q5 Answer B
     return q.session_label?[q.session_label]:[];
   }
   function qzInSess(q,name){return !!name&&qzSessOf(q).includes(name)}
+  window.qzSessOf=qzSessOf; /* used by the Student workspace script (a separate IIFE) */
   function qzSetSess(q,names){
     const list=[...new Set((names||[]).filter(Boolean).map(String))];
     q.session_labels=list;q.session_label=list[0]||null;
@@ -10435,286 +10558,255 @@ Q5 Answer B
     if(!r)return "";
     return r.from===r.to?`${r.from} (${r.count})`:`${r.from}-${r.to} (${r.count})`;
   }
-  /* Round 3 note 7 (sessions redesign): auto-split by count, bulk-assign a
-     question range in one action, per-session time-limit/shuffle overrides,
-     and an optional locked session order — on top of the existing manual
-     per-question assignment list. */
+  /* Kuza (Sep 28): Sections window, rebuilt in the approved "Emerald & Gold"
+     Glassmorphism + Liquid Glass design (option 9 of 10 mockups). Sections
+     are COPIES: a question can be in several sections and All Questions
+     always keeps every question. New/empty sections are saved in
+     settings.session_names, so they appear right away in every destination
+     list (Add New Questions, Move Questions, Shuffle, exam menus). Internally
+     the data keeps its original "session" names (session_label(s),
+     session_names, session_overrides) so nothing already saved changes. */
   function openQuizSessions(item,questions,settings,onSave){
-    const originalQs=questions.map(q=>({...q}));
-    let qs=questions.map(q=>({...q}));
+    const originalQs=questions.map(q=>({...q,session_labels:qzSessOf(q)}));
+    const originalNames=[...qzSessionNames(questions)];
+    let qs=questions.map(q=>({...q,session_labels:qzSessOf(q)}));
+    let names=[...originalNames];
     let overrides={...(settings.session_overrides||{})};
-    let pendingNames=[];
-    let splitMode="per";
-    let splitCountValue="40";
-    let splitSessionsValue="";
-    let newSessionName="";
-    let addQuestionPreset="";
-    let assignSearch="";
-    let assignView="all";
-    let assignSessionFilter="all";
-    let assignLabelFilter="all";
-    let assignPage=1;
-    let sessionsSort="order";
-    let manualOpen=true;
+    let splitMode="per",splitPer="40",splitCount="";
+    let newName="",newPick="";
+    let search="",view="all",secFilter="",sortBy="order",page=1;
+    let selected=new Set();
+    let bulkTarget="";
     const perPage=10;
-
-    function allSessionNames(){
-      return [...new Set([...qzSessionNames(qs),...pendingNames])];
+    const ic={
+      layers:'<svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg>',
+      file:'<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/></svg>',
+      check:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.4 2.4 4.8-5.1"/></svg>',
+      dots:'<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>',
+      wand:'<svg viewBox="0 0 24 24"><path d="m4 20 8.5-8.5"/><path d="m15 3 1.1 3.2L19.5 7l-3.4.8L15 11l-1.1-3.2L10.5 7l3.4-.8Z"/></svg>',
+      plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+      list:'<svg viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>',
+      search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+      undo:'<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>',
+      x:'<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>'
+    };
+    const countIn=n=>qs.reduce((a,q)=>a+(qzInSess(q,n)?1:0),0);
+    const inAny=()=>qs.reduce((a,q)=>a+(qzSessOf(q).length?1:0),0);
+    function save(){
+      const finalOverrides={};
+      names.forEach(n=>{if(overrides[n])finalOverrides[n]=overrides[n]});
+      onSave(qs.map(q=>({...q})),{...settings,session_names:[...names],session_overrides:finalOverrides});
+      qzUseSessionRegistry({session_names:names});
     }
-    function totalAssigned(){return qs.filter(q=>q.session_label).length}
-    function totalUnassigned(){return qs.length-totalAssigned()}
-    function sessionQuestionCount(name){return qs.filter(q=>q.session_label===name).length}
-    function sessionRange(name){return qzSessionRangeLabel(qs,name)||`${sessionQuestionCount(name)} question${sessionQuestionCount(name)===1?"":"s"}`}
-    function sessionBadgeClass(idx){return ["","green","purple","orange","teal","pink"][idx%6]||""}
-    function renameSession(oldName,newName){
-      const next=(newName||"").trim();
+    function uniqueName(base){let n=base,i=2;while(names.includes(n))n=`${base} (${i++})`;return n}
+    function renameSection(oldName,next){
+      next=(next||"").trim();
       if(!next||next===oldName)return;
-      if(allSessionNames().includes(next)){toast("That session name already exists");return}
-      qs.forEach(q=>{if(q.session_label===oldName)q.session_label=next});
-      pendingNames=pendingNames.map(n=>n===oldName?next:n);
+      if(names.includes(next))return toast("That section name already exists");
+      names=names.map(n=>n===oldName?next:n);
+      qs.forEach(q=>{if(qzInSess(q,oldName))qzSetSess(q,qzSessOf(q).map(n=>n===oldName?next:n))});
       if(overrides[oldName]){overrides[next]=overrides[oldName];delete overrides[oldName]}
-      toast(`Renamed to "${next}"`);
-      autoSaveSessions();
-      renderDialog();
+      if(secFilter===oldName)secFilter=next;
+      if(bulkTarget===oldName)bulkTarget=next;
+      save();toast(`Renamed to "${next}"`);render();
     }
-    function removeSession(name){
-      if(!confirm(`Remove "${name}"? Questions assigned to it become unassigned.`))return;
-      qs.forEach(q=>{if(q.session_label===name)q.session_label=null});
+    function deleteSection(name){
+      if(!confirm(`Delete section "${name}"?\n\nIts questions stay in All Questions and in any other sections.`))return;
+      names=names.filter(n=>n!==name);
+      qs.forEach(q=>qzRemoveSess(q,name));
       delete overrides[name];
-      pendingNames=pendingNames.filter(n=>n!==name);
-      toast(`"${name}" removed`);
-      autoSaveSessions();
-      renderDialog();
+      if(secFilter===name)secFilter="";
+      if(bulkTarget===name)bulkTarget="";
+      save();toast(`"${name}" deleted`);render();
     }
-    function sortNames(names){
-      const rows=names.map((name,idx)=>({name,idx,count:sessionQuestionCount(name)}));
-      if(sessionsSort==="name")rows.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'}));
-      else if(sessionsSort==="count")rows.sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'}));
+    function sortedSections(){
+      const rows=names.map((name,idx)=>({name,idx,count:countIn(name)}));
+      const cmp=(a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:"base"});
+      if(sortBy==="name")rows.sort(cmp);
+      else if(sortBy==="count")rows.sort((a,b)=>b.count-a.count||cmp(a,b));
       return rows;
     }
-    function filteredQuestions(){
-      const q=assignSearch.trim().toLowerCase();
-      return qs.map((row,idx)=>({row,idx})).filter(({row,idx})=>{
-        if(q){
-          const prompt=(row.prompt||"").toLowerCase();
-          const num=String(idx+1);
-          if(!prompt.includes(q) && !num.includes(q))return false;
-        }
-        if(assignView==="assigned" && !row.session_label)return false;
-        if(assignView==="unassigned" && row.session_label)return false;
-        if(assignSessionFilter!=="all" && row.session_label!==assignSessionFilter)return false;
-        if(assignLabelFilter==="named" && !row.session_label)return false;
-        if(assignLabelFilter==="unassigned" && row.session_label)return false;
-        return true;
-      });
+    function filtered(){
+      const t=search.trim().toLowerCase();
+      const out=[];
+      for(let idx=0;idx<qs.length;idx++){
+        const q=qs[idx],secs=qzSessOf(q);
+        if(view==="in"&&!secs.length)continue;
+        if(view==="none"&&secs.length)continue;
+        if(secFilter&&!secs.includes(secFilter))continue;
+        if(t&&!String(idx+1).includes(t)&&!(q.prompt||"").toLowerCase().includes(t))continue;
+        out.push(idx);
+      }
+      return out;
     }
-    function svgIcon(type){
-      const map={
-        layers:'<svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg>',
-        file:'<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>',
-        check:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.4 2.4 4.8-5.1"/></svg>',
-        dots:'<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>',
-        magic:'<svg viewBox="0 0 24 24"><path d="m4 20 8.5-8.5"/><path d="m6.5 7.5 1-3 1 3 3 1-3 1-1 3-1-3-3-1 3-1Z"/><path d="m15 3 1.1 3.2L19.5 7l-3.4.8L15 11l-1.1-3.2L10.5 7l3.4-.8L15 3Z"/><path d="m18.5 12.5 1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1 1-2.5Z"/></svg>',
-        plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>',
-        info:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10v5"/><path d="M12 7h.01"/></svg>',
-        edit:'<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L7 21l-4 1 1-4Z"/></svg>',
-        rename:'<svg viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="M21 3 9 15"/><rect x="3" y="7" width="10" height="14" rx="2"/></svg>',
-        delete:'<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>',
-        list:'<svg viewBox="0 0 24 24"><path d="M9 6h12"/><path d="M9 12h12"/><path d="M9 18h12"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/></svg>',
-        search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
-        reset:'<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>',
-        save:'<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>'
-      };
-      return map[type]||"";
-    }
-    function assignHint(){
-      if(addQuestionPreset==="unassigned")return "All currently unassigned questions will be added to this session.";
-      return "Create a new session now; you can assign questions below.";
-    }
-    function autoSaveSessions(){
-      const finalNames=qzSessionNames(qs);
-      const finalOverrides={};
-      finalNames.forEach(n=>{if(overrides[n])finalOverrides[n]=overrides[n]});
-      onSave(qs.map(q=>({...q})),{...settings,session_overrides:finalOverrides});
-    }
-    function renderDialog(scrollToAssign=false){
-      const names=allSessionNames();
-      const assignedCount=totalAssigned();
-      const unassignedCount=totalUnassigned();
-      const sortedNames=sortNames(names);
-      const filtered=filteredQuestions();
-      const totalPages=Math.max(1,Math.ceil(filtered.length/perPage)||1);
-      if(assignPage>totalPages)assignPage=totalPages;
-      const pageStart=(assignPage-1)*perPage;
-      const pageRows=filtered.slice(pageStart,pageStart+perPage);
-      const showingFrom=filtered.length?pageStart+1:0;
-      const showingTo=Math.min(pageStart+pageRows.length,filtered.length);
+    function rangeLabel(name){const r=qzSessionRangeInfo(qs,name);return r?(r.from===r.to?`Q${r.from}`:`Q${r.from}–Q${r.to}`):"empty — add questions below"}
+    function render(){
+      const prevScroll=document.querySelector("#qzSubDialogBox .qz-sec-body")?.scrollTop||0;
+      const list=filtered();
+      const totalPages=Math.max(1,Math.ceil(list.length/perPage));
+      if(page>totalPages)page=totalPages;
+      const start=(page-1)*perPage,rows=list.slice(start,start+perPage);
+      const inCount=inAny();
+      const splitN=Number(splitMode==="per"?splitPer:splitCount)||0;
+      const splitPreview=!qs.length||splitN<=0?"":splitMode==="per"?`→ ${Math.ceil(qs.length/splitN)} sections`:`→ ~${Math.ceil(qs.length/splitN)} questions each`;
+      const pageBtns=[];
+      const addPage=p=>pageBtns.push(`<button type="button" class="qz-sec-page ${p===page?"on":""}" data-page="${p}">${p}</button>`);
+      if(totalPages<=7){for(let p=1;p<=totalPages;p++)addPage(p)}
+      else{addPage(1);const a=Math.max(2,page-1),b=Math.min(totalPages-1,page+1);if(a>2)pageBtns.push('<span class="qz-sec-gap">…</span>');for(let p=a;p<=b;p++)addPage(p);if(b<totalPages-1)pageBtns.push('<span class="qz-sec-gap">…</span>');addPage(totalPages)}
+      const secOptions=(sel,skip)=>names.filter(n=>!skip||!skip.includes(n)).map(n=>`<option value="${esc(n)}" ${sel===n?"selected":""}>${esc(n)}</option>`).join("");
+      const allOnPage=rows.length&&rows.every(i=>selected.has(qs[i].id));
       qzOpenSubDialog(`
-        <div class="qz-sessions-redesign">
-          <div class="qz-sr-head">
-            <div class="qz-sr-titlewrap">
-              <div class="qz-sr-icon">${svgIcon('layers')}</div>
-              <div>
-                <span class="qz-sr-kicker">Session manager</span>
-                <h3 class="qz-sr-title">Sessions</h3>
-                <p class="qz-sr-sub">Split this quiz's questions into smaller named sessions. Sessions are optional — students can take All Questions or any one session.</p>
-              </div>
-            </div>
-            <div class="qz-sr-head-actions">
-              <span class="qz-sr-autosave">✓ Auto-save on</span>
-              <button type="button" id="qzSessReset" class="btn qz-sr-head-reset">${svgIcon('reset')}<span>Reset changes</span></button>
-              <button type="button" id="qzSessCloseTop" class="qz-sr-close" aria-label="Close">×</button>
+        <div class="qz-sec">
+          <div class="qz-sec-head">
+            <div class="qz-sec-logo">${ic.layers}</div>
+            <div class="qz-sec-titles"><div class="qz-sec-kicker">Section manager</div><h3>Sections</h3>
+              <p>Sections are <b>copies</b> of questions from your quiz — <b>All Questions always keeps all ${qs.length}</b>. A question can be in several sections.</p></div>
+            <div class="qz-sec-head-actions">
+              <span class="qz-sec-saved">✓ Auto-saved</span>
+              <button type="button" class="qz-sec-btn" id="qzSecUndo">${ic.undo}<span>Undo changes</span></button>
+              <button type="button" class="qz-sec-btn qz-sec-icon" id="qzSecClose" aria-label="Close">${ic.x}</button>
             </div>
           </div>
-          <div class="qz-sr-scroll">
-            <div class="qz-sr-metrics">
-              <div class="qz-sr-metric"><div class="qz-sr-metric-icon">${svgIcon('file')}</div><div><div class="qz-sr-metric-value">${qs.length}</div><div class="qz-sr-metric-label">Total questions</div></div></div>
-              <div class="qz-sr-metric"><div class="qz-sr-metric-icon purple">${svgIcon('layers')}</div><div><div class="qz-sr-metric-value">${names.length}</div><div class="qz-sr-metric-label">Sessions created</div></div></div>
-              <div class="qz-sr-metric"><div class="qz-sr-metric-icon green">${svgIcon('check')}</div><div><div class="qz-sr-metric-value">${assignedCount}</div><div class="qz-sr-metric-label">Assigned to sessions</div></div></div>
-              <div class="qz-sr-metric"><div class="qz-sr-metric-icon gray">${svgIcon('dots')}</div><div><div class="qz-sr-metric-value">${unassignedCount}</div><div class="qz-sr-metric-label">Unassigned</div></div></div>
+          <div class="qz-sec-body">
+            <div class="qz-sec-stats">
+              <div class="qz-sec-glass qz-sec-stat"><span class="qz-sec-ic">${ic.file}</span><div><b>${qs.length}</b><span>All Questions</span></div></div>
+              <div class="qz-sec-glass qz-sec-stat"><span class="qz-sec-ic">${ic.layers}</span><div><b>${names.length}</b><span>Section${names.length===1?"":"s"}</span></div></div>
+              <div class="qz-sec-glass qz-sec-stat"><span class="qz-sec-ic">${ic.check}</span><div><b>${inCount}</b><span>In a section</span></div></div>
+              <div class="qz-sec-glass qz-sec-stat"><span class="qz-sec-ic">${ic.dots}</span><div><b>${qs.length-inCount}</b><span>Not in any section</span></div></div>
             </div>
-
-            <div class="qz-sr-topgrid">
-              <section class="qz-sr-card">
-                <div class="qz-sr-cardhead">
-                  <div class="qz-sr-cardtitlewrap">
-                    <div class="qz-sr-cardicon">${svgIcon('magic')}</div>
-                    <div><h4 class="qz-sr-cardtitle">Auto-split questions</h4><p class="qz-sr-carddesc">Automatically split all questions into equal sessions.</p></div>
-                  </div>
+            <div class="qz-sec-grid2">
+              <section class="qz-sec-glass qz-sec-card">
+                <h4><span class="qz-sec-ic">${ic.wand}</span>Auto-split</h4>
+                <p class="qz-sec-desc">Make equal sections from All Questions. Your quiz stays complete.</p>
+                <div class="qz-sec-seg"><button type="button" data-split="per" class="${splitMode==="per"?"on":""}">Questions per section</button><button type="button" data-split="count" class="${splitMode==="count"?"on":""}">Number of sections</button></div>
+                <div class="qz-sec-row">
+                  <input class="qz-sec-field qz-sec-num" type="number" min="1" inputmode="numeric" id="qzSecSplitVal" value="${esc(splitMode==="per"?splitPer:splitCount)}" placeholder="${splitMode==="per"?"40":"10"}">
+                  <span class="qz-sec-muted" id="qzSecSplitPreview">${splitMode==="per"?"per section":"sections"} ${esc(splitPreview)}</span>
+                  <button type="button" class="qz-sec-btn qz-sec-primary" id="qzSecSplit">Split</button>
                 </div>
-                <div class="qz-sr-radio">
-                  <label><input type="radio" name="qzSessSplitMode" value="per" ${splitMode==='per'?'checked':''}>Questions per session</label>
-                  <label><input type="radio" name="qzSessSplitMode" value="count" ${splitMode==='count'?'checked':''}>Number of sessions</label>
-                </div>
-                <div class="qz-sr-splitrow">
-                  <div class="qz-sr-step">
-                    <input class="qz-sr-input" type="number" min="1" id="qzSessSplitCount" value="${esc(splitCountValue)}" ${splitMode!=='per'?'disabled':''}>
-                    <span style="color:#60718a;font-size:15px">questions per session</span>
-                  </div>
-                  <div class="qz-sr-step">
-                    <input class="qz-sr-input" type="number" min="1" id="qzSessSplitSessions" value="${esc(splitSessionsValue)}" ${splitMode!=='count'?'disabled':''}>
-                    <span style="color:#60718a;font-size:15px">number of sessions</span>
-                  </div>
-                </div>
-                <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px">
-                  <button type="button" id="qzSessSplitBtn" class="btn primary" style="border-radius:16px;padding:14px 24px">${svgIcon('layers')}<span>Split into sessions</span></button>
-                  <div class="qz-sr-inline-note">${svgIcon('info')}<span>This will replace existing sessions.</span></div>
-                </div>
+                ${names.length?`<p class="qz-sec-note">Replaces your current ${names.length} section${names.length===1?"":"s"}.</p>`:""}
               </section>
-
-              <section class="qz-sr-card">
-                <div class="qz-sr-cardhead">
-                  <div class="qz-sr-cardtitlewrap">
-                    <div class="qz-sr-cardicon purple">${svgIcon('plus')}</div>
-                    <div><h4 class="qz-sr-cardtitle">Add new session</h4><p class="qz-sr-carddesc">Create a new session and choose which questions to add.</p></div>
-                  </div>
-                </div>
-                <div class="qz-sr-grid2">
-                  <label><span class="qz-sr-formlabel">Session name</span><input class="qz-sr-input" type="text" id="qzSessNewName" placeholder="e.g. Session 4" value="${esc(newSessionName)}"></label>
-                  <label><span class="qz-sr-formlabel">Add questions</span><select class="qz-sr-select" id="qzSessAddPreset"><option value="" ${!addQuestionPreset?'selected':''}>Select questions...</option><option value="later" ${addQuestionPreset==='later'?'selected':''}>Assign later manually</option><option value="unassigned" ${addQuestionPreset==='unassigned'?'selected':''}>All currently unassigned questions</option></select></label>
-                </div>
-                <div class="qz-sr-addrow" style="margin-top:14px">
-                  <div class="qz-sr-inline-note" style="flex:1">${svgIcon('info')}<span>${esc(assignHint())}</span></div>
-                  <button type="button" id="qzSessAdd" class="btn primary">${svgIcon('plus')}<span>Add session</span></button>
+              <section class="qz-sec-glass qz-sec-card">
+                <h4><span class="qz-sec-ic">${ic.plus}</span>New section</h4>
+                <p class="qz-sec-desc">Create a section, then add questions to it.</p>
+                <input class="qz-sec-field" type="text" id="qzSecNewName" placeholder="Section name, e.g. Week 2" value="${esc(newName)}">
+                <div class="qz-sec-row" style="margin-top:10px">
+                  <input class="qz-sec-field qz-sec-grow" type="text" id="qzSecNewPick" placeholder="Questions (optional), e.g. 1-50, 75, first 20" value="${esc(newPick)}">
+                  <button type="button" class="qz-sec-btn qz-sec-primary" id="qzSecCreate">Create</button>
                 </div>
               </section>
             </div>
-
-            <section class="qz-sr-card">
-              <div class="qz-sr-existing-head">
-                <div class="qz-sr-cardtitlewrap" style="gap:12px">
-                  <div class="qz-sr-cardicon">${svgIcon('layers')}</div>
-                  <div><h4 class="qz-sr-cardtitle">Existing sessions</h4><p class="qz-sr-carddesc">Manage your sessions. Click to edit, rename, or delete.</p></div>
-                </div>
-                <div class="qz-sr-sort"><span>Sort by</span><select class="qz-sr-select" id="qzSessSort" style="width:170px;height:44px"><option value="order" ${sessionsSort==='order'?'selected':''}>Session order</option><option value="name" ${sessionsSort==='name'?'selected':''}>Name</option><option value="count" ${sessionsSort==='count'?'selected':''}>Question count</option></select></div>
-              </div>
-              ${sortedNames.length?`<div class="qz-sr-sessionlist">${sortedNames.map((entry,idx)=>`<div class="qz-sr-sessionrow">
-                <div class="qz-sr-handle">⋮⋮</div>
-                <div class="qz-sr-badge ${sessionBadgeClass(idx)}">${idx+1}</div>
-                <div><div class="qz-sr-name">${esc(entry.name)}</div><div class="qz-sr-meta">${entry.count} question${entry.count===1?'':'s'}<br>${esc(sessionRange(entry.name))}</div></div>
-                <div class="qz-sr-progresswrap"><div class="qz-sr-progress"><span></span></div><span class="qz-sr-progresspct">100%</span></div>
-                <div class="qz-sr-meta" style="font-size:15px">Ready</div>
-                <div class="qz-sr-actions"><button type="button" class="btn qz-sess-edit" data-sess="${esc(entry.name)}">${svgIcon('edit')}<span>Edit</span></button><button type="button" class="btn qz-sess-rename" data-sess="${esc(entry.name)}">${svgIcon('rename')}<span>Rename</span></button><button type="button" class="btn danger qz-sess-remove" data-sess="${esc(entry.name)}">${svgIcon('delete')}<span>Delete</span></button></div>
-              </div>`).join('')}</div>`:`<div class="qz-sr-existing-empty">No sessions yet. Use Auto-split or Add new session to get started.</div>`}
+            <section class="qz-sec-glass qz-sec-card">
+              <div class="qz-sec-row qz-sec-cardtop"><h4><span class="qz-sec-ic">${ic.layers}</span>Your sections</h4>
+                <label class="qz-sec-sort">Sort <select class="qz-sec-field" id="qzSecSort"><option value="order" ${sortBy==="order"?"selected":""}>Section order</option><option value="name" ${sortBy==="name"?"selected":""}>Name</option><option value="count" ${sortBy==="count"?"selected":""}>Question count</option></select></label></div>
+              ${names.length?sortedSections().map(r=>`
+                <div class="qz-sec-glass qz-sec-item ${secFilter===r.name?"active":""}">
+                  <div class="qz-sec-badge">${r.idx+1}</div>
+                  <div class="qz-sec-meta"><b>${esc(r.name)}</b><small>${r.count} question${r.count===1?"":"s"} · ${esc(rangeLabel(r.name))}</small></div>
+                  <div class="qz-sec-bar" title="${qs.length?Math.round(r.count/qs.length*100):0}% of All Questions"><i style="width:${qs.length?Math.max(r.count?2:0,Math.round(r.count/qs.length*100)):0}%"></i></div>
+                  <div class="qz-sec-acts">
+                    <button type="button" class="qz-sec-btn qz-sec-sm" data-sec-edit="${esc(r.name)}">Edit</button>
+                    <button type="button" class="qz-sec-btn qz-sec-sm" data-sec-rename="${esc(r.name)}">Rename</button>
+                    <button type="button" class="qz-sec-btn qz-sec-sm qz-sec-danger" data-sec-delete="${esc(r.name)}">Delete</button>
+                  </div>
+                </div>`).join(""):`<div class="qz-sec-empty">No sections yet. Use <b>Auto-split</b> or <b>New section</b> to make one.</div>`}
             </section>
-
-            <section class="qz-sr-card" id="qzAssignManualSection">
-              <div class="qz-sr-manual-head">
-                <div class="qz-sr-cardtitlewrap">
-                  <div class="qz-sr-cardicon">${svgIcon('list')}</div>
-                  <div><h4 class="qz-sr-cardtitle">Assign questions manually</h4><p class="qz-sr-carddesc">Search and assign questions to a session. (You can also leave questions unassigned.)</p></div>
-                </div>
-                <button type="button" id="qzSessToggleManual" class="qz-sr-collapse" aria-label="Toggle">${manualOpen?'▾':'▸'}</button>
+            <section class="qz-sec-glass qz-sec-card" id="qzSecAssign">
+              <h4><span class="qz-sec-ic">${ic.list}</span>Add questions to sections</h4>
+              <p class="qz-sec-desc">Tick questions, then add them to a section. Adding never removes them from anywhere else.</p>
+              <div class="qz-sec-row qz-sec-filters">
+                <label class="qz-sec-field qz-sec-grow qz-sec-search">${ic.search}<input type="text" id="qzSecSearch" placeholder="Search questions or #number…" value="${esc(search)}"></label>
+                <select class="qz-sec-field" id="qzSecView"><option value="all" ${view==="all"?"selected":""}>All Questions</option><option value="in" ${view==="in"?"selected":""}>In a section</option><option value="none" ${view==="none"?"selected":""}>Not in any section</option></select>
+                <select class="qz-sec-field" id="qzSecFilter"><option value="">Any section</option>${secOptions(secFilter)}</select>
               </div>
-              ${manualOpen?`
-              <div class="qz-sr-filterbar">
-                <div class="qz-sr-search">${svgIcon('search')}<input class="qz-sr-input" type="text" id="qzSessAssignSearch" placeholder="Search questions..." value="${esc(assignSearch)}"></div>
-                <select class="qz-sr-select" id="qzSessViewFilter"><option value="all" ${assignView==='all'?'selected':''}>All Questions</option><option value="assigned" ${assignView==='assigned'?'selected':''}>Assigned only</option><option value="unassigned" ${assignView==='unassigned'?'selected':''}>Unassigned only</option></select>
-                <select class="qz-sr-select" id="qzSessAssignFilter"><option value="all" ${assignSessionFilter==='all'?'selected':''}>All Sessions</option>${names.map(n=>`<option value="${esc(n)}" ${assignSessionFilter===n?'selected':''}>${esc(n)}</option>`).join('')}</select>
-                <select class="qz-sr-select" id="qzSessLabelFilter"><option value="all" ${assignLabelFilter==='all'?'selected':''}>All labels</option><option value="named" ${assignLabelFilter==='named'?'selected':''}>Assigned</option><option value="unassigned" ${assignLabelFilter==='unassigned'?'selected':''}>Unassigned</option></select>
+              ${selected.size?`<div class="qz-sec-bulk"><b>${selected.size} selected</b>
+                ${names.length?`<select class="qz-sec-field" id="qzSecBulkTarget"><option value="">Choose section…</option>${secOptions(bulkTarget)}</select>
+                <button type="button" class="qz-sec-btn qz-sec-primary qz-sec-sm" id="qzSecBulkAdd">Add to section</button>
+                <button type="button" class="qz-sec-btn qz-sec-sm" id="qzSecBulkRemove">Remove from section</button>`:`<span class="qz-sec-muted">Create a section first.</span>`}
+                <button type="button" class="qz-sec-btn qz-sec-sm" id="qzSecBulkClear">Clear</button></div>`:""}
+              <div class="qz-sec-glass qz-sec-table">
+                <div class="qz-sec-tr qz-sec-th"><label class="qz-sec-cb"><input type="checkbox" id="qzSecPageAll" ${allOnPage?"checked":""}></label><span>#</span><span>Question</span><span>Sections</span></div>
+                ${rows.length?rows.map(i=>{const q=qs[i],secs=qzSessOf(q),free=names.filter(n=>!secs.includes(n));return `
+                <div class="qz-sec-tr">
+                  <label class="qz-sec-cb"><input type="checkbox" data-sec-pick="${esc(q.id)}" ${selected.has(q.id)?"checked":""}></label>
+                  <span class="qz-sec-muted">${i+1}</span>
+                  <span class="qz-sec-q">${esc((q.prompt||"(untitled)").slice(0,140))}</span>
+                  <span class="qz-sec-chips">${secs.map(n=>`<span class="qz-sec-chip">${esc(n)}<button type="button" aria-label="Remove from ${esc(n)}" data-sec-unchip="${i}" data-sec-name="${esc(n)}">×</button></span>`).join("")}${free.length?`<select class="qz-sec-chip qz-sec-chip-add" data-sec-addchip="${i}"><option value="">+ Add</option>${free.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("")}</select>`:""}${!secs.length&&!free.length?'<span class="qz-sec-muted">—</span>':""}</span>
+                </div>`}).join(""):`<div class="qz-sec-empty">No questions match.</div>`}
+                <div class="qz-sec-pager"><button type="button" class="qz-sec-page" id="qzSecPrev" ${page<=1?"disabled":""}>‹</button>${pageBtns.join("")}<button type="button" class="qz-sec-page" id="qzSecNext" ${page>=totalPages?"disabled":""}>›</button>
+                  <em>Showing ${list.length?start+1:0}–${start+rows.length} of ${list.length}</em></div>
               </div>
-              ${qs.length?`<div class="qz-sr-tablewrap"><table class="qz-sr-table"><thead><tr><th class="qz-sr-col-check"><input type="checkbox" disabled></th><th class="qz-sr-col-num">#</th><th>Question</th><th>Current session</th></tr></thead><tbody>${pageRows.map(({row,idx})=>`<tr><td><input type="checkbox" disabled></td><td>${idx+1}</td><td>${esc((row.prompt||'(untitled question)').replace(/\s+/g,' ').slice(0,120))}</td><td><select class="qz-sr-select qz-sess-assign" data-qidx="${idx}" style="height:42px"><option value="">Unassigned</option>${names.map(n=>`<option value="${esc(n)}" ${row.session_label===n?'selected':''}>${esc(n)}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>`:`<div class="qz-sr-existing-empty">Add questions to this quiz first.</div>`}
-              <div class="qz-sr-pagination"><div class="qz-sr-pagebtns"><button type="button" class="qz-sr-pagebtn" id="qzSessPrevPage" ${assignPage<=1?'disabled':''}>‹</button>${Array.from({length:Math.min(totalPages,6)},(_,i)=>{let p=i+1;if(totalPages>6 && assignPage>3){p=Math.min(totalPages-5,Math.max(1,assignPage-2))+i;}return `<button type="button" class="qz-sr-pagebtn ${p===assignPage?'active':''}" data-page="${p}">${p}</button>`}).join('')}${totalPages>6?'<span style="padding:0 6px">…</span>':''}${totalPages>6?`<button type="button" class="qz-sr-pagebtn ${assignPage===totalPages?'active':''}" data-page="${totalPages}">${totalPages}</button>`:''}<button type="button" class="qz-sr-pagebtn" id="qzSessNextPage" ${assignPage>=totalPages?'disabled':''}>›</button></div><div>${filtered.length?`Showing ${showingFrom}–${showingTo} of ${filtered.length} questions`:'No matching questions'}</div></div>`:''}
             </section>
           </div>
-        </div>
-      `);
-      const box=document.getElementById('qzSubDialogBox');
-      box.classList.remove('qz-addq-wide');
-      box.classList.add('qz-sessions-wide');
-      const closeTop=document.getElementById('qzSessCloseTop'); if(closeTop) closeTop.onclick=qzCloseSubDialog;
-      const splitCountEl=document.getElementById('qzSessSplitCount');
-      const splitSessionsEl=document.getElementById('qzSessSplitSessions');
-      if(splitCountEl) splitCountEl.oninput=()=>{splitCountValue=splitCountEl.value};
-      if(splitSessionsEl) splitSessionsEl.oninput=()=>{splitSessionsValue=splitSessionsEl.value};
-      document.querySelectorAll('input[name="qzSessSplitMode"]').forEach(r=>r.onchange=()=>{splitMode=r.value; renderDialog()});
-      const newNameEl=document.getElementById('qzSessNewName'); if(newNameEl) newNameEl.oninput=()=>{newSessionName=newNameEl.value};
-      const addPresetEl=document.getElementById('qzSessAddPreset'); if(addPresetEl) addPresetEl.onchange=()=>{addQuestionPreset=addPresetEl.value; renderDialog()};
-      const sortEl=document.getElementById('qzSessSort'); if(sortEl) sortEl.onchange=()=>{sessionsSort=sortEl.value; renderDialog()};
-      document.getElementById('qzSessSplitBtn').onclick=()=>{
-        if(!qs.length)return;
-        const names=allSessionNames();
-        if(names.length && !confirm('This replaces the current session assignments. Continue?'))return;
-        const perSessionInput=Math.max(0,Number(splitCountValue)||0);
-        const numSessionsInput=Math.max(0,Number(splitSessionsValue)||0);
-        let perSession=0;
-        if(splitMode==='count'){
-          if(numSessionsInput>0) perSession=Math.ceil(qs.length/numSessionsInput);
-        }else if(perSessionInput>0) perSession=perSessionInput;
-        if(!(perSession>0)){toast(splitMode==='count'?'Enter number of sessions':'Enter questions per session');return}
-        pendingNames=[]; overrides={};
-        qs.forEach((q,i)=>{q.session_label=`Session ${Math.floor(i/perSession)+1}`});
-        toast(`Split into ${Math.ceil(qs.length/perSession)} session${Math.ceil(qs.length/perSession)===1?'':'s'}`);
-        assignPage=1;
-        autoSaveSessions();
-        renderDialog();
+        </div>`);
+      const box=document.getElementById("qzSubDialogBox");
+      box.classList.remove("qz-addq-wide");
+      box.classList.add("qz-sections-glass");
+      const bodyEl=box.querySelector(".qz-sec-body");if(bodyEl)bodyEl.scrollTop=prevScroll;
+      const $=id=>document.getElementById(id);
+      $("qzSecClose").onclick=qzCloseSubDialog;
+      $("qzSecUndo").onclick=()=>{
+        if(!confirm("Undo every section change made since you opened this window?"))return;
+        qs=originalQs.map(q=>({...q,session_labels:[...q.session_labels]}));names=[...originalNames];overrides={...(settings.session_overrides||{})};
+        selected.clear();secFilter="";bulkTarget="";save();toast("Section changes undone");render();
       };
-      document.getElementById('qzSessAdd').onclick=()=>{
-        const name=(newSessionName||'').trim();
-        if(!name)return toast('Enter a session name');
-        if(!allSessionNames().includes(name)) pendingNames.push(name);
-        if(addQuestionPreset==='unassigned'){qs.forEach(q=>{if(!q.session_label)q.session_label=name});}
-        toast(`"${name}" added`);
-        newSessionName=''; addQuestionPreset='';
-        autoSaveSessions();
-        renderDialog();
+      document.querySelectorAll("[data-split]").forEach(b=>b.onclick=()=>{splitMode=b.dataset.split;render()});
+      const splitEl=$("qzSecSplitVal");
+      splitEl.oninput=()=>{if(splitMode==="per")splitPer=splitEl.value;else splitCount=splitEl.value;
+        const n=Number(splitEl.value)||0;$("qzSecSplitPreview").textContent=`${splitMode==="per"?"per section":"sections"} ${!qs.length||n<=0?"":splitMode==="per"?`→ ${Math.ceil(qs.length/n)} sections`:`→ ~${Math.ceil(qs.length/n)} questions each`}`};
+      $("qzSecSplit").onclick=()=>{
+        const n=Math.floor(Number(splitMode==="per"?splitPer:splitCount)||0);
+        if(!qs.length)return toast("This quiz has no questions yet");
+        if(n<=0)return toast(splitMode==="per"?"Enter questions per section":"Enter number of sections");
+        const per=splitMode==="per"?n:Math.ceil(qs.length/n);
+        const count=Math.ceil(qs.length/per);
+        if(names.length&&!confirm(`Replace your ${names.length} current section${names.length===1?"":"s"} with ${count} new ones?\n\nAll Questions is not changed.`))return;
+        names=Array.from({length:count},(_,k)=>`Section ${k+1}`);
+        overrides={};
+        qs.forEach((q,i)=>qzSetSess(q,[`Section ${Math.floor(i/per)+1}`]));
+        selected.clear();secFilter="";bulkTarget="";page=1;
+        save();toast(`Split into ${count} section${count===1?"":"s"}`);render();
       };
-      document.querySelectorAll('.qz-sess-remove').forEach(btn=>btn.onclick=()=>removeSession(btn.dataset.sess));
-      document.querySelectorAll('.qz-sess-rename').forEach(btn=>btn.onclick=()=>{const current=btn.dataset.sess; const next=prompt('Rename session',current); if(next!==null) renameSession(current,next)});
-      document.querySelectorAll('.qz-sess-edit').forEach(btn=>btn.onclick=()=>{assignSessionFilter=btn.dataset.sess; assignView='all'; assignLabelFilter='all'; manualOpen=true; assignPage=1; renderDialog(true)});
-      const manualToggle=document.getElementById('qzSessToggleManual'); if(manualToggle) manualToggle.onclick=()=>{manualOpen=!manualOpen; renderDialog()};
-      const assignSearchEl=document.getElementById('qzSessAssignSearch'); if(assignSearchEl) assignSearchEl.oninput=()=>{assignSearch=assignSearchEl.value; assignPage=1; renderDialog()};
-      const viewFilterEl=document.getElementById('qzSessViewFilter'); if(viewFilterEl) viewFilterEl.onchange=()=>{assignView=viewFilterEl.value; assignPage=1; renderDialog()};
-      const assignFilterEl=document.getElementById('qzSessAssignFilter'); if(assignFilterEl) assignFilterEl.onchange=()=>{assignSessionFilter=assignFilterEl.value; assignPage=1; renderDialog()};
-      const labelFilterEl=document.getElementById('qzSessLabelFilter'); if(labelFilterEl) labelFilterEl.onchange=()=>{assignLabelFilter=labelFilterEl.value; assignPage=1; renderDialog()};
-      document.querySelectorAll('.qz-sess-assign').forEach(sel=>sel.onchange=()=>{qs[Number(sel.dataset.qidx)].session_label=sel.value||null;autoSaveSessions()});
-      const prevPageEl=document.getElementById('qzSessPrevPage'); if(prevPageEl) prevPageEl.onclick=()=>{if(assignPage>1){assignPage--;renderDialog()}};
-      const nextPageEl=document.getElementById('qzSessNextPage'); if(nextPageEl) nextPageEl.onclick=()=>{const totalPages=Math.max(1,Math.ceil(filteredQuestions().length/perPage)||1); if(assignPage<totalPages){assignPage++;renderDialog()}};
-      document.querySelectorAll('.qz-sr-pagebtn[data-page]').forEach(btn=>btn.onclick=()=>{assignPage=Number(btn.dataset.page)||1; renderDialog()});
-      const resetEl=document.getElementById('qzSessReset'); if(resetEl) resetEl.onclick=()=>{qs=originalQs.map(q=>({...q})); overrides={...(settings.session_overrides||{})}; pendingNames=[]; splitMode='per'; splitCountValue='40'; splitSessionsValue=''; newSessionName=''; addQuestionPreset=''; assignSearch=''; assignView='all'; assignSessionFilter='all'; assignLabelFilter='all'; assignPage=1; sessionsSort='order'; manualOpen=true; autoSaveSessions(); toast('Session changes reset'); renderDialog()};
-      if(scrollToAssign){ setTimeout(()=>document.getElementById('qzAssignManualSection')?.scrollIntoView({block:'start',behavior:'smooth'}),20); }
+      $("qzSecNewName").oninput=e=>{newName=e.target.value};
+      $("qzSecNewPick").oninput=e=>{newPick=e.target.value};
+      $("qzSecCreate").onclick=()=>{
+        const name=(newName||"").trim();
+        if(!name)return toast("Enter a section name");
+        if(names.includes(name))return toast("That section name already exists");
+        let picked=[];
+        if(newPick.trim()){
+          picked=qzParseMoveNumberSelector(newPick,qs.length).map(Number).filter(n=>n>=1&&n<=qs.length);
+          if(!picked.length)return toast("No questions match — try e.g. 1-50");
+        }
+        names.push(name);
+        picked.forEach(n=>qzAddSess(qs[n-1],name));
+        newName="";newPick="";
+        save();toast(picked.length?`"${name}" created with ${picked.length} question${picked.length===1?"":"s"}`:`"${name}" created — add questions below`);
+        if(!picked.length){secFilter="";bulkTarget=name}
+        render();
+      };
+      $("qzSecSort").onchange=e=>{sortBy=e.target.value;render()};
+      document.querySelectorAll("[data-sec-edit]").forEach(b=>b.onclick=()=>{secFilter=b.dataset.secEdit;bulkTarget=b.dataset.secEdit;view="all";page=1;render();setTimeout(()=>$("qzSecAssign")?.scrollIntoView({block:"start",behavior:"smooth"}),30)});
+      document.querySelectorAll("[data-sec-rename]").forEach(b=>b.onclick=()=>{const cur=b.dataset.secRename;const next=prompt("Rename section",cur);if(next!==null)renameSection(cur,next)});
+      document.querySelectorAll("[data-sec-delete]").forEach(b=>b.onclick=()=>deleteSection(b.dataset.secDelete));
+      const searchEl=$("qzSecSearch");
+      searchEl.oninput=()=>{search=searchEl.value;page=1;render();const el=$("qzSecSearch");if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length)}};
+      $("qzSecView").onchange=e=>{view=e.target.value;page=1;render()};
+      $("qzSecFilter").onchange=e=>{secFilter=e.target.value;page=1;render()};
+      $("qzSecPageAll").onchange=e=>{rows.forEach(i=>e.target.checked?selected.add(qs[i].id):selected.delete(qs[i].id));render()};
+      document.querySelectorAll("[data-sec-pick]").forEach(cb=>cb.onchange=()=>{cb.checked?selected.add(cb.dataset.secPick):selected.delete(cb.dataset.secPick);render()});
+      const bulkTargetEl=$("qzSecBulkTarget");if(bulkTargetEl)bulkTargetEl.onchange=()=>{bulkTarget=bulkTargetEl.value};
+      const pickedQs=()=>qs.filter(q=>selected.has(q.id));
+      const bulkAdd=$("qzSecBulkAdd");if(bulkAdd)bulkAdd.onclick=()=>{if(!bulkTarget)return toast("Choose a section");const p=pickedQs();p.forEach(q=>qzAddSess(q,bulkTarget));selected.clear();save();toast(`Added ${p.length} to "${bulkTarget}"`);render()};
+      const bulkRemove=$("qzSecBulkRemove");if(bulkRemove)bulkRemove.onclick=()=>{if(!bulkTarget)return toast("Choose a section");const p=pickedQs().filter(q=>qzInSess(q,bulkTarget));p.forEach(q=>qzRemoveSess(q,bulkTarget));selected.clear();save();toast(`Removed ${p.length} from "${bulkTarget}"`);render()};
+      const bulkClear=$("qzSecBulkClear");if(bulkClear)bulkClear.onclick=()=>{selected.clear();render()};
+      document.querySelectorAll("[data-sec-unchip]").forEach(b=>b.onclick=()=>{qzRemoveSess(qs[Number(b.dataset.secUnchip)],b.dataset.secName);save();render()});
+      document.querySelectorAll("[data-sec-addchip]").forEach(sel=>sel.onchange=()=>{if(!sel.value)return;qzAddSess(qs[Number(sel.dataset.secAddchip)],sel.value);save();render()});
+      $("qzSecPrev").onclick=()=>{if(page>1){page--;render()}};
+      $("qzSecNext").onclick=()=>{page++;render()};
+      document.querySelectorAll(".qz-sec-page[data-page]").forEach(b=>b.onclick=()=>{page=Number(b.dataset.page)||1;render()});
     }
-    renderDialog();
+    render();
   }
 
   /* Client-side, per-browser session completion tracking — powers the
@@ -10761,7 +10853,7 @@ Q5 Answer B
     if(!answeredIds.size)return null;
     if(answeredIds.size===questions.length)return "All questions";
     for(const name of sessionNames){
-      const activeIds=questions.filter(q=>!q.session_label||q.session_label===name).map(q=>q.id);
+      const activeIds=questions.filter(q=>qzInSess(q,name)).map(q=>q.id);
       if(activeIds.length!==answeredIds.size)continue;
       if(activeIds.every(id=>answeredIds.has(id)))return name;
     }
@@ -10810,9 +10902,9 @@ Q5 Answer B
        assigns its own permanent id on Save regardless (save_quiz_questions
        replaces the whole question set), so this temporary id is only ever
        used before the first save. */
-    if(type==="mcq")return {id:uid(),type:"mcq",prompt,options:[{text:"",image:null},{text:"",image:null},{text:"",image:null},{text:"",image:null}],correct_answer:0,points,images:[],explanation:"",allow_multiple:false,session_label:null};
-    if(type==="true_false")return {id:uid(),type:"true_false",prompt,options:null,correct_answer:true,points,images:[],explanation:"",session_label:null};
-    return {id:uid(),type:"short_answer",prompt,options:null,correct_answer:[],points,images:[],explanation:"",session_label:null};
+    if(type==="mcq")return {id:uid(),type:"mcq",prompt,options:[{text:"",image:null},{text:"",image:null},{text:"",image:null},{text:"",image:null}],correct_answer:0,points,images:[],explanation:"",allow_multiple:false,session_label:null,session_labels:[]};
+    if(type==="true_false")return {id:uid(),type:"true_false",prompt,options:null,correct_answer:true,points,images:[],explanation:"",session_label:null,session_labels:[]};
+    return {id:uid(),type:"short_answer",prompt,options:null,correct_answer:[],points,images:[],explanation:"",session_label:null,session_labels:[]};
   }
   /* Round 5 note 1/9: the per-card image row now opens the real Image
      Manager (focused on this question) instead of the old generic Upload
@@ -11521,7 +11613,7 @@ Q5 Answer B
     let qzWinStart=0,qzWinEnd=0,qzEstSlotHeight=220,qzEstSlotHeightMeasured=false,qzWinScrollTicking=false,qzSuppressAutoWindowUntil=0;
     try{
       const rows=await service.getQuizQuestionsAdmin(item.id);
-      questions=rows.map(r=>({id:r.id,type:r.type,prompt:r.prompt,options:r.options?[...r.options]:[],correct_answer:r.correct_answer,points:Number(r.points)||1,image:r.image||null,explanation:r.explanation||"",allow_multiple:!!r.allow_multiple,images:Array.isArray(r.images)?[...r.images]:[],session_label:r.session_label||null}));
+      questions=rows.map(r=>({id:r.id,type:r.type,prompt:r.prompt,options:r.options?[...r.options]:[],correct_answer:r.correct_answer,points:Number(r.points)||1,image:r.image||null,explanation:r.explanation||"",allow_multiple:!!r.allow_multiple,images:Array.isArray(r.images)?[...r.images]:[],session_label:r.session_label||null,session_labels:qzSessOf(r)}));
     }catch(error){alert(friendlyError(error));qzClosePage();return}
     /* Kuza (Disk IO / incremental-save fix): ids just loaded above are real,
        current database ids (getQuizQuestionsAdmin reads the actual table),
@@ -11531,6 +11623,7 @@ Q5 Answer B
     let qzLastSavedOrder=questions.map(q=>q.id);
     let qzLastSavedSnapshot=qzSnapshotFromQuestions(questions);
     settings=Object.assign({shuffle:false,shuffle_mode:"off",show_answers:true,time_limit_minutes:null,pass_percent:null,cover:null},item.quiz_settings||{});
+    qzUseSessionRegistry(settings);
     let curItem=item;
 
     /* --------------------------- Round 5 note 7: drafts ----------------------
@@ -11665,7 +11758,7 @@ Q5 Answer B
               <button class="btn ${qzShuffleMode(settings)!=="off"?"qz-toggle-on":""}" id="qzBtnShuffle" type="button"><svg viewBox="0 0 24 24"><path d="M3 7h3l12 10h3"/><path d="m18 14 3 3-3 3"/><path d="M3 17h3l12-10h3"/><path d="m18 10 3-3-3-3"/></svg>Shuffle: ${QZ_SHUFFLE_LABELS[qzShuffleMode(settings)]}</button>
               <button class="btn" id="qzBtnMood" type="button"><img src="data:image/png;base64,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" alt="" style="width:20px;height:20px;object-fit:contain;flex-shrink:0">Quiz Behavior</button>
               <button class="btn" id="qzBtnAutoAdvance" type="button"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" style="flex-shrink:0"><path d="m6 5 7 7-7 7M13 5l7 7-7 7"/></svg>Auto-Advance</button>
-              <button class="btn" id="qzBtnSessions" type="button"><img src="data:image/png;base64,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" alt="" style="width:20px;height:20px;object-fit:contain;flex-shrink:0">Sessions</button>
+              <button class="btn" id="qzBtnSessions" type="button"><img src="data:image/png;base64,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" alt="" style="width:20px;height:20px;object-fit:contain;flex-shrink:0">Sections</button>
               <button class="btn" id="qzBtnResults" type="button"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAANEAAADRCAYAAABSOlfvAAAMYklEQVR4nO2dwY4cSRGG/2kb8wALj8B77BW47FNw4IQQAnFeaU/cQBYXxJHDaqUVQou4Ie0L8CDjK0j2TDeHmbKrazK7sirjz47o+D9pZLvdXZOVmV9HZlRWFiCEEEIIIYQQQgghhLgOd9cuwC3x79+/O118w3Ntnw5Pfx7vKm8/XG6Whx+2lef4+uVr0+8GgJ/95jO1vwGqRANW5Zm4O+/EwEykFXEmWgQqyQOc/+7533/+a8nUw2H9LcKEQjcdKVCNk/TpRhINZBmFGBwe1n/3iHJkQtU5gudv+7vjp5cYUQjYFokUhWyQRGxmHdVDBPBQhltDVTqIeecdHYWm3302pFMUMmPjNFRs4g74/Csfma/v/tCYQRSbUSRKQi0Kbc3miZdIIhYu4o8YgSRKhuZC9kgiBovlPV7RUM4G580ckCACCTvU1IlQQoGDJLLEcRTSXIiHw+YOSqBOqihkiyQyxmMUmiOB7HHe5LGo3iskbhpJZMGle4UcUbzTNdAw1CuSiIBHgQQPSWREcS7UuEpbxEYSGdBzm8M10VDOBknEIJBA3rOJEVAVGuJ5LrS2fZbYj6rRCM8CLTkV9nwQ+5FE1jgfyp2c7flwC6gaDYiUTJiQQHaoKoXoRBJZESAKKSPHQdVpgQRKjapUiE4kUSIUhTioWoXoRBIJ0YkkEqITSZSE2nzow5ux5bhFJBGR1qc5iNhIIhIRBFIUskESEYggkLBDEhkTRSBFITskkSESKCeSKBkSyB5JJEQnksiICEM5RSEOksiACAIJHpJIiE4kERFPT2CoDeV0e0Q/qsLESCAbVI1CdCKJhOhEEiVFQzk7VJUkPCUVlkggW1SdBCRQLlSlyTke4mzE7xVJZEykKCSBbJBEhngWSPCQREZ4F0hRiIckMsC7QEskkC2SiIjHTNhSoOOrKxXkhnDYzLeBR4EEBzU1Aa8CKQpxcNrccZFA+XDa5LeBW6EkkClOmzk+EigPTps6JpM4kQTyWtZIqAqNiNgZI5bZI8EuE/pk3hmjdMyecv716/sTABwLx3hcRLvSe+avTX8/3dXfUzvOQ+WzpXN7/wp48wj87vMfmT+lOkiT++d0WMjk7IHi86GchegtAq19rnSM0uu9Ak28fwV8+f29+XINRSICHx9370wkC/7yzf3pWHi9JFCLDMD2enqoHafy+ntyMkWRyBjv4jCGm3sEqg3j1o5T41oCAZLIhCjzoBItQzDW50sCrUnzsGHIPEIgQMM5U15Mjh3V7kjRW6PQ1s9tEWgkjpo5Np4FqsGIQmsi7J071eZBQD0bN4oATe0fCfTEL76wTx/vhZGFqxF4NO+TrAJFgTGslUSGRBCol5pArVm0a8KaFwY49RhEEYgRRTILBEgiE2oCecogAXkFYqMqIOFNoBqR5zetsNP7koiIp4uwikI8gozk4xAlAgG2YnkVasQXmdNTj8lcIE9RqESvQF6luQaqCiMyC+RVqFI7PBCGtU5PX7DIEoFGfpEFqRLfRIlC2ZMLjCgEKLFghmd5WEigJwJVg18iC7RXhCjzIoArECCJUmMlUHZUHUlo2YWnhdruPV6vj7GjECCJRCeeo9IIgQAlFmh8eHPtEtSx6vitm4144pFQVsffI3GJJNDetLfnCASMi0KAJDInkkAWx8kehQBJlIa9O5ZeIpJATCSRIZ6j0JLeYVw0gVhRCJBEZmQQ6BKe50hMgQBJZEI2gdae4OAJtkCAJBIbkUAvcVwF8fG2pq5l99EteBZoJKoGEtkEyixU4lPn4U2gjNSGcrqzNQBRBMoYhXRTXgDmAh0Pw/ZT34xlp88uEKBIlJ6tErQ8c9Ub7HV01Ej0r6/eNX0dr+1jvRwirQ2ZHn/Q8ltnz1adHe+LX362KzHqPQodD8DhGFOCHkLfT7Qm0PH1p58ayydyT6+d/fvu/OeSQPP3HV+Vj//t2zbxa2XyKNCEhUDT5zII2AqlKloEWqMkz/IR91serrVlR549IgG+BbJk65PsrsXN3pS3VaBShy8+MNdIIGD7Mp5o8mSIIiPvJxom0d7oc/bvjfLMP9OaerZaB3d8BRwebY5lCSM97TEKjWSIRBGiD2Ar0PxPr1gKFO3WCEuoEu2JPsX3dDxY+FoCecR6GJc9Ak1QJLIYugH7hm9rxyzBEsjT6oXaMG5vBHlYJHmi8IHwJTc8sfDT3+67DsPg27fvThkEWtIbkaIKxMJxU/PJMIRbYrnJSDSBGFEIGBiJPH8zW+PxXJfRp3cYt/y8x3OewxIIGBSJvFfwkp7yRjhX6wgU4ZyZUCNRxMrNJtDW+ZEEeglFomKmLUBl7y1j7XPeHm9vPYeJ0KYAdygHDJgTRalo63JGEKgnSxelXdkCAUSJWq/7eMB6FbY3gUpkFYjRB8cN5xwKtCynBLodRgkEjBjOOZSnRLSV2HvpXYBai0LvA3x5sOAN5zqX7IzCSp6IEcgqIkUQ6ONqfsKxOcO5jgWjI2EL5EmsqDv0WMIaa9C7t1eBakRawrMXS4EiRSEW1O+jaAJZ4ikKsYgkEHPGe7VbIbxhGYE8C5RxHsQmYHe3x0ogz/IAdhuMRBOInXcdOr30mO4uCbTnYqIE8smICxdDIpFHeQA7garHd5wBy3Br96grf9xV3IFW/PaUzXsUuoTVF5y3th156XzIdSJvFbyEUb4IUehWBRpN+vuJrMvoWR5AAjGgVUGEyo1QRkskEAdKNWStXM9RyHpvhKxtXELXiWb0JAhKAkVOOFxCAp2j6ngmg0DREj4M/vfaPm83NBJZ7fNmCaOz37JAtc+NfArDXhgCAQMjkQTyg3UEyiwQMCASeZSHhWeBWEO3CAKxoUkUVZ49IniWh0kUgZhRCCAN5zIJdAnPKe+JvQtKJdAnAjTzGCRQO1EEGkX660QZ5QFyCDQiCgGj7ydy1sEkkB2Pzm53GSUQMFAibwJZUxIoilS9eBNoNNqLe8Gejh9JoGh3pkZg6F7c3rHq+B4FYskTLgpF3ovb8za9tywPEwn0RLJmf0l2gfaOGMIJRIQ6J/IcfQBux48g1a5djaLKQyw3ram9C1RjT9pb+1w7v35EFp+zA2pBIO97XM/lsbq3yOtWYYBt4iezQMCIDe09V/AzVhddIwiU6jaIyNsIRxBnQgLdKAPbIPXaOWuBvMoDcARyHYUGMkyiKN+Ce5MC1k/nHsUeESTPOek3b5wjgTifuXW07Af2KepbFUiUSb95o3WHl0D5CNDkPKxXX0ugnAxLLETYzGOvBBFuhZA8POgSRZAHsO303gQawYcg7cyAJlFkeSwjknfCLih1BKXZJdAT3h/paCVQ5igEJF+xsCRLBLKMPtEE+i+hxw+VyHOEirD2zYLM0YchEKDEAk0ej0M5CcSBcmjv4kwwBHpwGtHYAnk61yVMgQDNiWjRx3OnygRbICC5RFYLR5dDtygCWV2AjXK+LIZK5D2L1Vu+SJ3JWiCPO2qMiELAIIm8ywNwBPK6EDdDBBolEECUKII4gE05Iz1Q2EKgF+fbf8jQkHb7YRzVHsbC0UwCZZdnQhdbnzGJSI4FskYCfWKIRJ7lAXIIZHkrhAQ6J/0qbgu8C2SJBHqJViyQ0HOA8pDoO7Qdj+vehF90sXWGhTzRIlDExaQ9MIajutj6jAS6fVjzufQXW0vr3u421nY0eYB8AjFJfbG1turaajmLx6wdS56Rj7zfCrtkw+ZEnsWKtGynBwnEgf98IscdMtKi0V4kEI/Uw7kllgJFkbFn6BpRoEdCuyjF/YxVp88gD+BboBoMgYDkwzlA0WePChLoHGqzSyB/ZLyVgSkQQJLoeHi5k870c2t8+f39KYpAc+YC/eo/980+RYxCbC526z///aly1yJK6f/XhNlzzBKllQa9WbfWi6eXjtly68HaNlZ7bl+4lIXr2Q+hWZ6OL8qeW7pHJBL+9pMfF8/uYrG3dvTWSNMrUG2Jjgd5gPXO37IHnKVAQ+QBhj6xe87ITFyJ6mm//cfLEF/r3KPkmWjdoqpVoC3LdtgCsaIPsF2ikQLtjUKlEjLlKUWjpqKzN3pveV/rsO3j/zUcc6Q8gASqEUWgGtXiX+rYvfOd1vdMbNkccbQ8QL9ATHkACcTmYhX88Z/3p7vT+OHaROu2vIx5T+txrxGBWNEHiCsQwJeollhYrYY/fXd/mhpmqwQ9GbY5vXMeYF2ePWnq0fOftfVvFteAulPYjWLdikBCCCGEEEIIIYQQXfwfXbyPenDjmVEAAAAASUVORK5CYII=" alt="" style="width:20px;height:20px;object-fit:contain;flex-shrink:0">Results</button>
               <button class="btn qz-take" id="qzBtnTake" type="button"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAL4AAADPCAYAAABLCmv5AAAI1ElEQVR4nO3db2hdZx3A8V/am5tc3ZKm9maaLlsWQ2jtkhrNGB1YXxSsrW7zjWAlsgkyNqfiRl5trycKfSMoKKM4JLN7OZy4+tIKjk5IGDKSQmcjrp02spRgm9u7W+OLeNom5zzn/znP85zn+3l3z7nnnIfkm5MnT25uRAAAAAAAAGCfrjhP6qvPbBQ9kCpba8/F+jijPKGfEILPD/GbZYfuAbiCm4hZlOHzicofH1NzKL/9bv8kNRp1mZi8r/gRVUDno5syP39RuZ9pj361uE88cuRB+enPnixwKNWxuvofmZ56Qbm/rz6zQfx6McfXhGmPXoSvEfHrQ/glmfvN96Snxz+zJH49CL8kQ0O75NSvniZ+QxB+iQ5ODhO/IQi/ZMRvBsLXgPj1I3xNiF8vwteI+PUhfM2IXw/CNwDxl4/wDUH85SJ8gxB/eQjfMMRfDsI3kBd/o1H37SP+fBC+oQ5ODsvLp54i/oIQvsGIvziEbzjiLwbhW4D480f4liD+fBG+RYg/P4RvGeLPB+FbiPizI3xLEX82hG8x4k+P8C1H/OkQfgUQf3KEXxHEnwzhVwjxx0f4FUP88RB+BRF/NMKvqIOTwzL36rPEr0D4FTY+/kniVyD8iiP+YITvAOL3I3xHEP9WhO8Q4r+N8B1D/JsI30HET/jOcj1+wneYy/ETvuNcjZ/wYVX8ffWZjTzGRPgQEfPj3x581i8AwsctpsYfdu20XwCEjy1Miz/uNZOOjfDhY0r8QdcaGb0qhx9ejf18FcJHIN3xB13jwYkVmf/Rkrz+3Hk5fbIZ+7gghA8lXfEHnfvww6ty9sX3bj0+eu8bmeInfIQqMv6g41XRv/7ced/xWeL3/4cxFGL2+Vdl50577zP3j+yUpUX/9r76zMZae64rybm2L0t6xyeJ3nNs6i05ffKQnJhdSTIEwi/L/PxF3UMoTJL4497lRaKj39HcI101keMPbcb/5IurcuNGJ9a47L0FGWxg4K7AqYHrkkyN4kbvOf7QW/LKSwO+f5OquibhF+Txx6d1D8EoRUbv8eKPg6lOQV768Tfkh88fkwsX/qV7KLn73W/n5bXX/hz7+Ul/CH7m6+MiEhy+KnrP0dEzIvL5yGsQfoGag/3SHOzXPYzcLSwsx36uKvqBPeel1t2SlQ8O+vadmF2R0ycflaP3vrFle1T0Gx2Rr/1kNNa4mOqgMFHRi4g0P/VO4LEnZlfkD+8/uvmg3h0r+sde+IScPRdvqkP4KESc6D1R8e/o708dPas6KE2S6D1h8b+5cEh5rTTRixA+cpYmek9Y/L//iz/+tNGLED5ylCV6T9z4s0QvQvjISR7Rez49/s/A7V78WaMXYTkTBUoT/e5dTanVdsiBiSvy7l8HfftPzK7IyOgeWf7bLt++JK8Z4o6PQqSP/va9+MDElcDnZY1ehPBRgDyi96jiv1PS6EUIHyncvNlR7sszek9Y/GmiFyF8JNRqteXMm38M3FdE9B5V/Gn/GIbwEVur1ZZvffPnsrS47ttXZPSePOMnfMTSarXl20/8IvAPasqI3jMyejXxMUEIH5G86N8+d8G3r8zor1/vDlzRSYN1fITypje67/TXrtWV0bOqg1xVNXoR7vhQyDv6vrvvkVot+X22iOhFCB8BirnTmxO9CFMdbFPl6c2dCB+3uBK9COHj/1yKXoTwIe5FL0L4znMxehHCd5qr0YsQvrNcjl6E8J3kevQihO8cot9E+A4h+tsI3xFEvxXhO4Do/Qi/4og+GOFXGNGrEX5FEX04wq8goo9G+BVD9PEQfoUQfXyEXxFEnwzhVwDRJ0f4liP6dAjfYkSfHuFbiuizIXwLEX12hG8Zos8H4VuE6PND+JYg+nzx3pkWqPobuOpA+Iaz4Q1cbcRUx2A2TG9sRfiGIvpiEb6BTI9+3/5G4nOZhvANY3r0Xzi8X77y1SOJz2cawjeIDdH/8uXvJD6fiQjfELZE39PTnficJiJ8AxB9+QhfM6LXg/A1Inp9CF8ToteL8DUgev0Iv2REbwbCLxHRm4PwS0L0ZiH8EhC9eQi/YERvJsIvENGbi/ALQvRmI/wCEL35CD9nRG8Hws8R0duD8HNC9HYh/BwQvX0IPyOitxPhZ0D09iL8lIjeboSfAtHbj/ATIvpqIPwEiL46CD8moq8Wwo+B6KuH98eP4emnTmmP/vr1bmX0r/z6mcTncx13/Ah/X74ifzq76NtedvQX3xvwbSf69Ag/wuXLV33biN5+THUiLCwsb3nc07tmxJye6LPhjh/h0j8+zHQ8b9VtJsKPcOny6pbH9d5VxTP9WL0xF+FHWFlZTnUc0ZuN8EN0Ov+VpcX1Ldtqtej5PdGbj/BDXHr/375tUT/YEr0dCD9E0FJmGKK3B+GHCFrKDEP09iD8EEmWMrtrH098fqLXh/BDZFnKjEL0ehF+iLRLmVGIXj/CV0i6lHn3XR+LdV6iNwPhK6RZyoxC9ObgRWoKSZcyVSs6nU5H2u2GbGx08YIzgxC+QpKlzM5HvXLtWv3W4w8ub34jvdHqC70GLzjTh/AVgpYyW+u7RESk3br9+ngv7lX/zCgUd3q9CF9h+1LmjVZf5B08LqLXj/AV8lzKbDTqMjF5n4w+MCh7h3fLd5/9Um7nRjqEn5OenpocODAsQ0MDMjY+KNPTY9Lo7ZZ9n9krvb316BOgVISv8OVjX5SlxTO+7fv2N6TZHJG9QwOyd3i3TE2NyNjYPdIc7NcwSqRF+Arf/8FxmZ4ek4WFZZmaGpFGb7d89nMP6B4WckL4IQ49Mi6HHhnXPQwUgN/cwkmEDycRPpxE+HAS4cNJhA8nET6cRPhwEuHDSYQPJxE+nET4cBLhw0mEDycRPpxE+HAS4cNJhA8nET6cRPhwEuHDSYQPJxE+nET4cBLhw0mEDyd1qXb01Wc27nzsvdU1sLZ2yfeP8dbac8qWTBT7vTPX19vy9rkLRY4FKI1yqmPbVzCQBHN8ZGbjTTLWgLfP9wERO4MHAAAAAKAy/gf0Fctx1cUKIgAAAABJRU5ErkJggg==" alt="" style="width:20px;height:20px;object-fit:contain;flex-shrink:0">Take quiz</button>
               
@@ -11834,7 +11927,8 @@ Q5 Answer B
         explanation:q.explanation?q.explanation.trim():null,
         points:Number(q.points)||1,
         allow_multiple:q.type==="mcq"?!!q.allow_multiple:false,
-        session_label:q.session_label||null
+        session_label:qzSessOf(q)[0]||null,
+        session_labels:qzSessOf(q)
       };
     }
     function qzSnapshotFromQuestions(qs){
@@ -12195,7 +12289,7 @@ Q5 Answer B
     function qzInsertBlankQuestionHere(afterIdx){
       const anchor=afterIdx>=0?questions[afterIdx]:questions[0];
       const q=qzNewQuestion("mcq","",1);
-      q.session_label=anchor?anchor.session_label||null:null;
+      qzSetSess(q,anchor?qzSessOf(anchor):[]);
       const insertAt=afterIdx+1;
       questions.splice(insertAt,0,q);
       qzInsertCardsAt(insertAt,[q]);
@@ -12251,7 +12345,7 @@ Q5 Answer B
       if(!qq)return;
       if(action==="addbefore"||action==="addafter"){
         const nq=qzNewQuestion("mcq","",1);
-        nq.session_label=qq.session_label||null;
+        qzSetSess(nq,qzSessOf(qq));
         const insertAt=action==="addbefore"?i:i+1;
         questions.splice(insertAt,0,nq);
         qzInsertCardsAt(insertAt,[nq]);
@@ -12386,7 +12480,7 @@ Q5 Answer B
     bodyEl.addEventListener("change",async event=>{
       const list=listEl();if(!list||!list.contains(event.target))return;
       const typeSel=event.target.closest(".qz-type-select");
-      if(typeSel){const qi=Number(typeSel.dataset.qidx);const old=questions[qi];const fresh=qzNewQuestion(typeSel.value,old.prompt,old.points);fresh.images=old.images;fresh.image=old.image;fresh.explanation=old.explanation;fresh.session_label=old.session_label;questions[qi]=fresh;qzRerenderOneCard(qi);qzMarkUnsaved();return}
+      if(typeSel){const qi=Number(typeSel.dataset.qidx);const old=questions[qi];const fresh=qzNewQuestion(typeSel.value,old.prompt,old.points);fresh.images=old.images;fresh.image=old.image;fresh.explanation=old.explanation;qzSetSess(fresh,qzSessOf(old));questions[qi]=fresh;qzRerenderOneCard(qi);qzMarkUnsaved();return}
       const multiToggle=event.target.closest(".qz-multi-toggle");
       if(multiToggle){
         const qi=Number(multiToggle.dataset.qidx),q=questions[qi];
@@ -12678,7 +12772,7 @@ Q5 Answer B
     const rows=await service.getQuizQuestionsAdmin(item.id);
     const questions=(rows||[]).slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0)).map((q,i)=>({
       id:q.id,type:q.type,prompt:q.prompt,options:q.options||[],points:Number(q.points||1),image:q.image||null,images:q.images||[],
-      correct_answer:q.correct_answer,explanation:q.explanation||null,allow_multiple:!!q.allow_multiple,session_label:q.session_label||null,question_position:i
+      correct_answer:q.correct_answer,explanation:q.explanation||null,allow_multiple:!!q.allow_multiple,session_label:q.session_label||null,session_labels:qzSessOf(q),question_position:i
     }));
     return {version:1,kind:"quiz",settings:{...(item.quiz_settings||{})},questions};
   }
@@ -12989,13 +13083,13 @@ Q5 Answer B
           fetched.forEach((data,i)=>{
             const id=checkedIds[i];
             const want=perQuizCounts.get(id)||0;
-            const tagged=(data.questions||[]).map(q=>({...q,_sourceItemId:id,session_label:null}));
+            const tagged=(data.questions||[]).map(q=>({...q,_sourceItemId:id,session_label:null,session_labels:[]}));
             sampled.push(...qzShuffleSample(tagged,want));
           });
           sampled=qzShuffleSample(sampled,sampled.length);
         }else{
           const merged=[];
-          fetched.forEach((data,i)=>{(data.questions||[]).forEach(q=>merged.push({...q,_sourceItemId:checkedIds[i],session_label:null}))});
+          fetched.forEach((data,i)=>{(data.questions||[]).forEach(q=>merged.push({...q,_sourceItemId:checkedIds[i],session_label:null,session_labels:[]}))});
           sampled=qzShuffleSample(merged,chosenCount);
         }
         qzCloseSubDialog();
@@ -13062,7 +13156,7 @@ Q5 Answer B
       }else if(mode==="preview"){
         const rows=await service.getQuizQuestionsAdmin(item.id);
         quizTitle=item.title;settings=item.quiz_settings||{};
-        questions=rows.map(r=>({id:r.id,type:r.type,prompt:r.prompt,options:r.options,points:r.points,image:r.image,images:r.images||[],explanation:r.explanation,correct_answer:r.correct_answer,allow_multiple:!!r.allow_multiple,session_label:r.session_label||null}));
+        questions=rows.map(r=>({id:r.id,type:r.type,prompt:r.prompt,options:r.options,points:r.points,image:r.image,images:r.images||[],explanation:r.explanation,correct_answer:r.correct_answer,allow_multiple:!!r.allow_multiple,session_label:r.session_label||null,session_labels:qzSessOf(r)}));
       }else{
         const data=await service.getQuizForTaking(item.id);
         quizTitle=data.title;settings=data.settings;questions=data.questions;
@@ -13149,15 +13243,9 @@ Q5 Answer B
        exist) AND the locked-order feature entirely — every session is always
        freely choosable, in any order. A checkmark still shows on sessions
        this taker has already completed (informational only, never blocking). */
-    const sessionNames=qzSessionNames(questions);
-    if(sessionNames.length){
-      const chosen=sessionNames[0];
-      const active=questions.filter(q=>!q.session_label||q.session_label===chosen);
-      const override=chosen&&settings.session_overrides&&settings.session_overrides[chosen];
-      const effectiveSettings=override?.shuffle_mode?{...settings,shuffle_mode:override.shuffle_mode,shuffle:override.shuffle_mode!=="off"}:settings;
-      showStartScreen(active,chosen,effectiveSettings);
-      return;
-    }
+    /* Kuza (Sep 28): sections are optional copies -- a quiz always starts on
+       All Questions; any section is one tap away in the exam's section menu. */
+    qzUseSessionRegistry(settings);
     showStartScreen(questions);
   }
   function qzRunQuestionImages(q){return qzImagesOf(q)}
@@ -13334,7 +13422,7 @@ Q5 Answer B
       </section>
       ${isPreview?"":`<section class="qz-results-section">
         <div class="qz-history-filters">
-          <div class="qz-history-field"><label>Session</label><select id="qzHistorySession">${sessionOptions.map(name=>`<option value="${esc(name)}" ${name===currentSession?"selected":""}>${esc(name)}</option>`).join("")}</select></div>
+          <div class="qz-history-field"><label>Section</label><select id="qzHistorySession">${sessionOptions.map(name=>`<option value="${esc(name)}" ${name===currentSession?"selected":""}>${esc(name)}</option>`).join("")}</select></div>
           <div class="qz-history-field"><label>Date</label><select id="qzHistoryDate"><option value="all">All time</option><option value="today">Today</option><option value="week">This week</option><option value="month">This month</option><option value="lastmonth">Last month</option><option value="custom">Custom</option></select></div>
           <div class="qz-history-field"><label>Sort</label><select id="qzHistorySort"><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="best">Best score</option></select></div>
           <div class="qz-history-field search"><label>Search attempts</label><input id="qzHistorySearch" placeholder="Attempt, date, score…"></div>
@@ -13536,6 +13624,7 @@ Q5 Answer B
     return "side";
   }
   function qzRunQuestions(item,quiz,takerName,takerIdentifier,isPreview,onDone,sessionName,takerMeta,onRestart){
+    qzUseSessionRegistry(quiz.rawSettings||quiz.settings);
     const bodyEl=document.getElementById("qzPageBody");
     const qzMode=qzShuffleMode(quiz.settings);
     /* Round 5 note 3: the full/master question list, kept alongside the
@@ -14270,7 +14359,7 @@ Q5 Answer B
        shuffle setting. Now re-derives the effective mode for the destination
        session (its own override, or the quiz-wide default) and re-shuffles. */
     function qzApplyShuffleForSession(){
-      let base=sessionName?allQuestions.filter(q=>!q.session_label||q.session_label===sessionName):allQuestions;
+      let base=sessionName?allQuestions.filter(q=>qzInSess(q,sessionName)):allQuestions;
       const mode=qzEffectiveShuffleMode(rawSettings,sessionName);
       if(mode==="questions"||mode==="both")base=qzShuffleArray(base);
       if(mode==="answers"||mode==="both")base=base.map(qzShuffleOptionsForDisplay);
@@ -14286,11 +14375,10 @@ Q5 Answer B
     }
 
     function openChooseSessionMenu(){
-      const names=qzSessionNames(allQuestions);
-      const unassignedCount=allQuestions.filter(q=>!q.session_label).length;
-      const scopes=[{value:"",label:"All Questions",count:allQuestions.length,range:""},...names.map(n=>({value:n,label:n,count:allQuestions.filter(q=>q.session_label===n).length+unassignedCount,range:qzSessionRangeLabel(allQuestions,n)}))];
+      const names=qzTakeableSessionNames(allQuestions);
+      const scopes=[{value:"",label:"All Questions",count:allQuestions.length,range:""},...names.map(n=>({value:n,label:n,count:allQuestions.filter(q=>qzInSess(q,n)).length,range:qzSessionRangeLabel(allQuestions,n)}))];
       qzOpenSubDialog(`
-        <h3 style="margin:0 0 6px">Choose Session</h3>
+        <h3 style="margin:0 0 6px">Choose Section</h3>
         <div class="qz-paste-hint" style="margin-bottom:10px">Choose questions to practice. Nothing is locked — switch freely at any time.</div>
         <div class="qz-choose-sess-list">${scopes.map(s=>{
           const active=(sessionName||"")===s.value;
@@ -14330,7 +14418,7 @@ Q5 Answer B
       if(horizontal){
         const q=questions[curIdx];
         const isLast=curIdx===questions.length-1;
-        const sessionNames=qzSessionNames(allQuestions);
+        const sessionNames=qzTakeableSessionNames(allQuestions);
         const sessionIdx=sessionName?sessionNames.indexOf(sessionName):-1;
         const sessionTitle=sessionName&&sessionIdx>=0
           ?`${esc(sessionName)} <span>of ${sessionNames.length}</span>`
@@ -14354,8 +14442,8 @@ Q5 Answer B
            Session 1, or via Tools -> Choose Session -> All Questions. */
         const sessionNav=sessionNames.length?`
           <div class="qz-exam-session-nav">
-            <button type="button" class="qz-session-step" id="qzPrevSessionBtn" ${sessionIdx<=-1?"disabled":""}>← Prev Session</button>
-            <button type="button" class="qz-session-step primary" id="qzNextSessionBtn" ${sessionIdx>=sessionNames.length-1?"disabled":""}>Next Session →</button>
+            <button type="button" class="qz-session-step" id="qzPrevSessionBtn" ${sessionIdx<=-1?"disabled":""}>← Prev Section</button>
+            <button type="button" class="qz-session-step primary" id="qzNextSessionBtn" ${sessionIdx>=sessionNames.length-1?"disabled":""}>Next Section →</button>
           </div>`:"";
         main.innerHTML=navScrollBar+`
           <div class="qz-exam-question-layout">
@@ -14394,7 +14482,7 @@ Q5 Answer B
            mirrors Horizontal's session title + All Questions/Prev/Next
            Session controls, but as a slim sticky toolbar above the stacked
            question list instead of a static row above a single question. */
-        const sessionNames=qzSessionNames(allQuestions);
+        const sessionNames=qzTakeableSessionNames(allQuestions);
         const sessionIdx=sessionName?sessionNames.indexOf(sessionName):-1;
         const vertTitle=sessionName&&sessionIdx>=0
           ?`${esc(sessionName)} <span>of ${sessionNames.length}</span>`
@@ -14415,8 +14503,8 @@ Q5 Answer B
            Session 1, or via Tools -> Choose Session -> All Questions. */
         const vertNav=sessionNames.length?`
           <div class="qz-vert-toolbar-nav">
-            <button type="button" class="qz-session-step" id="qzVertPrevSessionBtn" ${sessionIdx<=-1?"disabled":""}>← Prev Session</button>
-            <button type="button" class="qz-session-step primary" id="qzVertNextSessionBtn" ${sessionIdx>=sessionNames.length-1?"disabled":""}>Next Session →</button>
+            <button type="button" class="qz-session-step" id="qzVertPrevSessionBtn" ${sessionIdx<=-1?"disabled":""}>← Prev Section</button>
+            <button type="button" class="qz-session-step primary" id="qzVertNextSessionBtn" ${sessionIdx>=sessionNames.length-1?"disabled":""}>Next Section →</button>
           </div>`:"";
         const vertToolbar=`<div class="qz-vert-toolbar"><span class="qz-vert-toolbar-label">${vertTitle}</span>${vertNav}</div>`;
         main.innerHTML=navScrollBar+vertToolbar+`<div class="qz-runner-questions">${questions.map((q,i)=>qzQuestionRunHtml(q,i,bookmarks.has(q.id),flags.has(q.id))).join("")}</div>`;
@@ -14558,6 +14646,7 @@ Q5 Answer B
      (which questions people miss most) and can expand any attempt to see
      exactly what that person answered on every question. */
   async function openQuizResults(item,onBack){
+    qzUseSessionRegistry(item?.quiz_settings);
     /* Kuza (Sep 26): "at result button when open it make it show full
        screen like when click finish exam" -- reuses the same full-page
        overlay (qzOpenPage/qzPageTopbar/#qzPageBody) and the exact
@@ -14921,7 +15010,7 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
     return await studentUpdate(itemId,{quiz_settings:settings,_student_questions:merged});
   };
   if(shared.getQuizQuestionsAdmin)service.getQuizQuestionsAdmin=async itemId=>{if(!qlIsStudentWorkspace())return await shared.getQuizQuestionsAdmin(itemId);const item=itemById(itemId);if(Array.isArray(item?._student_questions))return item._student_questions.slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0));try{return await shared.getQuizQuestionsAdmin(itemId)}catch{return []}};
-  if(shared.getQuizForTaking)service.getQuizForTaking=async itemId=>{if(!qlIsStudentWorkspace())return await shared.getQuizForTaking(itemId);const item=itemById(itemId),qs=Array.isArray(item?._student_questions)?item._student_questions:null;if(qs)return {title:item.title||"Quiz",settings:item.quiz_settings||{},questions:qs.slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0)).map(q=>({id:q.id,type:q.type,prompt:q.prompt,options:q.options,points:q.points,image:q.image,allow_multiple:!!q.allow_multiple,images:q.images||[],session_label:q.session_label||null}))};return await shared.getQuizForTaking(itemId)};
+  if(shared.getQuizForTaking)service.getQuizForTaking=async itemId=>{if(!qlIsStudentWorkspace())return await shared.getQuizForTaking(itemId);const item=itemById(itemId),qs=Array.isArray(item?._student_questions)?item._student_questions:null;if(qs)return {title:item.title||"Quiz",settings:item.quiz_settings||{},questions:qs.slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0)).map(q=>({id:q.id,type:q.type,prompt:q.prompt,options:q.options,points:q.points,image:q.image,allow_multiple:!!q.allow_multiple,images:q.images||[],session_label:q.session_label||null,session_labels:qzSessOf(q)}))};return await shared.getQuizForTaking(itemId)};
   function gradeLocal(q,given){if(q.type==="mcq"){if(Array.isArray(q.correct_answer)){if(!Array.isArray(given))return false;const n=a=>[...new Set(a.map(Number))].sort((a,b)=>a-b).join(",");return n(given)===n(q.correct_answer)}return String(given)===String(q.correct_answer)}if(q.type==="true_false")return (given===true||given==="true")===(q.correct_answer===true||q.correct_answer==="true");if(q.type==="short_answer"){const accepted=Array.isArray(q.correct_answer)?q.correct_answer:[q.correct_answer],g=String(given??"").trim().toLowerCase();return accepted.some(a=>String(a??"").trim().toLowerCase()===g)}return false}
   if(shared.submitQuizAttempt)service.submitQuizAttempt=async(itemId,takerName,takerIdentifier,answers,startedAt,meta=null)=>{if(!qlIsStudentWorkspace())return await shared.submitQuizAttempt(itemId,takerName,takerIdentifier,answers,startedAt,meta);const item=itemById(itemId),privateQs=Array.isArray(item?._student_questions)?item._student_questions:null;if(!privateQs){const result=await shared.submitQuizAttempt(itemId,takerName,takerIdentifier,answers,startedAt,meta);const attempt={id:uid(),item_id:itemId,taker_name:takerName||null,taker_identifier:takerIdentifier||null,answers,score:result.score,max_score:result.max_score,percent:result.percent,passed:result.passed,detail:result.detail||[],started_at:startedAt||null,submitted_at:nowIso(),session_name:meta?.session_name||null,identity_mode:meta?.identity_mode||null,normalized_name:meta?.normalized_name||null,participant_id:meta?.participant_id||null,user_id:meta?.user_id||null,is_owner:meta?.is_owner===true};const savedRow=await studentUpdate(itemId,{_student_attempts:[attempt,...(item?._student_attempts||[])]},{personalize:false});replaceLocal(savedRow);return result}const map={};(answers||[]).forEach(a=>map[a.question_id]=a.given_answer);const answered=new Set((answers||[]).map(a=>a.question_id)),qs=privateQs.filter(q=>answered.has(q.id));let score=0,max=0;const detail=[];for(const q of qs){const pts=Number(q.points||1),ok=gradeLocal(q,map[q.id]);max+=pts;if(ok)score+=pts;detail.push({question_id:q.id,correct:ok,given:map[q.id]??null,correct_answer:q.correct_answer,explanation:q.explanation||null})}const percent=max?Math.round(score/max*1000)/10:0,pass=item?.quiz_settings?.pass_percent,passed=pass==null?null:percent>=Number(pass),attempt={id:uid(),item_id:itemId,taker_name:takerName||null,taker_identifier:takerIdentifier||null,answers,detail,score,max_score:max,percent,passed,started_at:startedAt||null,submitted_at:nowIso(),session_name:meta?.session_name||null,identity_mode:meta?.identity_mode||null,normalized_name:meta?.normalized_name||null,participant_id:meta?.participant_id||null,user_id:meta?.user_id||null,is_owner:meta?.is_owner===true};const savedRow2=await studentUpdate(itemId,{_student_attempts:[attempt,...(item?._student_attempts||[])]},{personalize:false});replaceLocal(savedRow2);return {score,max_score:max,percent,passed,detail}};
   if(shared.gradeQuizQuestion)service.gradeQuizQuestion=async(itemId,questionId,given)=>{if(!qlIsStudentWorkspace())return await shared.gradeQuizQuestion(itemId,questionId,given);const item=itemById(itemId),q=item?._student_questions?.find(x=>x.id===questionId);if(!q)return await shared.gradeQuizQuestion(itemId,questionId,given);return {correct:gradeLocal(q,given),correct_answer:q.correct_answer,explanation:q.explanation||null,points:Number(q.points)||1}};
@@ -15032,7 +15121,7 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
     const item=itemById(itemId);
     if(!isSplitItem(item)||!await useSplit())return await legacyQuiz.getQuizForTaking(itemId);
     const qs=await loadSplitQuestions(itemId);
-    return {title:item.title||"Quiz",settings:item.quiz_settings||{},questions:qs.map(q=>({id:q.id,type:q.type,prompt:q.prompt,options:q.options,points:q.points,image:q.image,allow_multiple:!!q.allow_multiple,images:q.images||[],session_label:q.session_label||null}))};
+    return {title:item.title||"Quiz",settings:item.quiz_settings||{},questions:qs.map(q=>({id:q.id,type:q.type,prompt:q.prompt,options:q.options,points:q.points,image:q.image,allow_multiple:!!q.allow_multiple,images:q.images||[],session_label:q.session_label||null,session_labels:qzSessOf(q)}))};
   };
   service.gradeQuizQuestion=async(itemId,questionId,given)=>{
     if(!isSplitItem(itemById(itemId))||!await useSplit())return await legacyQuiz.gradeQuizQuestion(itemId,questionId,given);
