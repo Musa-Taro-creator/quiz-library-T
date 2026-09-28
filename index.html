@@ -9736,8 +9736,11 @@ html,body{overscroll-behavior-y:none}
      (Finish Exam always stays a manual click). */
   function qzBehaviorAutoAdvance(settings){
     const a=settings?.auto_advance;
-    const mode=a&&["off","correct","always"].includes(a.mode)?a.mode:"off";
-    let delay=a&&Number.isFinite(Number(a.delay))?Number(a.delay):1.2;
+    /* Kuza's starting setup: a quiz that never chose Auto-Advance starts
+       On, correct answers only, at 0.3s. */
+    if(!a||typeof a!=="object")return {mode:"correct",delay:0.3};
+    const mode=["off","correct","always"].includes(a.mode)?a.mode:"off";
+    let delay=Number.isFinite(Number(a.delay))?Number(a.delay):1.2;
     if(!(delay>0.2))delay=1.2;
     return {mode,delay};
   }
@@ -13366,7 +13369,7 @@ Q5 Answer B
         const virtualItem={id:`random:${uid()}`,kind:"quiz",title:name,quiz_settings:{}};
         qzBeginAttempt(virtualItem,"take",()=>{qzClosePage();render()},{
           title:name,
-          settings:{shuffle:false,shuffle_mode:"off",show_answers:true,time_limit_minutes:timeLimit,pass_percent:null,cover:null,question_count:sampled.length,layout:"vertical",show_answer_immediately:true},
+          settings:{shuffle:false,shuffle_mode:"off",show_answers:true,time_limit_minutes:timeLimit,pass_percent:null,cover:null,question_count:sampled.length,layout:"horizontal",show_answer_immediately:true},
           questions:sampled
         });
       }catch(error){
@@ -13854,6 +13857,10 @@ Q5 Answer B
     try{
       const raw=localStorage.getItem("ql_exam_ui_prefs_v2");
       let p=raw?JSON.parse(raw):{};
+      /* Look is per quiz now: an old device-wide page style / side / text
+         size no longer applies, so a quiz without its own look always starts
+         from the default setup (Liquid Light, navigation Right, Default). */
+      p={navMode:p.navMode};
       /* Kuza: every tool is per quiz. A quiz's own look (quiz_settings.
          exam_ui: page style, navigation side, text size -- written by the
          Tools panel or Apply to All Quizzes) wins over this device's
@@ -13881,8 +13888,8 @@ Q5 Answer B
       let textSize=0;
       if(typeof p.textSize==="number"&&Number.isFinite(p.textSize))textSize=p.textSize;
       else if(typeof p.textSize==="string"&&p.textSize in oldTextSizeMap)textSize=oldTextSizeMap[p.textSize];
-      return {navSide:p.navSide==="left"?"left":"right",navMode:p.navMode==="side"||p.navMode==="top"?p.navMode:null,theme:QZ_THEMES.includes(p.theme)?p.theme:"plainwhite",textSize};
-    }catch{return {navSide:"right",navMode:null,theme:"plainwhite",textSize:0}}
+      return {navSide:p.navSide==="left"?"left":"right",navMode:p.navMode==="side"||p.navMode==="top"?p.navMode:null,theme:QZ_THEMES.includes(p.theme)?p.theme:"liquidlight",textSize};
+    }catch{return {navSide:"right",navMode:null,theme:"liquidlight",textSize:0}}
   }
   function qzSaveExamPrefs(p){try{localStorage.setItem("ql_exam_ui_prefs_v2",JSON.stringify(p))}catch{}}
   /* Kuza's unbounded Text Size stepper: each +/- step is an 8% font-size
