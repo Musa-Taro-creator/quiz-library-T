@@ -9333,7 +9333,10 @@ html,body{overscroll-behavior-y:none}
           options.push(cleanText);
           continue;
         }
-        promptLine+=" "+line;
+        /* Keep a line break the user typed/pasted between sentences (so the
+           question line can sit on its own line); a line wrapped mid-
+           sentence (e.g. copied from a PDF) is still joined with a space. */
+        promptLine+=(/[.!?:]["'”’)\]]?$/.test(promptLine.trim())&&/^["'“‘(]?[A-Z0-9]/.test(line)?"\n":" ")+line;
       }
       if(options.length===2&&options.every(o=>/^true$/i.test(o)||/^false$/i.test(o))){
         let correct=true;
