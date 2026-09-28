@@ -15276,21 +15276,20 @@ window.addEventListener("popstate",()=>setTimeout(syncProfileUi,0));q("modalClos
 
 <script id="studentAccountRecentOverride">
 (function(){
-  const oldRecordRecent=recordRecent;
-  recordRecent=function(x){
-    if(!x)return;
-    if(!qlIsStudentWorkspace())return oldRecordRecent(x);
-    const stamp=nowIso();
-    x._student_last_opened_at=stamp;
-    service.updateItem(x.id,{_student_last_opened_at:stamp}).then(row=>{replaceLocal(row)}).catch(err=>console.warn("Recent sync failed",err));
-  };
+  /* Kuza (Sep 28): Recent is meant to list NEWLY ADDED items (new PDF
+     uploads, links, quizzes, folders), newest first -- not recently
+     opened ones. It used to stamp _student_last_opened_at on every open,
+     and in the student workspace that re-uploaded the item's whole
+     payload (for a quiz: every question -- several MB at 10,000
+     questions), downloaded it back, and the realtime echo then re-fetched
+     the entire library twice. That burst froze the iPad for seconds right
+     after opening a big quiz (option taps took 2-3s to respond). Recent
+     now just reads each item's created_at, so opening anything writes
+     nothing to Supabase. */
+  recordRecent=function(){};
   recentItems=function(){
-    if(!qlIsStudentWorkspace()){
-      const map=new Map(state.items.filter(x=>!x.is_trashed).map(x=>[x.id,x]));
-      return recentIds().map(id=>map.get(id)).filter(Boolean)
-    }
-    return state.items.filter(x=>!x.is_trashed&&x._student_last_opened_at)
-      .sort((a,b)=>new Date(b._student_last_opened_at)-new Date(a._student_last_opened_at)).slice(0,50)
+    const t=x=>{const v=Date.parse(x.created_at||"");return Number.isFinite(v)?v:0};
+    return state.items.filter(x=>!x.is_trashed).sort((a,b)=>t(b)-t(a)).slice(0,50)
   };
 })();
 </script>
