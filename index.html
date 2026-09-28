@@ -3247,6 +3247,9 @@ body.has-student-profile:not(.admin-mode) .top-settings{
 @media(max-width:900px){.qz-res-neon .qz-neo-grid{grid-template-columns:1fr}.qz-res-neon .qz-neo-summary{position:static}}
 @media(max-width:640px){#qzPageBody.qz-res-neon .qz-neo-att{grid-template-columns:minmax(0,1fr) auto!important;row-gap:8px}.qz-res-neon .qz-neo-bar{grid-column:1/-1;order:3}.qz-res-neon .qz-neo-head h2{font-size:24px}.qz-res-neon .qz-neo-head{flex-wrap:wrap}}
 </style>
+<style id="qzAskLine">
+.qz-ask{display:block;margin-top:.65em;padding-left:12px;border-left:4px solid var(--exam-accent,#6366f1);font-weight:800}
+</style>
 <style id="qzApplyAllDialog">
 .qz-aa2-overlay{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(20,28,60,.28);-webkit-backdrop-filter:blur(10px) saturate(1.2);backdrop-filter:blur(10px) saturate(1.2);opacity:0;transition:opacity .2s ease}
 .qz-aa2-overlay.show{opacity:1}
@@ -3634,6 +3637,35 @@ function documentBadgeMarkup(x){
 }
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+/* Kuza: a long case question shows its asking sentence ("Which of the
+   following ...?") on its own line in bold with a colour bar (.qz-ask).
+   Line breaks the user typed or pasted are kept and win: then the last
+   line is the question line if it asks something. Without line breaks the
+   last sentence is split off automatically when it asks the question and
+   follows a case of at least 40 characters. `tail` (points / status
+   badge HTML) stays on the same line as the end of the text. */
+function qzPromptHtml(text,tail=""){
+  const t=String(text??"").replace(/\r\n?/g,"\n").trim();
+  const isAsk=x=>/\?\s*$/.test(x)||/^["'“‘(]?(which|what|where|when|why|how|who|whom|whose|all of the following|each of the following|select|choose|identify)\b/i.test(x);
+  const br=x=>esc(x).replace(/\n/g,"<br>");
+  const out=(body,ask)=>`${br(body)}<span class="qz-ask">${esc(ask)}${tail}</span>`;
+  if(t.includes("\n")){
+    const lines=t.split("\n");
+    while(lines.length&&!lines[lines.length-1].trim())lines.pop();
+    const last=(lines[lines.length-1]||"").trim();
+    if(lines.length>1&&isAsk(last))return out(lines.slice(0,-1).join("\n").trimEnd(),last);
+    return br(t)+tail;
+  }
+  const re=/[.!?]["'”’)\]]?\s+(?=["'“‘(]?[A-Z0-9])/g;
+  let m,cut=-1;
+  while((m=re.exec(t)))cut=m.index+m[0].length;
+  if(cut>0){
+    const body=t.slice(0,cut).trimEnd(),ask=t.slice(cut).trim();
+    const abbr=/(?:^|[\s(])(Dr|Mr|Mrs|Ms|Prof|St|vs|etc|e\.g|i\.e|No|Fig|approx|Jr|Sr)\.$/i.test(body);
+    if(!abbr&&body.length>=40&&isAsk(ask))return out(body,ask);
+  }
+  return esc(t)+tail;
+}
 const uid=()=>globalThis.crypto?.randomUUID?globalThis.crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0,v=c==="x"?r:(r&3|8);return v.toString(16)});
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const nowIso=()=>new Date().toISOString();
@@ -13566,7 +13598,7 @@ Q5 Answer B
     /* Kuza round 11: "below all those all options" -- moved the feedback
        slot back to AFTER the option list (round 8 had put it above, per
        what turned out to be a misread of the reference screenshot). */
-    return `<div class="qz-run-question" data-run-qid="${q.id}">${menu}<div class="qz-run-prompt"><span class="qz-run-num">${i+1}.</span> ${esc(q.prompt)} <span class="qz-run-points">(${q.points} pt${q.points===1?"":"s"})</span></div>${images.length?`<div class="qz-image-gallery">${images.map(img=>qzImageDisplayHtml(img,"qz-run-image")).join("")}</div>`:""}<div class="qz-run-fields">${qzRunFieldsHtml(q)}</div><div class="qz-run-feedback-slot" data-fqid="${q.id}"></div><div class="qz-run-clear-wrap" data-clear-qid="${q.id}" style="display:none"><button type="button" class="qz-run-clear-btn" data-clear-qid="${q.id}">Clear selection</button></div></div>`;
+    return `<div class="qz-run-question" data-run-qid="${q.id}">${menu}<div class="qz-run-prompt"><span class="qz-run-num">${i+1}.</span> ${qzPromptHtml(q.prompt,` <span class="qz-run-points">(${q.points} pt${q.points===1?"":"s"})</span>`)}</div>${images.length?`<div class="qz-image-gallery">${images.map(img=>qzImageDisplayHtml(img,"qz-run-image")).join("")}</div>`:""}<div class="qz-run-fields">${qzRunFieldsHtml(q)}</div><div class="qz-run-feedback-slot" data-fqid="${q.id}"></div><div class="qz-run-clear-wrap" data-clear-qid="${q.id}" style="display:none"><button type="button" class="qz-run-clear-btn" data-clear-qid="${q.id}">Clear selection</button></div></div>`;
   }
   /* Exam-shell card (horizontal mode). Kuza: "I want you to add questions
      number" -- horizontal used to show no number at all next to the
@@ -13585,7 +13617,7 @@ Q5 Answer B
        Kuza round 14: tried a top-right badge for points (icon, then text
        pill) -- round 14c: Kuza wants it back inline as "(N pt)", matching
        Vertical again. */
-    return `<div class="qz-run-question qz-exam-qcard" data-run-qid="${q.id}"><div class="qz-run-prompt">${Number.isInteger(i)?`<span class="qz-run-num">${i+1}.</span> `:""}${esc(q.prompt)} <span class="qz-run-points">(${q.points} pt${q.points===1?"":"s"})</span></div>${images.length?`<div class="qz-image-gallery">${images.map(img=>qzImageDisplayHtml(img,"qz-run-image")).join("")}</div>`:""}<div class="qz-run-fields">${qzRunFieldsHtml(q)}</div><div class="qz-run-feedback-slot" data-fqid="${q.id}"></div><div class="qz-run-clear-wrap" data-clear-qid="${q.id}" style="display:none"><button type="button" class="qz-run-clear-btn" data-clear-qid="${q.id}">Clear selection</button></div></div>`;
+    return `<div class="qz-run-question qz-exam-qcard" data-run-qid="${q.id}"><div class="qz-run-prompt">${Number.isInteger(i)?`<span class="qz-run-num">${i+1}.</span> `:""}${qzPromptHtml(q.prompt,` <span class="qz-run-points">(${q.points} pt${q.points===1?"":"s"})</span>`)}</div>${images.length?`<div class="qz-image-gallery">${images.map(img=>qzImageDisplayHtml(img,"qz-run-image")).join("")}</div>`:""}<div class="qz-run-fields">${qzRunFieldsHtml(q)}</div><div class="qz-run-feedback-slot" data-fqid="${q.id}"></div><div class="qz-run-clear-wrap" data-clear-qid="${q.id}" style="display:none"><button type="button" class="qz-run-clear-btn" data-clear-qid="${q.id}">Clear selection</button></div></div>`;
   }
   function qzFormatAnswer(q,value){
     /* Kuza round 7: "Correct answer (option that is correct with a,b,c...)"
@@ -13773,7 +13805,7 @@ Q5 Answer B
         const correctText=qzFormatAnswer(q,d.correct_answer);
         const imgs=qzRunQuestionImages(q);
         const number=found.index+1;
-        return `<div class="qz-run-question ${d.correct?"qz-correct":"qz-incorrect"}">${imgs.length?`<div class="qz-image-gallery">${imgs.map(img=>qzImageDisplayHtml(img,"qz-run-image")).join("")}</div>`:""}<div class="qz-run-prompt"><span class="qz-run-num">${number}.</span> ${esc(q.prompt)} <span class="qz-review-status ${d.correct?"correct":"incorrect"}">${d.correct?"✓ Correct":"✕ Incorrect"}</span></div><div class="qz-review-answer-box"><div class="qz-review-answer"><strong>Your answer</strong><span>${esc(givenText)}</span></div>${!d.correct?`<div class="qz-review-answer correct-answer"><strong>Correct answer</strong><span>${esc(correctText)}</span></div>`:""}</div>${d.explanation?`<details class="qz-review-explain-details"><summary>Explanation</summary><div>${esc(d.explanation)}</div></details>`:""}</div>`;
+        return `<div class="qz-run-question ${d.correct?"qz-correct":"qz-incorrect"}">${imgs.length?`<div class="qz-image-gallery">${imgs.map(img=>qzImageDisplayHtml(img,"qz-run-image")).join("")}</div>`:""}<div class="qz-run-prompt"><span class="qz-run-num">${number}.</span> ${qzPromptHtml(q.prompt,` <span class="qz-review-status ${d.correct?"correct":"incorrect"}">${d.correct?"✓ Correct":"✕ Incorrect"}</span>`)}</div><div class="qz-review-answer-box"><div class="qz-review-answer"><strong>Your answer</strong><span>${esc(givenText)}</span></div>${!d.correct?`<div class="qz-review-answer correct-answer"><strong>Correct answer</strong><span>${esc(correctText)}</span></div>`:""}</div>${d.explanation?`<details class="qz-review-explain-details"><summary>Explanation</summary><div>${esc(d.explanation)}</div></details>`:""}</div>`;
       }).filter(Boolean);
       target.innerHTML=`<div class="qz-review-v2">${rows.join("")||'<div class="qz-history-empty">No questions match this filter.</div>'}</div>`;
     }
@@ -15100,7 +15132,7 @@ Q5 Answer B
                 <div class="qz-result-status-row">${passLine}</div>
               </div>
             </section>`;
-            const rows=detail.map(d=>{const q=qMap.get(d.question_id);if(!q)return "";const qIndex=questions.findIndex(x=>x.id===q.id);const given=d.given!==undefined?d.given:d.given_answer,givenText=qzFormatAnswer(q,given),correctText=qzFormatAnswer(q,d.correct_answer);return `<div class="qz-run-question ${d.correct?"qz-correct":"qz-incorrect"}"><div class="qz-run-prompt"><span class="qz-run-num">${qIndex+1}.</span> ${esc(q.prompt)} <span class="qz-review-status ${d.correct?"correct":"incorrect"}">${d.correct?"✓ Correct":"✕ Incorrect"}</span></div><div class="qz-review-answer-box"><div class="qz-review-answer"><strong>Your answer</strong><span>${esc(givenText)}</span></div>${!d.correct?`<div class="qz-review-answer correct-answer"><strong>Correct answer</strong><span>${esc(correctText)}</span></div>`:""}</div>${d.explanation?`<details class="qz-review-explain-details"><summary>Explanation</summary><div>${esc(d.explanation)}</div></details>`:""}</div>`}).join("");
+            const rows=detail.map(d=>{const q=qMap.get(d.question_id);if(!q)return "";const qIndex=questions.findIndex(x=>x.id===q.id);const given=d.given!==undefined?d.given:d.given_answer,givenText=qzFormatAnswer(q,given),correctText=qzFormatAnswer(q,d.correct_answer);return `<div class="qz-run-question ${d.correct?"qz-correct":"qz-incorrect"}"><div class="qz-run-prompt"><span class="qz-run-num">${qIndex+1}.</span> ${qzPromptHtml(q.prompt,` <span class="qz-review-status ${d.correct?"correct":"incorrect"}">${d.correct?"✓ Correct":"✕ Incorrect"}</span>`)}</div><div class="qz-review-answer-box"><div class="qz-review-answer"><strong>Your answer</strong><span>${esc(givenText)}</span></div>${!d.correct?`<div class="qz-review-answer correct-answer"><strong>Correct answer</strong><span>${esc(correctText)}</span></div>`:""}</div>${d.explanation?`<details class="qz-review-explain-details"><summary>Explanation</summary><div>${esc(d.explanation)}</div></details>`:""}</div>`}).join("");
             panel.innerHTML=heroHtml+`<div class="qz-review-v2">${rows||'<div class="qz-history-empty">No answer detail recorded.</div>'}</div>`;panel.removeAttribute("hidden");btn.textContent="Hide";
           }else{panel.setAttribute("hidden","");btn.textContent="View"}
         };
