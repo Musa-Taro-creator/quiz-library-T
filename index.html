@@ -15628,10 +15628,13 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
   const useSplit=async()=>qlIsStudentWorkspace()&&await splitReady();
   const isSplitItem=item=>item?._student_q_split===true;
   const toQuestion=r=>({...(r.data||{}),id:r.id,question_position:r.position});
-  function cacheQuestions(itemId,list){const sorted=list.slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0));splitCache.set(String(itemId),{list:sorted,byId:new Map(sorted.map(q=>[q.id,q]))});return sorted}
+  /* stamp = {max: newest updated_at, count} as the server reported it when the
+     list was downloaded; null after our own save (then the cache is right by
+     construction and the first freshness check just records the stamp). */
+  function cacheQuestions(itemId,list,stamp){const sorted=list.slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0));splitCache.set(String(itemId),{list:sorted,byId:new Map(sorted.map(q=>[q.id,q])),stamp:stamp||null});return sorted}
   async function loadSplitQuestions(itemId){
-    const query=()=>service.client.from(QTABLE).select("id,position,data").eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("position").order("id");
-    const first=await service.client.from(QTABLE).select("id,position,data",{count:"exact"}).eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("position").order("id").range(0,QPAGE-1);
+    const query=()=>service.client.from(QTABLE).select("id,position,data,updated_at").eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("position").order("id");
+    const first=await service.client.from(QTABLE).select("id,position,data,updated_at",{count:"exact"}).eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("position").order("id").range(0,QPAGE-1);
     if(first.error)throw first.error;
     let rows=first.data||[];
     const total=Number(first.count??rows.length);
@@ -15643,7 +15646,23 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
         for(const g of got){if(g.error)throw g.error;rows=rows.concat(g.data||[])}
       }
     }
-    return cacheQuestions(itemId,rows.map(toQuestion));
+    let max="";rows.forEach(r=>{if(r.updated_at&&r.updated_at>max)max=r.updated_at});
+    return cacheQuestions(itemId,rows.map(toQuestion),{max,count:rows.length});
+  }
+  /* Kuza: Take quiz waited 1-2s re-downloading every question. If this device
+     already holds the quiz (editor open, or taken before), one tiny request
+     (newest change time + row count) confirms nothing changed elsewhere, and
+     the cached questions are used straight away; otherwise download fresh. */
+  async function freshSplitQuestions(itemId){
+    const c=splitCache.get(String(itemId));
+    if(!c)return await loadSplitQuestions(itemId);
+    try{
+      const {data,count,error}=await service.client.from(QTABLE).select("updated_at",{count:"exact"}).eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("updated_at",{ascending:false}).limit(1);
+      if(error)throw error;
+      const max=(data&&data[0]&&data[0].updated_at)||"",n=Number(count??0);
+      if(c.stamp?(c.stamp.max===max&&c.stamp.count===n):n===c.list.length){c.stamp={max,count:n};return c.list}
+    }catch(e){}
+    return await loadSplitQuestions(itemId);
   }
   async function cachedSplitQuestions(itemId){const c=splitCache.get(String(itemId));return c?c.list:await loadSplitQuestions(itemId)}
   async function saveSplitFull(itemId,questions,settings){
@@ -15696,7 +15715,7 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
   service.getQuizForTaking=async itemId=>{
     const item=itemById(itemId);
     if(!isSplitItem(item)||!await useSplit())return await legacyQuiz.getQuizForTaking(itemId);
-    const qs=await loadSplitQuestions(itemId);
+    const qs=await freshSplitQuestions(itemId);
     return {title:item.title||"Quiz",settings:item.quiz_settings||{},questions:qs.map(q=>({id:q.id,type:q.type,prompt:q.prompt,options:q.options,points:q.points,image:q.image,allow_multiple:!!q.allow_multiple,images:q.images||[],session_label:q.session_label||null,session_labels:qzSessOf(q)}))};
   };
   service.gradeQuizQuestion=async(itemId,questionId,given)=>{
