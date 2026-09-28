@@ -3287,6 +3287,34 @@ body.has-student-profile:not(.admin-mode) .top-settings{
 .profile-content[class*="pfs-"] .profile-recent-icon,.profile-content[class*="pfs-"] .profile-donut-legend i{background:var(--pf-icon-bg)!important}
 
 .pfs-neon{--pf-canvas:repeating-linear-gradient(115deg,transparent 0 70px,rgba(255,170,40,.16) 71px,transparent 73px),repeating-linear-gradient(65deg,transparent 0 100px,rgba(0,230,255,.13) 101px,transparent 103px),radial-gradient(circle at 85% 5%,rgba(255,140,40,.25),transparent 40%),radial-gradient(circle at 5% 95%,rgba(0,220,255,.2),transparent 40%),#07070d;--pf-card:rgba(16,16,28,.8);--pf-border:rgba(0,229,255,.35);--pf-shadow:0 0 22px rgba(0,229,255,.16);--pf-blur:none;--pf-text:#eaf2ff;--pf-muted:#93a3c0;--pf-line:rgba(0,229,255,.16);--pf-accent:#39ff88;--pf-inner:#0c0c16;--pf-copy-bg:#ffb020;--pf-copy-fg:#111;--pf-b1:linear-gradient(90deg,#ff8a00,#39ff88);--pf-b1-fg:#111;--pf-b2:rgba(255,255,255,.08);--pf-b3:rgba(255,60,90,.16);--pf-b3-fg:#ff6b8a;--pf-icon-bg:rgba(255,255,255,.04);--pf-name:linear-gradient(90deg,#ffb020,#39ff88,#00e5ff);--pf-name-clip:text;--pf-name-fill:transparent;--pf-avatar-ring:#00e5ff;--pf-avatar-glow:0 0 24px rgba(0,229,255,.55);--pf-ok:#39ff88}
+
+/* Edit Profile window in the same Neon Lines skin as My Profile */
+.modal.profile-editor-modal{background:repeating-linear-gradient(115deg,transparent 0 70px,rgba(255,170,40,.10) 71px,transparent 73px),repeating-linear-gradient(65deg,transparent 0 100px,rgba(0,230,255,.09) 101px,transparent 103px),radial-gradient(circle at 90% 0%,rgba(255,140,40,.18),transparent 40%),radial-gradient(circle at 0% 100%,rgba(0,220,255,.15),transparent 40%),#0a0a14!important;color:#eaf2ff!important;border:1px solid rgba(0,229,255,.35)!important;box-shadow:0 0 40px rgba(0,229,255,.18),0 30px 80px rgba(0,0,0,.5)!important}
+.modal.profile-editor-modal .modal-head{background:transparent!important;border-bottom-color:rgba(0,229,255,.16)!important}
+.modal.profile-editor-modal .modal-title{color:#eaf2ff!important}
+.modal.profile-editor-modal .modal-close{background:rgba(255,255,255,.08)!important;color:#eaf2ff!important}
+.modal.profile-editor-modal .profile-preview-shell,.modal.profile-editor-modal .profile-preview-methods,.modal.profile-editor-modal .profile-preview-main,.modal.profile-editor-modal .profile-preview-left,.modal.profile-editor-modal .profile-preview-right{background:transparent!important;border-color:rgba(0,229,255,.16)!important}
+.modal.profile-editor-modal h1,.modal.profile-editor-modal h2,.modal.profile-editor-modal h3,.modal.profile-editor-modal h4,.modal.profile-editor-modal strong,.modal.profile-editor-modal b,.modal.profile-editor-modal label{color:#eaf2ff!important}
+.modal.profile-editor-modal p,.modal.profile-editor-modal small,.modal.profile-editor-modal span,.modal.profile-editor-modal .profile-editor-email{color:#93a3c0}
+.modal.profile-editor-modal .profile-preview-person h2,.modal.profile-editor-modal .profile-preview-person h3,.modal.profile-editor-modal .profile-preview-person strong{background:linear-gradient(90deg,#ffb020,#39ff88,#00e5ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.modal.profile-editor-modal .profile-editor-role{background:rgba(57,255,136,.12)!important;color:#39ff88!important}
+.modal.profile-editor-modal .profile-preview-card,.modal.profile-editor-modal .profile-preview-section,.modal.profile-editor-modal .profile-preview-password-section,.modal.profile-editor-modal .profile-preview-signin-section{background:transparent!important;border-color:rgba(0,229,255,.16)!important}
+.modal.profile-editor-modal .profile-preview-upload-box,.modal.profile-editor-modal .profile-preview-password-card,.modal.profile-editor-modal .profile-preview-method-row{background:rgba(16,16,28,.82)!important;border-color:rgba(0,229,255,.3)!important;box-shadow:0 0 18px rgba(0,229,255,.1)!important}
+.modal.profile-editor-modal .profile-preview-upload-box-icon,.modal.profile-editor-modal .profile-preview-section-icon,.modal.profile-editor-modal .profile-preview-password-icon,.modal.profile-editor-modal .profile-preview-method-icon,.modal.profile-editor-modal .profile-preview-palette{background:rgba(0,229,255,.1)!important;color:#00e5ff!important}
+.modal.profile-editor-modal input,.modal.profile-editor-modal textarea{background:rgba(255,255,255,.05)!important;color:#eaf2ff!important;border-color:rgba(0,229,255,.3)!important}
+.modal.profile-editor-modal input[readonly],.modal.profile-editor-modal input:disabled{color:#93a3c0!important}
+.modal.profile-editor-modal .profile-preview-upload-button,.modal.profile-editor-modal .profile-preview-outline-btn,.modal.profile-editor-modal .profile-preview-password-action{background:rgba(255,255,255,.06)!important;color:#00e5ff!important;border:1px solid rgba(0,229,255,.45)!important}
+.modal.profile-editor-modal .profile-preview-password-state,.modal.profile-editor-modal .profile-preview-method-badge{background:rgba(57,255,136,.12)!important;color:#39ff88!important}
+.modal.profile-editor-modal .profile-preview-password-mask{color:#eaf2ff!important}
+.modal.profile-editor-modal .profile-avatar-option-v2{background:transparent!important}
+.modal.profile-editor-modal .profile-avatar-option-v2 img{box-shadow:0 0 0 3px rgba(0,229,255,.25)!important}
+.modal.profile-editor-modal .profile-avatar-option-v2.selected img,.modal.profile-editor-modal .profile-avatar-option-v2[aria-pressed="true"] img{box-shadow:0 0 0 4px #39ff88,0 0 22px rgba(57,255,136,.6)!important}
+.modal.profile-editor-modal .profile-avatar-page-btn{background:rgba(255,255,255,.06)!important;color:#eaf2ff!important;border-color:rgba(0,229,255,.35)!important}
+.modal.profile-editor-modal .profile-avatar-pagination span,.modal.profile-editor-modal .profile-avatar-pagination strong{color:#eaf2ff!important}
+.modal.profile-editor-modal .profile-preview-footer{position:sticky;bottom:0;z-index:5;background:rgba(10,10,20,.94)!important;border-top:1px solid rgba(0,229,255,.2)!important;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.modal.profile-editor-modal .profile-preview-footer .btn:not(.primary){background:rgba(255,255,255,.08)!important;color:#eaf2ff!important;border-color:transparent!important}
+.modal.profile-editor-modal .profile-preview-footer .btn.primary{background:linear-gradient(90deg,#ff8a00,#39ff88)!important;color:#111!important;border:0!important}
+.modal.profile-editor-modal .status{background:rgba(255,255,255,.06)!important;color:#eaf2ff!important}
 </style>
 <style id="qzLoadLate">
 .qz-load-late{opacity:0;animation:qzLoadLateIn .2s ease .45s forwards}
