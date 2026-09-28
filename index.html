@@ -16440,7 +16440,8 @@ window.addEventListener("popstate",()=>setTimeout(syncProfileUi,0));q("modalClos
 <style id="qlNeonAppSkin">
 /* Kuza: Neon Lines skin for the whole library screen (sidebar, top bar,
    quick actions, documents grid / list, menus). Same layout; only colour. */
-body.ql-neon{background:#07070d!important;color:#eaf2ff}
+body.ql-neon{background:#07070d!important}
+body.ql-neon .app{color:#eaf2ff}
 body.ql-neon::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:repeating-linear-gradient(115deg,transparent 0 80px,rgba(255,170,40,.16) 81px,transparent 83px),repeating-linear-gradient(65deg,transparent 0 110px,rgba(0,230,255,.13) 111px,transparent 113px),radial-gradient(circle at 85% 0%,rgba(255,140,40,.18),transparent 40%),radial-gradient(circle at 0% 100%,rgba(0,220,255,.16),transparent 45%),#07070d}
 body.ql-neon .app{position:relative;z-index:1}
 body.ql-neon .app,body.ql-neon .main,body.ql-neon .content,body.ql-neon .page-heading,body.ql-neon .subbar{background:transparent!important}
@@ -16501,6 +16502,30 @@ body.ql-neon .selection-bar,body.ql-neon #trashToolbar{background:rgba(12,12,22,
 body.ql-neon .selection-bar .text-btn{color:#00e5ff!important}
 body.ql-neon .selection-bar .done-btn{background:linear-gradient(90deg,#ff8a00,#39ff88)!important;color:#111!important}
 body.ql-neon .check-circle{accent-color:#39ff88}
+/* pop-up windows (Upload PDF, Add Quiz Link, New Folder, Create Quiz, Share, ...) */
+body.ql-neon .overlay .modal{background:repeating-linear-gradient(115deg,transparent 0 70px,rgba(255,170,40,.08) 71px,transparent 73px),repeating-linear-gradient(65deg,transparent 0 100px,rgba(0,230,255,.07) 101px,transparent 103px),#0c0c18!important;color:#eaf2ff!important;border:1px solid rgba(0,229,255,.35)!important;box-shadow:0 0 34px rgba(0,229,255,.18),0 30px 80px rgba(0,0,0,.55)!important}
+body.ql-neon .overlay .modal .modal-head,body.ql-neon .overlay .modal .folder-editor-top{background:rgba(12,12,24,.96)!important;border-bottom-color:rgba(0,229,255,.16)!important}
+body.ql-neon .overlay .modal .settings-card,body.ql-neon .overlay .modal .folder-editor{background:rgba(16,16,28,.85)!important;border-color:rgba(0,229,255,.25)!important;color:#eaf2ff!important}
+body.ql-neon .overlay .modal .folder-editor-tabs{background:rgba(255,255,255,.06)!important}
+body.ql-neon .overlay .modal .folder-editor-tabs button{color:#b9c6dd!important;background:transparent!important}
+body.ql-neon .overlay .modal .folder-editor-tabs button.active{background:rgba(0,229,255,.16)!important;color:#00e5ff!important}
+body.ql-neon .overlay .modal .qz-info-box{background:rgba(0,229,255,.08)!important;color:#b9dff0!important;border-color:rgba(0,229,255,.25)!important}
+body.ql-neon .overlay .modal .modal-title,body.ql-neon .overlay .modal h1,body.ql-neon .overlay .modal h2,body.ql-neon .overlay .modal h3,body.ql-neon .overlay .modal h4,body.ql-neon .overlay .modal strong,body.ql-neon .overlay .modal b,body.ql-neon .overlay .modal legend{color:#eaf2ff!important}
+body.ql-neon .overlay .modal label,body.ql-neon .overlay .modal p,body.ql-neon .overlay .modal small{color:#b9c6dd}
+body.ql-neon .overlay .modal .modal-close{background:rgba(255,255,255,.08)!important;color:#eaf2ff!important}
+body.ql-neon .overlay .modal input:not([type=radio]):not([type=checkbox]),body.ql-neon .overlay .modal select,body.ql-neon .overlay .modal textarea{background:rgba(255,255,255,.05)!important;color:#eaf2ff!important;border-color:rgba(0,229,255,.32)!important}
+body.ql-neon .overlay .modal select option{background:#0c0c18;color:#eaf2ff}
+body.ql-neon .overlay .modal input::placeholder,body.ql-neon .overlay .modal textarea::placeholder{color:#7f8ca6!important}
+body.ql-neon .overlay .modal input[type=radio],body.ql-neon .overlay .modal input[type=checkbox]{accent-color:#39ff88}
+body.ql-neon .overlay .modal input[type=file]{color:#b9c6dd!important}
+body.ql-neon .overlay .modal input[type=file]::file-selector-button{background:rgba(0,229,255,.12);color:#00e5ff;border:1px solid rgba(0,229,255,.4);border-radius:8px;padding:4px 10px}
+body.ql-neon .overlay .modal fieldset,body.ql-neon .overlay .modal .card,body.ql-neon .overlay .modal .panel{background:rgba(16,16,28,.8)!important;border-color:rgba(0,229,255,.25)!important;color:#eaf2ff!important}
+body.ql-neon .overlay .modal .status{background:rgba(0,229,255,.08)!important;color:#b9dff0!important;border:1px solid rgba(0,229,255,.2)}
+body.ql-neon .overlay .modal .status.error{background:rgba(255,60,90,.12)!important;color:#ff9fb3!important;border-color:rgba(255,60,90,.3)}
+body.ql-neon .overlay .modal .status.success{background:rgba(57,255,136,.1)!important;color:#7dffb3!important;border-color:rgba(57,255,136,.3)}
+body.ql-neon .overlay .modal .btn:not(.primary){background:rgba(255,255,255,.08)!important;color:#eaf2ff!important;border-color:transparent!important}
+body.ql-neon .overlay .modal .btn.primary{background:linear-gradient(90deg,#ff8a00,#39ff88)!important;color:#111!important;border:0!important}
+body.ql-neon .overlay .modal .btn:disabled{opacity:.45}
 /* toast */
 body.ql-neon .toast{background:rgba(12,12,22,.95)!important;color:#eaf2ff!important;border:1px solid rgba(0,229,255,.35)!important}
 /* the profile page already draws its own neon canvas: let it sit on the page background */
