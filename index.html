@@ -3247,6 +3247,10 @@ body.has-student-profile:not(.admin-mode) .top-settings{
 @media(max-width:900px){.qz-res-neon .qz-neo-grid{grid-template-columns:1fr}.qz-res-neon .qz-neo-summary{position:static}}
 @media(max-width:640px){#qzPageBody.qz-res-neon .qz-neo-att{grid-template-columns:minmax(0,1fr) auto!important;row-gap:8px}.qz-res-neon .qz-neo-bar{grid-column:1/-1;order:3}.qz-res-neon .qz-neo-head h2{font-size:24px}.qz-res-neon .qz-neo-head{flex-wrap:wrap}}
 </style>
+<style id="qzLoadLate">
+.qz-load-late{opacity:0;animation:qzLoadLateIn .2s ease .45s forwards}
+@keyframes qzLoadLateIn{to{opacity:1}}
+</style>
 <style id="qzExtBye">
 .qz-ext-bye{text-align:center;padding-top:60px}
 .qz-ext-bye-ico{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;font-size:30px;font-weight:900;color:#fff;background:linear-gradient(135deg,#22d3ee,#0ea5b8 45%,#6366f1);box-shadow:0 12px 28px rgba(14,165,184,.35)}
@@ -13686,7 +13690,8 @@ Q5 Answer B
   async function qzBeginAttempt(item,mode,onDone,overrideData){
     qzOpenPage(true);
     const bodyEl=document.getElementById("qzPageBody");
-    bodyEl.innerHTML=qzPageTopbar()+'<div class="qz-runner-start"><div class="status">Loading quiz…</div></div>';
+    /* shown only if loading takes a moment, so a quick start doesn't flash it */
+    bodyEl.innerHTML=qzPageTopbar()+'<div class="qz-runner-start"><div class="status qz-load-late">Loading quiz…</div></div>';
     document.getElementById("qzTopClose").onclick=()=>{qzExit(onDone)};
     let quizTitle,settings,questions;
     try{
@@ -15701,16 +15706,21 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
   function splitReady(){
     if(MOCK_MODE||!service.client||!state.user)return Promise.resolve(false);
     if(!splitReadyPromise){
-      splitReadyPromise=(async()=>{
+      const probe=(async()=>{
         /* a plain GET, not a HEAD request: a HEAD to a missing table comes
            back with no body, which supabase-js reports as no error */
         const {error,status}=await service.client.from(QTABLE).select("id").eq("user_id",state.user.id).limit(1);
-        if(!error&&status<400)return true;
+        if(!error&&status<400){try{localStorage.setItem("ql_split_ready_v1","1")}catch(e){}return true}
         const raw=`${error?.code||""} ${error?.message||""}`;
-        if(status===404||/42P01|PGRST205|PGRST106|does not exist|Could not find the table|schema cache/i.test(raw))return false;
+        if(status===404||/42P01|PGRST205|PGRST106|does not exist|Could not find the table|schema cache/i.test(raw)){try{localStorage.removeItem("ql_split_ready_v1")}catch(e){}return false}
         splitReadyPromise=null; /* transient (network) -- ask again next time */
         throw error;
       })();
+      /* once this device has seen the tables, don't make every fresh page
+         load wait for the check again (it still runs, in the background) */
+      let known=false;try{known=localStorage.getItem("ql_split_ready_v1")==="1"}catch(e){}
+      if(known){probe.catch(()=>{});splitReadyPromise=Promise.resolve(true)}
+      else splitReadyPromise=probe;
     }
     return splitReadyPromise;
   }
@@ -15720,7 +15730,48 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
   /* stamp = {max: newest updated_at, count} as the server reported it when the
      list was downloaded; null after our own save (then the cache is right by
      construction and the first freshness check just records the stamp). */
-  function cacheQuestions(itemId,list,stamp){const sorted=list.slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0));splitCache.set(String(itemId),{list:sorted,byId:new Map(sorted.map(q=>[q.id,q])),stamp:stamp||null});return sorted}
+  function cacheQuestions(itemId,list,stamp){const sorted=list.slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0));splitCache.set(String(itemId),{list:sorted,byId:new Map(sorted.map(q=>[q.id,q])),stamp:stamp||null});qzDiskCachePut(itemId);return sorted}
+  /* Kuza: "Loading quiz… still shows, not the first time" -- the cache above
+     only lived in memory, so every page reload (e.g. Refresh for a new
+     version) started empty. A copy is kept on the device in IndexedDB, per
+     account + quiz, and is used after the same freshness check as the
+     in-memory copy. Best effort: any IndexedDB problem just means a normal
+     download. */
+  let qzDiskDb=null;
+  function qzDiskOpen(){
+    if(qzDiskDb)return qzDiskDb;
+    qzDiskDb=new Promise((resolve,reject)=>{
+      try{
+        const req=indexedDB.open("ql_quiz_cache",1);
+        req.onupgradeneeded=()=>{req.result.createObjectStore("q")};
+        req.onsuccess=()=>resolve(req.result);
+        req.onerror=()=>reject(req.error);
+      }catch(e){reject(e)}
+    }).catch(e=>{qzDiskDb=null;throw e});
+    return qzDiskDb;
+  }
+  const qzDiskKey=itemId=>`${state.user?.id||""}:${LIBRARY_ID}:${itemId}`;
+  const qzDiskTimers=new Map();
+  function qzDiskCachePut(itemId){
+    if(!state.user?.id||typeof indexedDB==="undefined")return;
+    const id=String(itemId);
+    clearTimeout(qzDiskTimers.get(id));
+    qzDiskTimers.set(id,setTimeout(async()=>{
+      qzDiskTimers.delete(id);
+      const c=splitCache.get(id);if(!c)return;
+      try{const db=await qzDiskOpen();db.transaction("q","readwrite").objectStore("q").put({list:c.list,stamp:c.stamp,at:Date.now()},qzDiskKey(id))}catch(e){}
+    },800));
+  }
+  async function qzDiskCacheGet(itemId){
+    if(!state.user?.id||typeof indexedDB==="undefined")return null;
+    try{
+      const db=await qzDiskOpen();
+      return await new Promise(resolve=>{
+        const req=db.transaction("q","readonly").objectStore("q").get(qzDiskKey(String(itemId)));
+        req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>resolve(null);
+      });
+    }catch(e){return null}
+  }
   async function loadSplitQuestions(itemId){
     const query=()=>service.client.from(QTABLE).select("id,position,data,updated_at").eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("position").order("id");
     const first=await service.client.from(QTABLE).select("id,position,data,updated_at",{count:"exact"}).eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("position").order("id").range(0,QPAGE-1);
@@ -15743,13 +15794,20 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
      (newest change time + row count) confirms nothing changed elsewhere, and
      the cached questions are used straight away; otherwise download fresh. */
   async function freshSplitQuestions(itemId){
+    if(!splitCache.has(String(itemId))){
+      const disk=await qzDiskCacheGet(itemId);
+      if(disk&&Array.isArray(disk.list)&&disk.list.length){
+        const sorted=disk.list;
+        splitCache.set(String(itemId),{list:sorted,byId:new Map(sorted.map(q=>[q.id,q])),stamp:disk.stamp||null});
+      }
+    }
     const c=splitCache.get(String(itemId));
     if(!c)return await loadSplitQuestions(itemId);
     try{
       const {data,count,error}=await service.client.from(QTABLE).select("updated_at",{count:"exact"}).eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("updated_at",{ascending:false}).limit(1);
       if(error)throw error;
       const max=(data&&data[0]&&data[0].updated_at)||"",n=Number(count??0);
-      if(c.stamp?(c.stamp.max===max&&c.stamp.count===n):n===c.list.length){c.stamp={max,count:n};return c.list}
+      if(c.stamp?(c.stamp.max===max&&c.stamp.count===n):n===c.list.length){const was=c.stamp;c.stamp={max,count:n};if(!was)qzDiskCachePut(itemId);return c.list}
     }catch(e){}
     return await loadSplitQuestions(itemId);
   }
