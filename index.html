@@ -12933,11 +12933,34 @@ Q5 Answer B
     function handleGlobalActions(){/* reserved */}
 
     renderShell();
+    /* Kuza: "after refresh (new version) stay exactly as it is" -- remember
+       which question the editor was showing; unsaved edits already come
+       back through the local draft (qzSaveDraftNow / qzDraftKey). */
+    window.__qzLiveSnap=()=>{
+      if(!document.getElementById("qzAutosaveStatus"))return null;
+      if(qzDraftHasUnsaved)qzSaveDraftNow();
+      const sc=qzMainScroller();
+      const top=sc?sc.getBoundingClientRect().top:0;
+      const card=[...document.querySelectorAll(".qz-question-card[data-qidx]")].find(c=>c.getBoundingClientRect().bottom>top+8);
+      return {kind:"editor",itemId:item.id,qidx:card?Number(card.dataset.qidx):0,offset:card?Math.round(card.getBoundingClientRect().top-top):0};
+    };
+    const qzEdResume=window.__qzResume;
+    if(qzEdResume&&qzEdResume.kind==="editor"&&qzEdResume.itemId===item.id){
+      window.__qzResume=null;
+      const idx=Math.max(0,Math.min(questions.length-1,Number(qzEdResume.qidx)||0));
+      setTimeout(()=>{
+        if(questions.length>QZ_VIRTUALIZE_THRESHOLD&&(idx<qzWinStart||idx>=qzWinEnd))qzRecenterWindowOn(idx);
+        const card=document.querySelector(`.qz-question-card[data-qidx="${idx}"]`);
+        const sc=qzMainScroller();
+        if(card&&sc){sc.scrollTop+=card.getBoundingClientRect().top-sc.getBoundingClientRect().top-(Number(qzEdResume.offset)||0)}
+      },60);
+    }
   }
 
   /* ------------------------------ Quiz landing (view) ----------------------- */
   async function openQuizLanding(item){
     qzOpenPage();
+    window.__qzLiveSnap=()=>document.getElementById("qzLandTake")?{kind:"landing",itemId:item.id}:null;
     const bodyEl=document.getElementById("qzPageBody");
     const settings=item.quiz_settings||{};
     const count=settings.question_count||0;
@@ -13554,6 +13577,40 @@ Q5 Answer B
     }
   }
 
+  /* Kuza: when a new version arrives the app asks to Refresh; after the
+     refresh put her back exactly where she was (editor question, quiz
+     landing, or the quiz she was taking). The Refresh button stores a
+     snapshot from window.__qzLiveSnap (set by whichever screen is open)
+     plus a one-time sessionStorage flag; nothing is restored after an
+     ordinary reload. */
+  const QZ_RESUME_KEY="ql_resume_after_update_v1";
+  window.__qlSnapshotBeforeReload=function(){
+    try{
+      const snap=typeof window.__qzLiveSnap==="function"?window.__qzLiveSnap():null;
+      localStorage.removeItem(QZ_RESUME_KEY);
+      if(snap){localStorage.setItem(QZ_RESUME_KEY,JSON.stringify({...snap,at:Date.now()}));sessionStorage.setItem("ql_resume_pending","1")}
+    }catch(e){}
+  };
+  (function qzResumeBoot(){
+    let pending=null,snap=null;
+    try{pending=sessionStorage.getItem("ql_resume_pending");sessionStorage.removeItem("ql_resume_pending")}catch(e){}
+    if(!pending)return;
+    try{snap=JSON.parse(localStorage.getItem(QZ_RESUME_KEY)||"null");localStorage.removeItem(QZ_RESUME_KEY)}catch(e){}
+    if(!snap||!snap.itemId||Date.now()-(Number(snap.at)||0)>6*3600e3)return;
+    const t0=Date.now();
+    const tick=()=>{
+      const it=state.user&&Array.isArray(state.items)?state.items.find(x=>x.id===snap.itemId&&!x.is_trashed):null;
+      if(!it){if(Date.now()-t0<30000)setTimeout(tick,300);return}
+      if(document.getElementById("qzPageOverlay")?.classList.contains("show"))return; /* she already opened something */
+      window.__qzResume=snap;
+      try{
+        if(snap.kind==="editor")openQuizWorkspace(it);
+        else if(snap.kind==="landing")openQuizLanding(it);
+        else if(snap.kind==="exam")qzBeginAttempt(it,snap.preview?"preview":"take",()=>openQuizLanding(itemById(it.id)||it));
+      }catch(e){window.__qzResume=null}
+    };
+    setTimeout(tick,300);
+  })();
   async function qzBeginAttempt(item,mode,onDone,overrideData){
     qzOpenPage(true);
     const bodyEl=document.getElementById("qzPageBody");
@@ -14106,9 +14163,46 @@ Q5 Answer B
         inp.closest(".qz-run-option")?.classList.add("qz-run-locked");
       });
     }
-    const startedAt=nowIso();
-    const startedMs=Date.now();
+    let startedAt=nowIso();
+    let startedMs=Date.now();
     let curIdx=0;
+    /* Kuza: "after refresh (new version) stay exactly as it is" -- pick the
+       attempt back up: same question order and option order, answers,
+       graded feedback, bookmarks/flags, section, current question and
+       elapsed time. Only used right after the app's Refresh-for-update. */
+    const qzResume=(window.__qzResume&&window.__qzResume.kind==="exam"&&window.__qzResume.itemId===item.id&&!!window.__qzResume.preview===!!isPreview)?window.__qzResume:null;
+    if(qzResume){
+      window.__qzResume=null;
+      const byId=new Map(allQuestions.map(q=>[q.id,q]));
+      const restored=(qzResume.order||[]).map(id=>{
+        const q=byId.get(id);if(!q)return null;
+        const ord=qzResume.opt&&qzResume.opt[id];
+        if(Array.isArray(ord)&&Array.isArray(q.options)&&ord.length===q.options.length)return {...q,options:ord.map(i=>q.options[i]),_origIndex:ord,_origOptions:q.options};
+        return q;
+      }).filter(Boolean);
+      if(restored.length){
+        questions=restored;
+        sessionName=qzResume.sessionName||null;
+        const keep=new Set(restored.map(q=>q.id));
+        Object.entries(qzResume.answers||{}).forEach(([k,v])=>{if(keep.has(k))answers[k]=v});
+        Object.entries(qzResume.graded||{}).forEach(([k,v])=>{if(keep.has(k))gradedCache[k]=v});
+        (qzResume.bookmarks||[]).forEach(id=>keep.has(id)&&bookmarks.add(id));
+        (qzResume.flags||[]).forEach(id=>keep.has(id)&&flags.add(id));
+        (qzResume.locked||[]).forEach(id=>keep.has(id)&&lockedQuestions.add(id));
+        curIdx=Math.max(0,Math.min(questions.length-1,Number(qzResume.curIdx)||0));
+        if(qzResume.startedAt)startedAt=qzResume.startedAt;
+        startedMs=Date.now()-Math.max(0,Number(qzResume.elapsedMs)||0);
+      }
+    }
+    window.__qzLiveSnap=()=>{
+      if(!bodyEl.isConnected||!document.getElementById("qzExamShell"))return null;
+      const sc=qzMainScroller();
+      return {kind:"exam",itemId:item.id,preview:!!isPreview,sessionName:sessionName||null,
+        order:questions.map(q=>q.id),
+        opt:Object.fromEntries(questions.filter(q=>Array.isArray(q._origIndex)).map(q=>[q.id,q._origIndex])),
+        answers,graded:gradedCache,bookmarks:[...bookmarks],flags:[...flags],locked:[...lockedQuestions],
+        curIdx,startedAt,elapsedMs:Date.now()-startedMs,scroll:sc?sc.scrollTop:0};
+    };
     const prefs=qzExamPrefs((state.items.find(x=>x.id===item.id)||item).quiz_settings||rawSettings);
     /* Saves this quiz's look (page style / navigation side / text size) to
        the quiz itself, debounced so rapid Text size taps send one write. */
@@ -15087,6 +15181,7 @@ Q5 Answer B
        re-applied via applyPrefsToShell() rather than a full renderShell(). */
     window.addEventListener("resize",()=>{if(!prefs.navMode)applyPrefsToShell()});
     renderShell();
+    if(qzResume&&qzResume.scroll&&!horizontal)setTimeout(()=>{const sc=qzMainScroller();if(sc)sc.scrollTop=qzResume.scroll},60);
   }
 
   /* ------------------------------ results view ----------------------------
@@ -16145,7 +16240,7 @@ window.addEventListener("popstate",()=>setTimeout(syncProfileUi,0));q("modalClos
     bar.style.cssText="position:fixed;top:0;left:0;right:0;z-index:99999;background:#1475f2;color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:center;gap:14px;font:600 13px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;box-shadow:0 2px 10px rgba(15,26,43,.18)";
     bar.innerHTML='<span>A newer version of Quiz Library is available.</span><button id="qlUpdateRefreshBtn" type="button" style="background:#fff;color:#1475f2;border:0;border-radius:8px;padding:6px 14px;font-weight:700;cursor:pointer;font-size:13px">Refresh now</button><button id="qlUpdateDismissBtn" type="button" aria-label="Dismiss" style="background:transparent;border:0;color:#fff;font-size:18px;cursor:pointer;line-height:1;padding:0 4px">\u00d7</button>';
     document.body.appendChild(bar);
-    document.getElementById("qlUpdateRefreshBtn").onclick=function(){location.reload()};
+    document.getElementById("qlUpdateRefreshBtn").onclick=function(){try{window.__qlSnapshotBeforeReload&&window.__qlSnapshotBeforeReload()}catch(e){}location.reload()};
     document.getElementById("qlUpdateDismissBtn").onclick=function(){bar.remove();dismissedUntil=Date.now()+30*60*1000};
   }
   function headCheck(){
