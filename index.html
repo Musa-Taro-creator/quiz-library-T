@@ -14403,14 +14403,23 @@ Q5 Answer B
            (not addEventListener) so re-running renderMain() without a full
            renderShell() never stacks duplicate handlers on the persisted
            `main` node. */
+        /* Kuza (Sep 28, "10k questions: tapping an option takes 2-3s on
+           iPad, 1000 is instant"): this handler runs on EVERY click inside
+           the question list (an option tap even fires it twice -- label +
+           radio), and it used to querySelectorAll every .qz-run-menu-pop
+           (one per question = 10,000) and re-set hidden on all of them.
+           At 10k questions that page-wide scan + 10,000 attribute writes
+           was most of the delay. At most one menu is ever open, so just
+           remember it (main._qzOpenPop) and close only that one. */
+        const hideOpenPop=()=>{if(main._qzOpenPop){main._qzOpenPop.hidden=true;main._qzOpenPop=null}};
+        main._qzOpenPop=null;
         main.onclick=e=>{
           const menuBtn=e.target.closest(".qz-run-menu-btn");
           if(menuBtn){
-            const qid=menuBtn.dataset.menuQid;
-            const pop=main.querySelector(`.qz-run-menu-pop[data-menu-pop="${qid}"]`);
+            const pop=menuBtn.parentElement.querySelector(".qz-run-menu-pop");
             const wasOpen=pop&&!pop.hidden;
-            main.querySelectorAll(".qz-run-menu-pop").forEach(p=>{p.hidden=true});
-            if(pop)pop.hidden=wasOpen;
+            hideOpenPop();
+            if(pop&&!wasOpen){pop.hidden=false;main._qzOpenPop=pop}
             return;
           }
           const menuItem=e.target.closest(".qz-run-menu-item");
@@ -14422,7 +14431,7 @@ Q5 Answer B
             renderMain();
             return;
           }
-          if(!e.target.closest(".qz-run-menu-pop"))main.querySelectorAll(".qz-run-menu-pop").forEach(p=>{p.hidden=true});
+          if(!e.target.closest(".qz-run-menu-pop"))hideOpenPop();
         };
       }
       /* Kuza (2nd perf pass, iPad report -- "click option or click next
