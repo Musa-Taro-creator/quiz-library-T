@@ -3247,6 +3247,11 @@ body.has-student-profile:not(.admin-mode) .top-settings{
 @media(max-width:900px){.qz-res-neon .qz-neo-grid{grid-template-columns:1fr}.qz-res-neon .qz-neo-summary{position:static}}
 @media(max-width:640px){#qzPageBody.qz-res-neon .qz-neo-att{grid-template-columns:minmax(0,1fr) auto!important;row-gap:8px}.qz-res-neon .qz-neo-bar{grid-column:1/-1;order:3}.qz-res-neon .qz-neo-head h2{font-size:24px}.qz-res-neon .qz-neo-head{flex-wrap:wrap}}
 </style>
+<style id="qzExtBye">
+.qz-ext-bye{text-align:center;padding-top:60px}
+.qz-ext-bye-ico{width:64px;height:64px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;font-size:30px;font-weight:900;color:#fff;background:linear-gradient(135deg,#22d3ee,#0ea5b8 45%,#6366f1);box-shadow:0 12px 28px rgba(14,165,184,.35)}
+.qz-ext-bye p{color:#64748b;margin:6px 0 18px}
+</style>
 <style id="qzFindBarStyle">
 .qz-find-bar{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 14px);transform:translateX(-50%);z-index:2147482000;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);padding:8px 8px 8px 12px;border-radius:999px;color:#7f1d1d;background:rgba(255,255,255,.94);border:1px solid rgba(239,68,68,.35);box-shadow:0 14px 34px rgba(127,29,29,.22),inset 0 1px 0 #fff;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);font-size:14.5px;animation:qzFindIn .22s ease}
 .qz-find-bar.ok{color:#065f46;border-color:rgba(16,185,129,.4);box-shadow:0 14px 34px rgba(6,95,70,.2)}
@@ -13556,11 +13561,33 @@ Q5 Answer B
      module. */
   window.qzOpenRandomQuizGlobal=qzOpenRandomQuizGlobal;
   let qzExternalRouteOpened=false;
-  function qzLeaveExternalShare(){
+  /* Kuza: on a shared link the Home icon goes back to exactly where the
+     student was before opening the link (Telegram, Safari page, or this app)
+     via the browser's own Back. If there is nothing to go back to, try to
+     close the tab; failing that, account users land in their library and
+     guests see a small "you can close this tab" card. */
+  function qzLeaveExternalShareHere(){
+
     window.__qlExternalQuizIdentityMode="";
     try{const url=new URL(location.href);url.searchParams.delete("quiz_share");url.searchParams.delete("quiz_identity");url.searchParams.delete("share_identity");history.replaceState(null,"",url.pathname+(url.search||"")+(url.hash||""))}catch{}
     qzClosePage();
     try{render();window.__quizTest?.enforceLibraryAccess?.()}catch{}
+  }
+  let qzExtPageLeft=false;
+  window.addEventListener("pagehide",()=>{qzExtPageLeft=true});
+  function qzLeaveExternalShare(){
+    const here=location.href;
+    const fallback=()=>{
+      if(qzExtPageLeft||location.href!==here)return;
+      if(state.user){qzLeaveExternalShareHere();return}
+      const body=document.getElementById("qzPageBody");
+      if(!body){qzLeaveExternalShareHere();return}
+      body.innerHTML=`<div class="qz-runner-start qz-ext-bye"><div class="qz-ext-bye-ico">✓</div><h2>You've left the quiz</h2><p>You can close this tab now.</p><button type="button" class="btn primary" id="qzExtReopen">Open the quiz again</button></div>`;
+      document.getElementById("qzExtReopen").onclick=()=>location.reload();
+    };
+    if(history.length>1){history.back();setTimeout(fallback,900);return}
+    try{window.close()}catch(e){}
+    setTimeout(fallback,400);
   }
   async function qzOpenExternalShareFromUrl(){
     const token=qzExternalShareToken();
@@ -14114,7 +14141,22 @@ Q5 Answer B
   function qzEffectiveNavMode(p){
     return "side";
   }
+  /* Kuza: a student on a Share-externally link gets every Tools setting
+     (page style, side, text size, behavior, auto-advance, shuffle) except
+     Apply to All / Edit Quiz. They have no account, so their choices are
+     remembered in this browser, per shared link. */
+  function qzExtToolsKey(item){return `ql_ext_tools_${item.id}`}
+  function qzExtToolsLoad(item){try{const v=JSON.parse(localStorage.getItem(qzExtToolsKey(item))||"null");return v&&typeof v==="object"?v:{}}catch(e){return {}}}
+  function qzExtToolsSave(item,patch){try{localStorage.setItem(qzExtToolsKey(item),JSON.stringify({...qzExtToolsLoad(item),...patch}))}catch(e){}}
   function qzRunQuestions(item,quiz,takerName,takerIdentifier,isPreview,onDone,sessionName,takerMeta,onRestart){
+    const isExternal=!!item._external_share;
+    if(isExternal){
+      const ov=qzExtToolsLoad(item);
+      if(Object.keys(ov).length){
+        quiz={...quiz,settings:{...(quiz.settings||{}),...ov},rawSettings:{...(quiz.rawSettings||quiz.settings||{}),...ov}};
+        item={...item,quiz_settings:{...(item.quiz_settings||{}),...ov}};
+      }
+    }
     qzUseSessionRegistry(quiz.rawSettings||quiz.settings);
     const bodyEl=document.getElementById("qzPageBody");
     const qzMode=qzShuffleMode(quiz.settings);
@@ -14220,6 +14262,7 @@ Q5 Answer B
        to its settings in the account), not just for this attempt. Only the
        given keys are written, on top of the quiz's stored settings. */
     async function qzSaveQuizTools(newSettings,keys){
+      if(isExternal){const patch={};keys.forEach(k=>{patch[k]=newSettings[k]});qzExtToolsSave(item,patch);return true}
       const idx=state.items.findIndex(x=>x.id===item.id);
       if(idx<0)return false;
       const ns={...(state.items[idx].quiz_settings||{})};
@@ -14235,6 +14278,7 @@ Q5 Answer B
     function qzSaveQuizLook(){
       clearTimeout(qzLookTimer);
       qzLookTimer=setTimeout(async()=>{
+        if(isExternal){qzExtToolsSave(item,{exam_ui:{theme:prefs.theme,navSide:prefs.navSide,textSize:Number(prefs.textSize)||0}});return}
         const idx=state.items.findIndex(x=>x.id===item.id);
         if(idx<0)return;
         const cur=state.items[idx].quiz_settings||{};
@@ -14797,7 +14841,7 @@ Q5 Answer B
          Prev/Next session controls still call qzSwitchSession directly. */
       document.getElementById("qzToolsPanel").innerHTML=`
         <div class="qz-tools-head"><span class="qz-tools-head-title"><span class="qz-tools-head-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3"/><circle cx="4" cy="12" r="2.2" fill="currentColor" stroke="none"/><circle cx="12" cy="10" r="2.2" fill="currentColor" stroke="none"/><circle cx="20" cy="14" r="2.2" fill="currentColor" stroke="none"/></svg></span>Tools</span><button type="button" class="qz-tools-close" id="qzToolsClose" aria-label="Close">✕</button></div>
-        ${qlCanMutate()?`<div class="qz-tools-section qz-tools-links">
+        ${qlCanMutate()&&!isExternal?`<div class="qz-tools-section qz-tools-links">
           <button type="button" class="qz-tools-row-icon" id="qzToolsApplyAll"><span class="qz-tools-row-badge" style="background:#0ea5b8"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><rect x="7" y="7" width="13" height="13" rx="2"/><path d="M4 15V5a2 2 0 0 1 2-2h10"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Apply to All Quizzes</span><span class="qz-tools-row-t2">Copies these tools to every quiz you own</span></span><span class="qz-tools-row-chev">›</span></button>
         </div>`:""}
         ${qzEffectiveNavMode(prefs)==="side"?`<div class="qz-tools-section">
@@ -14819,7 +14863,7 @@ Q5 Answer B
           <button type="button" class="qz-tools-row-icon" id="qzToolsMood"><span class="qz-tools-row-badge" style="background:#5856d6"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="19" cy="12" r="2" fill="currentColor" stroke="none"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Quiz Behavior</span><span class="qz-tools-row-t2">Layout &amp; feedback timing</span></span><span class="qz-tools-row-chev">›</span></button>
           <button type="button" class="qz-tools-row-icon" id="qzToolsAutoAdv"><span class="qz-tools-row-badge" style="background:#ff2d55"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m6 5 7 7-7 7M13 5l7 7-7 7"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Auto-Advance</span><span class="qz-tools-row-t2">Move on automatically after answering</span></span><span class="qz-tools-row-chev">›</span></button>
           <button type="button" class="qz-tools-row-icon" id="qzToolsShuffle"><span class="qz-tools-row-badge" style="background:#0369a1"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M3 7h3l12 10h3"/><path d="m18 14 3 3-3 3"/><path d="M3 17h3l12-10h3"/><path d="m18 10 3-3-3-3"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Shuffle</span><span class="qz-tools-row-t2">Randomize question or answer order</span></span><span class="qz-tools-row-chev">›</span></button>
-          ${qlCanMutate()?'<button type="button" class="qz-tools-row-icon" id="qzToolsEdit"><span class="qz-tools-row-badge" style="background:#8e8e93"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m4 20 4.5-1 10-10-3.5-3.5-10 10z"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Edit Quiz</span><span class="qz-tools-row-t2">Change questions &amp; answers</span></span><span class="qz-tools-row-chev">›</span></button>':""}
+          ${qlCanMutate()&&!isExternal?'<button type="button" class="qz-tools-row-icon" id="qzToolsEdit"><span class="qz-tools-row-badge" style="background:#8e8e93"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m4 20 4.5-1 10-10-3.5-3.5-10 10z"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Edit Quiz</span><span class="qz-tools-row-t2">Change questions &amp; answers</span></span><span class="qz-tools-row-chev">›</span></button>':""}
         </div>
       `;
       el.classList.add("show");
