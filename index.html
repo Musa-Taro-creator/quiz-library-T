@@ -14900,6 +14900,169 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
   if(shared.gradeQuizQuestion)service.gradeQuizQuestion=async(itemId,questionId,given)=>{if(!qlIsStudentWorkspace())return await shared.gradeQuizQuestion(itemId,questionId,given);const item=itemById(itemId),q=item?._student_questions?.find(x=>x.id===questionId);if(!q)return await shared.gradeQuizQuestion(itemId,questionId,given);return {correct:gradeLocal(q,given),correct_answer:q.correct_answer,explanation:q.explanation||null,points:Number(q.points)||1}};
   if(shared.listQuizAttempts)service.listQuizAttempts=async itemId=>{if(!qlIsStudentWorkspace())return await shared.listQuizAttempts(itemId);return (itemById(itemId)?._student_attempts||[]).slice().sort((a,b)=>new Date(b.submitted_at)-new Date(a.submitted_at))};
 
+  /* ------------------------------------------------------------------------
+     Kuza (Sep 28): split storage for student quizzes. A student's quiz used to
+     live entirely inside ONE student_library_items row (payload
+     ._student_questions + ._student_attempts). At 10,000 questions a one-letter
+     edit made Postgres rewrite that whole multi-MB value -- ~1 minute, statement
+     timeouts, retries -- and every library load downloaded every question of
+     every quiz (heavy on iPad). Once supabase/student_quiz_split_storage.sql has
+     been run, each question is its own row in student_quiz_questions and each
+     finished attempt its own row in student_quiz_attempts; the library row only
+     keeps the quiz's title/settings plus _student_q_split:true. Until that SQL
+     exists (or in MOCK_MODE) everything below falls through to the legacy
+     functions above, unchanged.
+     ------------------------------------------------------------------------ */
+  const QTABLE="student_quiz_questions",ATABLE="student_quiz_attempts",QPAGE=1000,QCHUNK=2000;
+  const legacyQuiz={saveQuizQuestions:service.saveQuizQuestions,saveQuizQuestionsPartial:service.saveQuizQuestionsPartial,getQuizQuestionsAdmin:service.getQuizQuestionsAdmin,getQuizForTaking:service.getQuizForTaking,submitQuizAttempt:service.submitQuizAttempt,gradeQuizQuestion:service.gradeQuizQuestion,listQuizAttempts:service.listQuizAttempts};
+  const splitCache=new Map(); // itemId -> {list:[questions sorted], byId:Map}
+  let splitReadyPromise=null;
+  function splitReady(){
+    if(MOCK_MODE||!service.client||!state.user)return Promise.resolve(false);
+    if(!splitReadyPromise){
+      splitReadyPromise=(async()=>{
+        /* a plain GET, not a HEAD request: a HEAD to a missing table comes
+           back with no body, which supabase-js reports as no error */
+        const {error,status}=await service.client.from(QTABLE).select("id").eq("user_id",state.user.id).limit(1);
+        if(!error&&status<400)return true;
+        const raw=`${error?.code||""} ${error?.message||""}`;
+        if(status===404||/42P01|PGRST205|PGRST106|does not exist|Could not find the table|schema cache/i.test(raw))return false;
+        splitReadyPromise=null; /* transient (network) -- ask again next time */
+        throw error;
+      })();
+    }
+    return splitReadyPromise;
+  }
+  const useSplit=async()=>qlIsStudentWorkspace()&&await splitReady();
+  const isSplitItem=item=>item?._student_q_split===true;
+  const toQuestion=r=>({...(r.data||{}),id:r.id,question_position:r.position});
+  function cacheQuestions(itemId,list){const sorted=list.slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0));splitCache.set(String(itemId),{list:sorted,byId:new Map(sorted.map(q=>[q.id,q]))});return sorted}
+  async function loadSplitQuestions(itemId){
+    const query=()=>service.client.from(QTABLE).select("id,position,data").eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("position").order("id");
+    const first=await service.client.from(QTABLE).select("id,position,data",{count:"exact"}).eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("position").order("id").range(0,QPAGE-1);
+    if(first.error)throw first.error;
+    let rows=first.data||[];
+    const total=Number(first.count??rows.length);
+    if(total>rows.length){
+      const pages=[];for(let from=QPAGE;from<total;from+=QPAGE)pages.push(from);
+      /* a few pages at a time: fast, without flooding a slow connection */
+      for(let i=0;i<pages.length;i+=4){
+        const got=await Promise.all(pages.slice(i,i+4).map(from=>query().range(from,from+QPAGE-1)));
+        for(const g of got){if(g.error)throw g.error;rows=rows.concat(g.data||[])}
+      }
+    }
+    return cacheQuestions(itemId,rows.map(toQuestion));
+  }
+  async function cachedSplitQuestions(itemId){const c=splitCache.get(String(itemId));return c?c.list:await loadSplitQuestions(itemId)}
+  async function saveSplitFull(itemId,questions,settings){
+    /* ids must be unique per quiz (primary key); give any repeat a fresh id instead of failing the save */
+    const seenIds=new Set();
+    const normalized=(questions||[]).map((q,i)=>{let id=q.id?String(q.id):uid();if(seenIds.has(id))id=uid();seenIds.add(id);return {...q,id,question_position:i}});
+    markOwnQuizWrite(itemId);
+    for(let i=0;i<normalized.length||i===0;i+=QCHUNK){
+      const {error}=await service.client.rpc("student_replace_quiz_questions",{p_library_id:String(LIBRARY_ID),p_item_id:String(itemId),p_questions:normalized.slice(i,i+QCHUNK),p_reset:i===0});
+      if(error)throw error;
+      if(!normalized.length)break;
+    }
+    cacheQuestions(itemId,normalized);
+    /* the library row keeps only settings + the split flag; `undefined` drops
+       any legacy embedded copy of the questions from the payload */
+    return await studentUpdate(itemId,{quiz_settings:settings,_student_q_split:true,_student_questions:undefined});
+  }
+
+  service.saveQuizQuestions=async(itemId,questions,settings)=>{
+    if(!await useSplit())return await legacyQuiz.saveQuizQuestions(itemId,questions,settings);
+    return await saveSplitFull(itemId,questions,settings);
+  };
+  service.saveQuizQuestionsPartial=async(itemId,changedQuestions,settings)=>{
+    if(!await useSplit())return await legacyQuiz.saveQuizQuestionsPartial(itemId,changedQuestions,settings);
+    const item=itemById(itemId);
+    if(!isSplitItem(item)){
+      /* first save of a legacy / shared quiz: move it to per-question rows once */
+      const base=Array.isArray(item?._student_questions)?item._student_questions:await service.getQuizQuestionsAdmin(itemId);
+      const byId=new Map((base||[]).map(q=>[q.id,q]));
+      (changedQuestions||[]).forEach(c=>{const {position,...rest}=c;byId.set(c.id,{...(byId.get(c.id)||{}),...rest,id:c.id,question_position:position})});
+      return await saveSplitFull(itemId,[...byId.values()].sort((a,b)=>(a.question_position||0)-(b.question_position||0)),settings);
+    }
+    const cache=splitCache.get(String(itemId));
+    const stamp=nowIso();
+    const rows=(changedQuestions||[]).map(c=>{const {position,...rest}=c;const data={...(cache?.byId.get(c.id)||{}),...rest,id:c.id,question_position:position};return {user_id:state.user.id,library_id:String(LIBRARY_ID),item_id:String(itemId),id:String(c.id),position,data,updated_at:stamp}});
+    if(rows.length){
+      markOwnQuizWrite(itemId);
+      const {error}=await service.client.from(QTABLE).upsert(rows,{onConflict:"user_id,library_id,item_id,id"});
+      if(error)throw error;
+      if(cache)cacheQuestions(itemId,[...new Map([...cache.list.map(q=>[q.id,q]),...rows.map(r=>[r.id,r.data])]).values()]);
+    }
+    /* settings (e.g. question_count) only touch the small library row, and only when they changed */
+    if(JSON.stringify(item.quiz_settings||{})!==JSON.stringify(settings||{})){markOwnQuizWrite(itemId);return await studentUpdate(itemId,{quiz_settings:settings})}
+    return {...item,quiz_settings:settings};
+  };
+  service.getQuizQuestionsAdmin=async itemId=>{
+    if(!isSplitItem(itemById(itemId))||!await useSplit())return await legacyQuiz.getQuizQuestionsAdmin(itemId);
+    return (await loadSplitQuestions(itemId)).slice();
+  };
+  service.getQuizForTaking=async itemId=>{
+    const item=itemById(itemId);
+    if(!isSplitItem(item)||!await useSplit())return await legacyQuiz.getQuizForTaking(itemId);
+    const qs=await loadSplitQuestions(itemId);
+    return {title:item.title||"Quiz",settings:item.quiz_settings||{},questions:qs.map(q=>({id:q.id,type:q.type,prompt:q.prompt,options:q.options,points:q.points,image:q.image,allow_multiple:!!q.allow_multiple,images:q.images||[],session_label:q.session_label||null}))};
+  };
+  service.gradeQuizQuestion=async(itemId,questionId,given)=>{
+    if(!isSplitItem(itemById(itemId))||!await useSplit())return await legacyQuiz.gradeQuizQuestion(itemId,questionId,given);
+    await cachedSplitQuestions(itemId);
+    const q=splitCache.get(String(itemId))?.byId.get(questionId);
+    if(!q)return await legacyQuiz.gradeQuizQuestion(itemId,questionId,given);
+    return {correct:gradeLocal(q,given),correct_answer:q.correct_answer,explanation:q.explanation||null,points:Number(q.points)||1};
+  };
+  service.submitQuizAttempt=async(itemId,takerName,takerIdentifier,answers,startedAt,meta=null)=>{
+    if(!await useSplit())return await legacyQuiz.submitQuizAttempt(itemId,takerName,takerIdentifier,answers,startedAt,meta);
+    const item=itemById(itemId);
+    let result;
+    if(isSplitItem(item)){
+      const all=await cachedSplitQuestions(itemId);
+      const map={};(answers||[]).forEach(a=>map[a.question_id]=a.given_answer);
+      const answered=new Set((answers||[]).map(a=>a.question_id));
+      let score=0,max=0;const detail=[];
+      for(const q of all){if(!answered.has(q.id))continue;const pts=Number(q.points||1),ok=gradeLocal(q,map[q.id]);max+=pts;if(ok)score+=pts;detail.push({question_id:q.id,correct:ok,given:map[q.id]??null,correct_answer:q.correct_answer,explanation:q.explanation||null})}
+      const percent=max?Math.round(score/max*1000)/10:0,pass=item?.quiz_settings?.pass_percent;
+      result={score,max_score:max,percent,passed:pass==null?null:percent>=Number(pass),detail};
+    }else{
+      if(!itemById(itemId))return await legacyQuiz.submitQuizAttempt(itemId,takerName,takerIdentifier,answers,startedAt,meta); /* e.g. pooled Random Quiz */
+      const r=await shared.submitQuizAttempt(itemId,takerName,takerIdentifier,answers,startedAt,meta);
+      result={score:r.score,max_score:r.max_score,percent:r.percent,passed:r.passed,detail:r.detail||[]};
+    }
+    const submitted=nowIso();
+    const attempt={id:uid(),item_id:itemId,taker_name:takerName||null,taker_identifier:takerIdentifier||null,answers,detail:result.detail,score:result.score,max_score:result.max_score,percent:result.percent,passed:result.passed,started_at:startedAt||null,submitted_at:submitted,session_name:meta?.session_name||null,identity_mode:meta?.identity_mode||null,normalized_name:meta?.normalized_name||null,participant_id:meta?.participant_id||null,user_id:meta?.user_id||null,is_owner:meta?.is_owner===true};
+    const {error}=await service.client.from(ATABLE).insert({user_id:state.user.id,library_id:String(LIBRARY_ID),item_id:String(itemId),id:attempt.id,submitted_at:submitted,data:attempt});
+    if(error)throw error;
+    return result;
+  };
+  service.listQuizAttempts=async itemId=>{
+    if(!await useSplit())return await legacyQuiz.listQuizAttempts(itemId);
+    const {data,error}=await service.client.from(ATABLE).select("id,data").eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("submitted_at",{ascending:false}).limit(1000);
+    if(error)throw error;
+    const seen=new Set(),out=[];
+    for(const a of [...(data||[]).map(r=>({...(r.data||{}),id:r.id})),...(itemById(itemId)?._student_attempts||[])]){if(seen.has(a.id))continue;seen.add(a.id);out.push(a)}
+    return out.sort((a,b)=>new Date(b.submitted_at)-new Date(a.submitted_at));
+  };
+  /* Duplicate: the copied library row no longer carries the questions, so
+     copy the question rows too (with fresh ids). Results are not copied. */
+  const rawDuplicateItems=duplicateItems;
+  duplicateItems=async function(ids){
+    if(!await useSplit().catch(()=>false))return await rawDuplicateItems(ids);
+    const before=new Set(state.items.map(x=>x.id));
+    const splitSources=rootIds(ids).flatMap(root=>[itemById(root),...descendants(root).map(itemById)]).filter(x=>x&&x.kind==="quiz"&&isSplitItem(x));
+    await rawDuplicateItems(ids);
+    const created=state.items.filter(x=>!before.has(x.id)&&x.kind==="quiz"&&isSplitItem(x));
+    for(const src of splitSources){
+      const copy=created.find(x=>x.title===`${src.title} copy`||x.title===src.title);
+      if(!copy)continue;
+      created.splice(created.indexOf(copy),1);
+      try{const qs=await loadSplitQuestions(src.id);const row=await saveSplitFull(copy.id,qs.map(q=>({...q,id:uid()})),copy.quiz_settings||src.quiz_settings||{});replaceLocal(row)}catch(error){alert(friendlyError(error))}
+    }
+    render();
+  };
+
   // Student-facing UI: all normal editing tools plus Trash; the seven excluded
   // Admin-only areas remain hidden: Export HTML, Access, Student Requests,
   // Welcome Message, Activity, Admin Settings, and Supabase Storage tools.
