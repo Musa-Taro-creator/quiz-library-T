@@ -8530,7 +8530,11 @@ html,body{overscroll-behavior-y:none}
 .qz-exam-body{gap:16px;padding:14px 22px 22px;align-items:stretch}
 .qz-exam-main{order:1;padding:0;min-width:0;background:var(--exam-panel);border:1px solid var(--exam-line);border-radius:18px;box-shadow:0 5px 18px rgba(35,70,115,.045);color:var(--exam-text)}
 .qz-exam-sidebar{order:2;position:sticky;top:60px;width:350px;max-height:calc(100vh - 76px);margin:0;padding:18px 18px 20px;border:1px solid var(--exam-line)!important;border-radius:18px;background:var(--exam-panel);box-shadow:0 5px 18px rgba(35,70,115,.045);gap:18px}
-.qz-nav-right .qz-exam-body{flex-direction:row-reverse!important}.qz-nav-right .qz-exam-sidebar{border-left:1px solid var(--exam-line)}
+/* Navigation side: the sidebar sits on the side the Tools panel says.
+   (Main is order 1 and sidebar order 2 above, so row-reverse used to flip
+   "Right" onto the left.) */
+.qz-nav-right .qz-exam-body{flex-direction:row!important}.qz-nav-right .qz-exam-sidebar{border-left:1px solid var(--exam-line)}
+@media(min-width:761px){.qz-exam-shell:not(.qz-nav-right) .qz-exam-body{flex-direction:row!important}.qz-exam-shell:not(.qz-nav-right) .qz-exam-sidebar{order:0}}
 /* Kuza round 6: sidebar header restyled to the stacked "Question Navigation"
    over "N Questions Total" reference layout (no icon -- removed from the
    markup) instead of the old icon+row layout. */
