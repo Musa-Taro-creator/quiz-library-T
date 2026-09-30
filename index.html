@@ -2701,11 +2701,12 @@ body.has-student-profile:not(.admin-mode) #studentProfileNav.student-profile-ico
 /* Top-right account = avatar icon only outside. */
 body.has-student-profile:not(.admin-mode) .student-account-chip.student-account-icon-only{
   display:flex!important;
-  width:66px!important;
-  min-width:66px!important;
-  max-width:66px!important;
-  height:66px!important;
-  padding:5px!important;
+  /* Kuza: same size as the ☰ view button next to it */
+  width:46px!important;
+  min-width:46px!important;
+  max-width:46px!important;
+  height:46px!important;
+  padding:2px!important;
   justify-content:center!important;
   border:1px solid #dce4ef!important;
   border-radius:50%!important;
@@ -2713,11 +2714,11 @@ body.has-student-profile:not(.admin-mode) .student-account-chip.student-account-
   box-shadow:none!important;
 }
 body.has-student-profile:not(.admin-mode) .student-account-chip.student-account-icon-only img{
-  width:54px!important;
-  height:54px!important;
+  width:40px!important;
+  height:40px!important;
   border-radius:50%!important;
   object-fit:contain!important;
-  box-shadow:0 0 0 3px #fff!important;
+  box-shadow:0 0 0 2px #fff!important;
 }
 body.has-student-profile:not(.admin-mode) .student-account-chip.student-account-icon-only:hover{
   background:#f7faff!important;
