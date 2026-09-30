@@ -3533,7 +3533,7 @@ select.qz-sec-chip-add{width:72px;flex:0 0 auto;padding:0 10px;background:transp
     </button>
     <nav class="nav" aria-label="Library navigation">
       <button type="button" class="active" data-section="documents"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6.5h6l1.7 2H20.5v9.5a2 2 0 0 1-2 2h-15v-13.5Z"></path><path d="M3.5 8.5h17"></path></svg></span><span>Documents</span></button>
-      <button type="button" id="randomQuizNavBtn"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5"></rect><circle cx="8.5" cy="8.5" r="1.15" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="8.5" r="1.15" fill="currentColor" stroke="none"></circle><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"></circle><circle cx="8.5" cy="15.5" r="1.15" fill="currentColor" stroke="none"></circle><circle cx="15.5" cy="15.5" r="1.15" fill="currentColor" stroke="none"></circle></svg></span><span>Random Quiz</span></button>
+      <button type="button" id="randomQuizNavBtn"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h3.5a4 4 0 0 1 3.2 1.6l4.6 6.8A4 4 0 0 0 17.5 17H21"></path><path d="m18.5 14.5 2.5 2.5-2.5 2.5"></path><path d="M3 17h3.5a4 4 0 0 0 3.2-1.6l.8-1.2"></path><path d="M13.5 9.8l.8-1.2A4 4 0 0 1 17.5 7H21"></path><path d="m18.5 4.5 2.5 2.5-2.5 2.5"></path></svg></span><span>Random Quiz</span></button>
       <button type="button" data-section="favorites"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.4 2.7 5.45 6.02.88-4.36 4.24 1.03 5.99L12 17.14l-5.39 2.82 1.03-5.99-4.36-4.24 6.02-.88L12 3.4Z"></path></svg></span><span>Favorites</span></button>
       <button type="button" data-section="recent" class="student-recent-nav"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3.2 2"></path></svg></span><span>Recent</span></button>
       <button type="button" data-section="shared"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.3 14.7 14.7 9.3"></path><path d="M7.1 16.9 5.7 18.3a3.25 3.25 0 0 1-4.6-4.6l3.1-3.1a3.25 3.25 0 0 1 4.6 0"></path><path d="m16.9 7.1 1.4-1.4a3.25 3.25 0 0 1 4.6 4.6l-3.1 3.1a3.25 3.25 0 0 1-4.6 0"></path></svg></span><span>Shared Links</span></button>
@@ -16602,6 +16602,8 @@ body.ql-neon .profile-content.pfs-neon{background:transparent!important}
 })();
 </script>
 <style id="qlMenuIconsStyle">
+/* Kuza: profile is already at the top right (avatar), so no profile icon in the left menu */
+#studentProfileNav{display:none!important}
 .menu .ql-mi-row{display:flex!important;align-items:center;gap:12px}
 .menu .ql-mi{flex-shrink:0;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:var(--mc);background:color-mix(in srgb,var(--mc) 14%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mc) 35%,transparent)}
 .menu .ql-mi-label{flex:1;min-width:0}
