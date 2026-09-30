@@ -16956,6 +16956,30 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
   if(typeof render==="function"){const prev=render;render=function(){const r=prev.apply(this,arguments);try{build();sync()}catch(e){}return r}}
 })();
 </script>
+<script id="qlAuthBusy">
+/* Kuza: "sometimes it works but too delayed" -- login / sign-up / send-code
+   each wait on one Supabase request. While a button in the login screen is
+   waiting (the app disables it), show a spinner + "Please wait…", and after
+   8 s a note that the server or internet is slow, so it never looks dead. */
+(function(){
+  const gate=()=>document.getElementById("studentAccessGate");
+  function watch(){
+    const g=gate();if(!g||g.dataset.qlBusy)return;g.dataset.qlBusy="1";
+    new MutationObserver(ms=>{ms.forEach(m=>{const b=m.target;if(m.type!=="attributes"||m.attributeName!=="disabled"||b.tagName!=="BUTTON")return;
+      if(b.disabled){if(b.dataset.qlWait)return;b.dataset.qlWait="1";b.dataset.qlLabel=b.innerHTML;b.classList.add("ql-auth-busy");b.innerHTML='<span class="ql-auth-spin"></span>Please wait…';
+        b._qlT=setTimeout(()=>{if(!b.disabled)return;let n=b.parentElement.querySelector(".ql-auth-slow");if(!n){n=document.createElement("div");n.className="ql-auth-slow";n.textContent="Still waiting for the server… your internet or Supabase is slow right now. Please keep this page open.";b.insertAdjacentElement("afterend",n)}},8000);}
+      else if(b.dataset.qlWait){clearTimeout(b._qlT);b.classList.remove("ql-auth-busy");if(b.dataset.qlLabel!=null)b.innerHTML=b.dataset.qlLabel;delete b.dataset.qlWait;delete b.dataset.qlLabel;b.parentElement?.querySelector(".ql-auth-slow")?.remove()}
+    })}).observe(g,{subtree:true,attributes:true,attributeFilter:["disabled"]});
+  }
+  if(document.readyState==="loading")window.addEventListener("DOMContentLoaded",watch);else watch();
+})();
+</script>
+<style id="qlAuthBusyStyle">
+.ql-auth-busy{opacity:.85;cursor:progress!important}
+.ql-auth-spin{display:inline-block;width:16px;height:16px;margin-right:8px;vertical-align:-3px;border-radius:50%;border:2.5px solid currentColor;border-right-color:transparent;animation:qlAuthSpin .7s linear infinite}
+@keyframes qlAuthSpin{to{transform:rotate(360deg)}}
+.ql-auth-slow{margin-top:8px;padding:8px 10px;border-radius:10px;font-size:12.5px;line-height:1.4;color:#92400e;background:#fef3c7;border:1px solid #fcd34d}
+</style>
 <script id="qlMenuIcons">
 /* Kuza: icons in the "+ New" menu and the ☰ view menu (Select Items, Grid,
    List, and each sort option); the ✓ for the current choice sits on the right. */
