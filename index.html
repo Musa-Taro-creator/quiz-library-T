@@ -4883,7 +4883,7 @@ function bindStatic(){
   document.addEventListener("keydown",event=>{if(state.activeMenu&&!event.target.closest?.(".menu"))closeMenus();if(state.searchActive&&!event.target.closest?.("#searchArea")){finishSearch();history.replaceState(currentRoute(),"",routeHash())}if(event.key==="Escape"){if($("#viewer").classList.contains("show"))closeViewer();else if($("#modalOverlay").classList.contains("show"))closeModal();else closeMenus()}});
   window.addEventListener("resize",closeMenus,{passive:true});
   window.addEventListener("scroll",event=>{if(!event.target?.closest?.(".menu"))closeMenus()},{passive:true,capture:true});
-  window.addEventListener("popstate",event=>{if($("#viewer").classList.contains("show")){finishViewer();return}if(state.searchActive){finishSearch();return}if(event.state?.route){state.section=event.state.section||"documents";state.folderId=event.state.folderId||null;state.selection=false;state.selected.clear();render()}});
+  window.addEventListener("popstate",event=>{if($("#viewer").classList.contains("show")){finishViewer();return}if(state.searchActive){finishSearch();return}if(event.state?.route){const sec=event.state.section||"documents",fid=event.state.folderId||null;if(sec===state.section&&fid===(state.folderId||null))return; /* closing a menu/window steps Back to the same page: keep Select mode */state.section=sec;state.folderId=fid;state.selection=false;state.selected.clear();render()}});
   window.addEventListener("online",()=>{setConnection(true);loadAll().catch(()=>setConnection(false))});window.addEventListener("offline",()=>setConnection(false))
 }
 
