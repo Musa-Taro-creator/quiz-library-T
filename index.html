@@ -4852,7 +4852,7 @@ function bindStatic(){
   $("#sidebar").onclick=event=>{const b=event.target.closest("button[data-section]");if(b){event.preventDefault();navigate(b.dataset.section)}if(event.target.closest('[data-action="settings"]'))openSettings()};
   $("#settingsBtn").onclick=openSettings;$("#exitAdminBtn").onclick=exitAdmin;
   $("#newBtn").onclick=event=>openMenu($("#newMenu"),event.currentTarget,"right");
-  $("#viewBtn").onclick=event=>{$$('[data-layout]').forEach(b=>b.classList.toggle("checked",b.dataset.layout===state.layout));$$('[data-sort]').forEach(b=>b.classList.toggle("checked",b.dataset.sort===state.sort));const select=$("#viewMenu [data-action=select]");select.innerHTML=`<span class="select-action-icon">✓</span><span>${state.selection?"Cancel Selection":"Select Items"}</span>`;openMenu($("#viewMenu"),event.currentTarget,"right")};
+  $("#viewBtn").onclick=event=>{$$('[data-layout]').forEach(b=>b.classList.toggle("checked",b.dataset.layout===state.layout));$$('[data-sort]').forEach(b=>b.classList.toggle("checked",b.dataset.sort===state.sort));const select=$("#viewMenu [data-action=select]");select.innerHTML=`<span class="select-action-icon">✓</span><span>${state.selection?"Cancel Selection":"Select Items"}</span>`;window.qlDressSelectItem&&window.qlDressSelectItem(select,state.selection?"Cancel Selection":"Select Items");openMenu($("#viewMenu"),event.currentTarget,"right")};
   $("#filterBtn").onclick=event=>{$$('[data-filter]').forEach(b=>b.classList.toggle("checked",b.dataset.filter===state.filter));openMenu($("#filterMenu"),event.currentTarget,"left")};
   $("#newMenu").onclick=event=>{const b=event.target.closest('[data-new]');if(!b)return;closeMenus();b.dataset.new==="pdf"?openUpload():openEditor(b.dataset.new)};
   $("#adminQuickActions").onclick=event=>{const b=event.target.closest('[data-quick]');if(!b)return;b.dataset.quick==="pdf"?openUpload():b.dataset.quick==="export"?openExportDialog():openEditor(b.dataset.quick)};
@@ -16555,6 +16555,60 @@ body.ql-neon .toast{background:rgba(12,12,22,.95)!important;color:#eaf2ff!import
 body.ql-neon .profile-content.pfs-neon{background:transparent!important}
 </style>
 <script id="qlNeonAppSkinOn">document.body.classList.add("ql-neon")</script>
+<script id="qlMenuIcons">
+/* Kuza: icons in the "+ New" menu and the ☰ view menu (Select Items, Grid,
+   List, and each sort option); the ✓ for the current choice sits on the right. */
+(function(){
+  const I={
+    folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    link:'<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/>',
+    pdf:'<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/>',
+    quiz:'<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4.5V3h6v1.5"/><path d="m9 12.5 2 2 4-4"/>',
+    select:'<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+    grid:'<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+    list:'<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
+    created_at:'<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/><path d="M12 13v5M9.5 15.5h5"/>',
+    updated_at:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    title:'<path d="M4 18 8 6l4 12"/><path d="M5.5 14h5"/><path d="M14 6h6l-6 12h6"/>',
+    kind:'<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><circle cx="17" cy="7" r="3.5"/><path d="M7 14l3.5 6h-7z"/><rect x="13.5" y="13.5" width="7" height="7" rx="3.5"/>'
+  };
+  const C={folder:"#a78bfa",link:"#34d399",pdf:"#38bdf8",quiz:"#f472b6",select:"#39ff88",grid:"#00e5ff",list:"#00e5ff",created_at:"#ffb020",updated_at:"#ffb020",title:"#ffb020",kind:"#ffb020"};
+  const svg=k=>`<span class="ql-mi" style="--mc:${C[k]}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[k]}</svg></span>`;
+  function dress(btn,key,label){
+    if(!btn||btn.dataset.qlIcon)return;
+    btn.dataset.qlIcon="1";btn.classList.add("ql-mi-row");
+    btn.innerHTML=svg(key)+`<span class="ql-mi-label">${label}</span>`;
+  }
+  window.qlDressSelectItem=(btn,label)=>{btn.classList.add("ql-mi-row");btn.dataset.qlIcon="1";btn.innerHTML=svg("select")+`<span class="ql-mi-label">${label}</span>`};
+  function run(){
+    const nm=document.getElementById("newMenu");
+    if(nm){
+      dress(nm.querySelector('[data-new="folder"]'),"folder","Create Folder");
+      dress(nm.querySelector('[data-new="link"]'),"link","Add Quiz Link");
+      dress(nm.querySelector('[data-new="pdf"]'),"pdf","Upload PDF");
+      dress(nm.querySelector('[data-quiz-new]'),"quiz","Create Quiz");
+    }
+    const vm=document.getElementById("viewMenu");
+    if(vm){
+      dress(vm.querySelector('[data-action="select"]'),"select","Select Items");
+      dress(vm.querySelector('[data-layout="grid"]'),"grid","Grid");
+      dress(vm.querySelector('[data-layout="list"]'),"list","List");
+      [["created_at","Date Created"],["updated_at","Last Modified"],["title","Name"],["kind","Type"]].forEach(([k,l])=>dress(vm.querySelector(`[data-sort="${k}"]`),k,l));
+    }
+  }
+  run();
+  window.addEventListener("DOMContentLoaded",()=>setTimeout(run,0));
+  setTimeout(run,1500);
+})();
+</script>
+<style id="qlMenuIconsStyle">
+.menu .ql-mi-row{display:flex!important;align-items:center;gap:12px}
+.menu .ql-mi{flex-shrink:0;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:var(--mc);background:color-mix(in srgb,var(--mc) 14%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--mc) 35%,transparent)}
+.menu .ql-mi-label{flex:1;min-width:0}
+.menu .ql-mi-row.checked:before{content:none!important}
+.menu .ql-mi-row.checked::after{content:"✓";margin-left:auto;font-weight:800;color:#39ff88}
+.menu .ql-mi-row.checked .ql-mi{box-shadow:inset 0 0 0 1.5px var(--mc),0 0 12px color-mix(in srgb,var(--mc) 45%,transparent)}
+</style>
 <script id="studentOnlyAdminGuard">
 (function(){
   if(!STUDENT_ONLY_BUILD)return;
