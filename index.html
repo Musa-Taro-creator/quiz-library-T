@@ -4034,7 +4034,14 @@ function createMockService(){
 }
 function createSupabaseService(){
   if(!window.supabase)throw new Error("Supabase library did not load. Check the internet.");
-  const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  /* Kuza: logins sometimes waited ~10 s on iPads. supabase-js guards auth
+     with a cross-tab navigator.locks lock, which on iPad/iPhone Safari can be
+     left held after the page was in the background, so sign-in / getSession
+     wait for it to time out. Use a simple in-page lock instead (same
+     one-at-a-time guarantee inside this page, no cross-tab waiting). */
+  const qlAuthLocks={};
+  const qlAuthLock=async(name,acquireTimeout,fn)=>{const prev=qlAuthLocks[name]||Promise.resolve();let release;const mine=new Promise(r=>release=r);qlAuthLocks[name]=prev.then(()=>mine,()=>mine);try{await prev}catch(e){}try{return await fn()}finally{release()}};
+  const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,lock:qlAuthLock}});
   return {
     client,
     async getLibrary(){const {data,error}=await client.from("libraries").select("*").eq("id",LIBRARY_ID).maybeSingle();if(error)throw error;if(!data)throw new Error("Library setup is missing.");return data},
