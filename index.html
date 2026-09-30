@@ -7105,6 +7105,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
     const {data,error}=await service.client.auth.signUp({email,password,options:{data:meta}});if(error)throw error;return {...data,identifier:email}
   }
   async function completeStudentAuth(user,remember=true){
+    try{sessionStorage.setItem("ql_fresh_login","1")}catch(e){}
     setStudentAuthPersistence(remember);if(MOCK_MODE)saveMockAuthSession(user,remember);state.user=user||state.user;syncMode();authGateVisible(false);const record=studentWelcomeRecord(user,true);showStudentWelcome(record,record.login_count>1);render()
   }
   async function studentAuthGoogle(remember=true){
@@ -7237,7 +7238,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
     if(!accountRequired||state.isAdmin){authGateVisible(false);return}
     if(isStudentRecoveryUrl()){authUi("reset-password");authGateVisible(true);return}
     try{
-      const session=await studentAuthCurrentSession(),user=session?.user||null;if(user){state.user=user;syncMode();authGateVisible(false);if(!state.isAdmin&&!studentWelcomeShownThisLoad)showStudentWelcome(studentWelcomeRecord(user,false),true);if(new URLSearchParams(location.search).has("student_oauth"))clearStudentAuthUrl();return}
+      const session=await studentAuthCurrentSession(),user=session?.user||null;if(user){state.user=user;syncMode();authGateVisible(false);if(!state.isAdmin&&!studentWelcomeShownThisLoad)showStudentWelcome(studentWelcomeRecord(user,false),true);if(new URLSearchParams(location.search).has("student_oauth")){try{sessionStorage.setItem("ql_fresh_login","1")}catch(e){}clearStudentAuthUrl()}return}
     }catch{}
     clearStudentAuthPersistence();authUi("login");authGateVisible(true)
   }
@@ -16986,6 +16987,68 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
 .ql-auth-spin{display:inline-block;width:16px;height:16px;margin-right:8px;vertical-align:-3px;border-radius:50%;border:2.5px solid currentColor;border-right-color:transparent;animation:qlAuthSpin .7s linear infinite}
 @keyframes qlAuthSpin{to{transform:rotate(360deg)}}
 .ql-auth-slow{margin-top:8px;padding:8px 10px;border-radius:10px;font-size:12.5px;line-height:1.4;color:#92400e;background:#fef3c7;border:1px solid #fcd34d}
+</style>
+<script id="qlOneDevice">
+/* Kuza: one account = one device. Signing in makes this browser the account's
+   active device (supabase/single_device_login.sql). Any other open device
+   sees the change (Realtime, or a check every 45 s / when the tab comes back)
+   and signs itself out with a message. Old sessions are also revoked with
+   signOut({scope:"others"}). Does nothing until the SQL is installed. */
+(function(){
+  const KEY="ql_device_id_v1";
+  let deviceId="";try{deviceId=localStorage.getItem(KEY)||""}catch(e){}
+  if(!deviceId){deviceId=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2));try{localStorage.setItem(KEY,deviceId)}catch(e){}}
+  const label=()=>{const ua=navigator.userAgent;const dev=(/iPad/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1))?"iPad":/iPhone/.test(ua)?"iPhone":/Android/.test(ua)?"Android":/Windows/.test(ua)?"Windows PC":/Mac/.test(ua)?"Mac":"Device";const br=/Edg\//.test(ua)?"Edge":/Chrome|CriOS/.test(ua)?"Chrome":/Firefox|FxiOS/.test(ua)?"Firefox":/Safari/.test(ua)?"Safari":"Browser";return dev+" · "+br};
+  let uid=null,chan=null,poll=null,kicked=false,ready=null;
+  const cli=()=>typeof service!=="undefined"&&service.client;
+  async function claim(){const c=cli();const {data,error}=await c.rpc("ql_claim_device",{p_device_id:deviceId,p_label:label()});if(error)throw error;try{await c.auth.signOut({scope:"others"})}catch(e){}return data}
+  async function current(){const c=cli();const {data,error}=await c.from("ql_active_device").select("device_id,device_label,signed_in_at").eq("user_id",uid).maybeSingle();if(error)throw error;return data}
+  function fmt(t){try{return new Date(t).toLocaleString([],{hour:"numeric",minute:"2-digit",day:"numeric",month:"short"})}catch(e){return ""}}
+  async function kick(row){
+    if(kicked)return;kicked=true;stop();
+    try{await cli().auth.signOut({scope:"local"})}catch(e){}
+    try{localStorage.removeItem(`ql_student_auth_remember_${LIBRARY_ID}`);sessionStorage.removeItem(`ql_student_auth_session_${LIBRARY_ID}`)}catch(e){}
+    const ov=document.createElement("div");ov.id="qlKicked";ov.className="ql-kick-ov";
+    const where=row&&row.device_label?row.device_label:"another device";
+    ov.innerHTML=`<div class="ql-kick" role="alertdialog" aria-modal="true" aria-labelledby="qlKickT">
+      <div class="ql-kick-ico"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="13" height="10" rx="2"/><path d="M7 18h5M9.5 14v4"/><rect x="17" y="8" width="5" height="11" rx="1.5"/></svg></div>
+      <h3 id="qlKickT">Signed out on this device</h3>
+      <p>Your account was just signed in on <b>${esc(where)}</b>${row&&row.signed_in_at?` at ${esc(fmt(row.signed_in_at))}`:""}. Only one device can use an account at a time.</p>
+      <p class="ql-kick-small">Wasn't you? Sign in here and change your password.</p>
+      <button type="button" class="ql-kick-btn" id="qlKickLogin">Sign in on this device</button></div>`;
+    document.body.appendChild(ov);
+    document.getElementById("qlKickLogin").onclick=()=>location.reload();
+  }
+  function stop(){if(poll){clearInterval(poll);poll=null}if(chan){try{cli().removeChannel(chan)}catch(e){}chan=null}}
+  async function check(){if(!uid||kicked)return;try{const row=await current();if(row&&row.device_id!==deviceId)kick(row)}catch(e){}}
+  async function start(u){
+    uid=u;kicked=false;stop();
+    let fresh=false;try{fresh=sessionStorage.getItem("ql_fresh_login")==="1";sessionStorage.removeItem("ql_fresh_login")}catch(e){}
+    try{
+      const row=fresh?null:await current();
+      if(fresh||!row)await claim();
+      else if(row.device_id!==deviceId)return kick(row);
+    }catch(e){return} /* SQL not installed or offline: leave things as they are */
+    try{chan=cli().channel("ql-active-device-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_active_device",filter:"user_id=eq."+uid},p=>{const r=p.new;if(r&&r.device_id&&r.device_id!==deviceId)kick(r)}).subscribe()}catch(e){}
+    poll=setInterval(check,45000);
+  }
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")check()});
+  setInterval(()=>{
+    if(!cli()||typeof state==="undefined")return;
+    const u=state.user&&!state.isAdmin&&!state.user.__mock?state.user.id:null;
+    if(u&&u!==uid&&!ready){ready=start(u).finally(()=>{ready=null})}
+    else if(!u&&uid){uid=null;stop()}
+  },1500);
+})();
+</script>
+<style id="qlOneDeviceStyle">
+.ql-kick-ov{position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(8,12,24,.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.ql-kick{width:min(420px,100%);padding:26px 22px 22px;border-radius:26px;text-align:center;color:#16203a;background:linear-gradient(160deg,#fff,#eef4ff);box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.ql-kick-ico{width:62px;height:62px;margin:0 auto 12px;border-radius:50%;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#f59e0b,#ef4444);box-shadow:0 10px 26px rgba(239,68,68,.35)}
+.ql-kick h3{margin:0 0 8px;font-size:21px}
+.ql-kick p{margin:0 0 10px;font-size:15px;line-height:1.5;color:#334155}
+.ql-kick .ql-kick-small{font-size:13px;color:#64748b}
+.ql-kick-btn{margin-top:8px;width:100%;height:50px;border:0;border-radius:14px;cursor:pointer;font:inherit;font-size:16px;font-weight:750;color:#fff;background:linear-gradient(135deg,#3b82f6,#6366f1)}
 </style>
 <script id="qlMenuIcons">
 /* Kuza: icons in the "+ New" menu and the ☰ view menu (Select Items, Grid,
