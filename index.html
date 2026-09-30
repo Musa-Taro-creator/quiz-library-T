@@ -17007,12 +17007,16 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
   let deviceId="";try{deviceId=localStorage.getItem(KEY)||""}catch(e){}
   if(!deviceId){deviceId=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2));try{localStorage.setItem(KEY,deviceId)}catch(e){}}
   const label=()=>{const ua=navigator.userAgent;const dev=(/iPad/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1))?"iPad":/iPhone/.test(ua)?"iPhone":/Android/.test(ua)?"Android":/Windows/.test(ua)?"Windows PC":/Mac/.test(ua)?"Mac":"Device";const br=/Edg\//.test(ua)?"Edge":/Chrome|CriOS/.test(ua)?"Chrome":/Firefox|FxiOS/.test(ua)?"Firefox":/Safari/.test(ua)?"Safari":"Browser";return dev+" · "+br};
-  let uid=null,chan=null,poll=null,kicked=false,ready=null;
+  let uid=null,chan=null,chan2=null,poll=null,kicked=false,ready=null;
   const cli=()=>typeof service!=="undefined"&&service.client;
+  window.qlDevice={id:deviceId,label};
+  const isBlockedErr=e=>/device_blocked/.test(String(e&&(e.message||e)));
+  async function touch(){const {error}=await cli().rpc("ql_touch_device",{p_device_id:deviceId,p_label:label()});if(error)throw error}
+  async function blockedNow(){const {data,error}=await cli().from("ql_device_log").select("blocked").eq("user_id",uid).eq("device_id",deviceId).maybeSingle();return !error&&data&&data.blocked===true}
   async function claim(){const c=cli();const {data,error}=await c.rpc("ql_claim_device",{p_device_id:deviceId,p_label:label()});if(error)throw error;try{await c.auth.signOut({scope:"others"})}catch(e){}return data}
   async function current(){const c=cli();const {data,error}=await c.from("ql_active_device").select("device_id,device_label,signed_in_at").eq("user_id",uid).maybeSingle();if(error)throw error;return data}
   function fmt(t){try{return new Date(t).toLocaleString([],{hour:"numeric",minute:"2-digit",day:"numeric",month:"short"})}catch(e){return ""}}
-  async function kick(row){
+  async function kick(row,blocked){
     if(kicked)return;kicked=true;stop();
     try{await cli().auth.signOut({scope:"local"})}catch(e){}
     try{localStorage.removeItem(`ql_student_auth_remember_${LIBRARY_ID}`);sessionStorage.removeItem(`ql_student_auth_session_${LIBRARY_ID}`)}catch(e){}
@@ -17020,15 +17024,18 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
     const where=row&&row.device_label?row.device_label:"another device";
     ov.innerHTML=`<div class="ql-kick" role="alertdialog" aria-modal="true" aria-labelledby="qlKickT">
       <div class="ql-kick-ico"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="13" height="10" rx="2"/><path d="M7 18h5M9.5 14v4"/><rect x="17" y="8" width="5" height="11" rx="1.5"/></svg></div>
-      <h3 id="qlKickT">Signed out on this device</h3>
+      ${blocked?`<h3 id="qlKickT">This device is blocked</h3>
+      <p>The owner of this account blocked <b>${esc(label())}</b>, so it can't use the account.</p>
+      <p class="ql-kick-small">To use it again, unblock it from another device: My Profile → Devices → Unblock.</p>
+      <button type="button" class="ql-kick-btn" id="qlKickLogin">OK</button></div>`:`<h3 id="qlKickT">Signed out on this device</h3>
       <p>Your account was just signed in on <b>${esc(where)}</b>${row&&row.signed_in_at?` at ${esc(fmt(row.signed_in_at))}`:""}. Only one device can use an account at a time.</p>
       <p class="ql-kick-small">Wasn't you? Sign in here and change your password.</p>
-      <button type="button" class="ql-kick-btn" id="qlKickLogin">Sign in on this device</button></div>`;
+      <button type="button" class="ql-kick-btn" id="qlKickLogin">Sign in on this device</button></div>`}`;
     document.body.appendChild(ov);
     document.getElementById("qlKickLogin").onclick=()=>location.reload();
   }
-  function stop(){if(poll){clearInterval(poll);poll=null}if(chan){try{cli().removeChannel(chan)}catch(e){}chan=null}}
-  async function check(){if(!uid||kicked)return;try{const row=await current();if(row&&row.device_id!==deviceId)kick(row)}catch(e){}}
+  function stop(){if(poll){clearInterval(poll);poll=null}if(chan){try{cli().removeChannel(chan)}catch(e){}chan=null}if(chan2){try{cli().removeChannel(chan2)}catch(e){}chan2=null}}
+  async function check(){if(!uid||kicked)return;try{if(await blockedNow())return kick(null,true);const row=await current();if(row&&row.device_id!==deviceId)kick(row)}catch(e){}}
   async function start(u){
     uid=u;kicked=false;stop();
     let fresh=false;try{fresh=sessionStorage.getItem("ql_fresh_login")==="1";sessionStorage.removeItem("ql_fresh_login")}catch(e){}
@@ -17036,8 +17043,11 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
       const row=fresh?null:await current();
       if(fresh||!row)await claim();
       else if(row.device_id!==deviceId)return kick(row);
-    }catch(e){return} /* SQL not installed or offline: leave things as they are */
+      else{try{await touch()}catch(e){if(isBlockedErr(e))return kick(null,true)}} /* device history SQL may not be installed yet */
+    }catch(e){if(isBlockedErr(e))return kick(null,true);return} /* SQL not installed or offline: leave things as they are */
     try{chan=cli().channel("ql-active-device-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_active_device",filter:"user_id=eq."+uid},p=>{const r=p.new;if(r&&r.device_id&&r.device_id!==deviceId)kick(r)}).subscribe()}catch(e){}
+    /* own channel, so a missing device-history table never affects the one above */
+    try{chan2=cli().channel("ql-device-log-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_device_log",filter:"user_id=eq."+uid},p=>{const r=p.new;if(r&&r.device_id===deviceId&&r.blocked)return kick(null,true);try{window.qlDevicesRefresh&&qlDevicesRefresh()}catch(e){}}).subscribe()}catch(e){}
     poll=setInterval(check,45000);
   }
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")check()});
@@ -17747,7 +17757,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 
 <style id="qlInstallStyle">
 .ql-install-row{margin-top:12px;display:flex;justify-content:center}
-.ql-install-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;border:1px solid rgba(59,130,246,.35);background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff!important;font:700 14px/1 inherit;cursor:pointer;box-shadow:0 8px 22px rgba(79,70,229,.28)}
+.ql-install-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:999px;border:1px solid rgba(59,130,246,.35);background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff!important;font-family:inherit;font-size:14px;font-weight:700;line-height:1;cursor:pointer;box-shadow:0 8px 22px rgba(79,70,229,.28)}
 .ql-install-btn svg{width:18px;height:18px}
 .ql-inst-veil{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:16px;background:rgba(15,23,42,.45);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .ql-inst-card{width:min(420px,100%);max-height:calc(100vh - 32px);overflow:auto;border-radius:24px;padding:22px 20px 18px;background:rgba(255,255,255,.92);color:#0f172a;border:1px solid rgba(255,255,255,.8);box-shadow:0 24px 60px rgba(15,23,42,.3);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);font-family:inherit}
@@ -17761,7 +17771,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 .ql-inst-ico{flex:none;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:#fff;border:1px solid #e2e8f0;color:#2563eb}
 .ql-inst-ico svg{width:20px;height:20px}
 .ql-inst-note{margin-top:12px;font-size:12.5px;color:#64748b;line-height:1.4}
-.ql-inst-close{margin-top:14px;width:100%;padding:11px;border-radius:14px;border:0;background:#0f172a;color:#fff;font:700 14px inherit;cursor:pointer}
+.ql-inst-close{margin-top:14px;width:100%;padding:11px;border-radius:14px;border:0;background:#0f172a;color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
 body.ql-installed .ql-install-row,body.ql-installed #qlInstallNav{display:none!important}
 </style>
 <script id="qlInstallApp">
@@ -17823,6 +17833,112 @@ body.ql-installed .ql-install-row,body.ql-installed #qlInstallNav{display:none!i
   window.addEventListener("appinstalled",()=>{deferred=null;setTimeout(mark,300)});
   if("serviceWorker"in navigator&&location.protocol==="https:"){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})})}
   if(document.readyState==="loading")window.addEventListener("DOMContentLoaded",place);else place();
+  if(typeof render==="function"){const prev=render;render=function(){const r=prev.apply(this,arguments);try{place()}catch(e){}return r}}
+})();
+</script>
+<style id="qlDevicesStyle">
+.ql-dev-wrap{display:block!important}
+.ql-dev-card .profile-card-head small{font-size:12.5px;font-weight:600;color:#64748b}
+.ql-dev-list{display:grid}
+.ql-dev-row{display:flex;align-items:center;gap:12px;padding:12px 17px;border-top:1px solid rgba(148,163,184,.18)}
+.ql-dev-row:first-child{border-top:0}
+.ql-dev-ico{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:#2563eb;background:rgba(59,130,246,.1)}
+.ql-dev-ico svg{width:22px;height:22px}
+.ql-dev-row.is-blocked .ql-dev-ico{color:#dc2626;background:rgba(239,68,68,.1)}
+.ql-dev-copy{flex:1;min-width:0}
+.ql-dev-copy strong{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:14.5px}
+.ql-dev-copy span.ql-dev-sub{display:block;margin-top:3px;font-size:12.5px;color:#64748b;line-height:1.4}
+.ql-dev-tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.02em}
+.ql-dev-tag.me{color:#1d4ed8;background:rgba(59,130,246,.14)}
+.ql-dev-tag.on{color:#047857;background:rgba(16,185,129,.16)}
+.ql-dev-tag.off{color:#b91c1c;background:rgba(239,68,68,.14)}
+.ql-dev-acts{flex:none;display:flex;gap:6px}
+.ql-dev-btn{height:34px;padding:0 14px;border-radius:999px;border:1px solid rgba(239,68,68,.35);background:rgba(239,68,68,.08);color:#dc2626;font-family:inherit;font-size:13px;font-weight:700;line-height:1;cursor:pointer;white-space:nowrap}
+.ql-dev-btn.unblock{border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.1);color:#047857}
+.ql-dev-btn.forget{border-color:rgba(148,163,184,.4);background:transparent;color:#64748b;padding:0 11px}
+.ql-dev-btn.sure{background:#dc2626;color:#fff;border-color:#dc2626}
+.ql-dev-btn:disabled{opacity:.55;cursor:progress}
+.ql-dev-note{padding:10px 17px 14px;font-size:12px;color:#64748b;line-height:1.45;border-top:1px solid rgba(148,163,184,.18)}
+.profile-content[class*="pfs-"] .ql-dev-copy strong{color:var(--pf-text)!important}
+.profile-content[class*="pfs-"] .ql-dev-sub,.profile-content[class*="pfs-"] .ql-dev-note,.profile-content[class*="pfs-"] .ql-dev-card .profile-card-head small{color:var(--pf-muted,#94a3b8)!important}
+.profile-content[class*="pfs-"] .ql-dev-row,.profile-content[class*="pfs-"] .ql-dev-note{border-top-color:var(--pf-line)!important}
+body.ql-neon .ql-dev-tag.me,body.ql-ocean .ql-dev-tag.me{color:#93c5fd}
+body.ql-neon .ql-dev-tag.on,body.ql-ocean .ql-dev-tag.on{color:#6ee7b7}
+body.ql-neon .ql-dev-tag.off,body.ql-ocean .ql-dev-tag.off,body.ql-neon .ql-dev-btn:not(.unblock):not(.forget):not(.sure),body.ql-ocean .ql-dev-btn:not(.unblock):not(.forget):not(.sure){color:#fca5a5}
+body.ql-neon .ql-dev-btn.unblock,body.ql-ocean .ql-dev-btn.unblock{color:#6ee7b7}
+body.ql-neon .ql-dev-ico,body.ql-ocean .ql-dev-ico{color:#93c5fd}
+@media(max-width:760px){.ql-dev-row{flex-wrap:wrap}.ql-dev-acts{width:100%;justify-content:flex-end}}
+</style>
+<script id="qlDevices">
+/* Kuza: device history in My Profile + block / unblock a device
+   (supabase/device_history.sql). A blocked device is signed out and can't
+   sign in again until it is unblocked here from another device. */
+(function(){
+  const IC={
+    tablet:'<rect x="4" y="2.5" width="16" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
+    phone:'<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
+    pc:'<rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8 20.5h8M12 16.5v4"/>'
+  };
+  const kindOf=l=>/iPad/.test(l)?"tablet":/iPhone|Android/.test(l)?"phone":"pc";
+  const svg=k=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`;
+  const h=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const when=t=>{try{const d=new Date(t);if(isNaN(d))return "";return d.toLocaleString([],{day:"numeric",month:"short",year:d.getFullYear()!==new Date().getFullYear()?"numeric":undefined,hour:"2-digit",minute:"2-digit"})}catch(e){return ""}};
+  let rows=null,active=null,missing=false,loading=null,lastLoad=0;
+  const cli=()=>typeof service!=="undefined"&&service.client;
+  const uid=()=>typeof state!=="undefined"&&state.user&&!state.user.__mock?state.user.id:null;
+  async function load(){
+    const c=cli(),u=uid();if(!c||!u)return;
+    const [a,b]=await Promise.all([
+      c.from("ql_device_log").select("device_id,device_label,first_seen,last_seen,sign_ins,blocked,blocked_at").eq("user_id",u).order("last_seen",{ascending:false}),
+      c.from("ql_active_device").select("device_id").eq("user_id",u).maybeSingle()
+    ]);
+    if(a.error){missing=true;rows=[];return}
+    missing=false;rows=a.data||[];active=b&&b.data?b.data.device_id:null;lastLoad=Date.now();
+  }
+  function refresh(force){
+    if(loading)return loading;
+    if(!force&&rows&&Date.now()-lastLoad<20000){paint();return Promise.resolve()}
+    loading=load().catch(()=>{}).finally(()=>{loading=null;paint()});return loading;
+  }
+  window.qlDevicesRefresh=()=>refresh(true);
+  function body(){
+    if(rows===null)return `<div class="profile-empty">Loading devices…</div>`;
+    if(missing)return `<div class="profile-empty">Device history is not set up yet.</div>`;
+    const me=window.qlDevice&&qlDevice.id;
+    let list=rows.slice();
+    if(me&&!list.some(r=>r.device_id===me))list.unshift({device_id:me,device_label:qlDevice.label(),last_seen:new Date().toISOString(),sign_ins:null});
+    list.sort((x,y)=>(y.device_id===me)-(x.device_id===me));
+    return `<div class="ql-dev-list">${list.map(r=>{
+      const isMe=r.device_id===me,isOn=r.device_id===active&&!r.blocked;
+      const tags=(isMe?'<span class="ql-dev-tag me">This device</span>':"")+(isOn&&!isMe?'<span class="ql-dev-tag on">Signed in now</span>':"")+(r.blocked?'<span class="ql-dev-tag off">Blocked</span>':"");
+      const sub=[r.blocked?"Blocked "+when(r.blocked_at||r.last_seen):"Last used "+when(r.last_seen),r.sign_ins?`${r.sign_ins} sign-in${r.sign_ins===1?"":"s"}`:"",r.first_seen?"First seen "+when(r.first_seen):""].filter(Boolean).join(" · ");
+      const acts=isMe?"":r.blocked?`<button type="button" class="ql-dev-btn unblock" data-dev-act="unblock" data-dev="${h(r.device_id)}">Unblock</button>`:`<button type="button" class="ql-dev-btn" data-dev-act="block" data-dev="${h(r.device_id)}">Block</button><button type="button" class="ql-dev-btn forget" data-dev-act="forget" data-dev="${h(r.device_id)}" title="Remove from list" aria-label="Remove from list">✕</button>`;
+      return `<div class="ql-dev-row${r.blocked?" is-blocked":""}"><div class="ql-dev-ico">${svg(kindOf(r.device_label||""))}</div><div class="ql-dev-copy"><strong>${h(r.device_label||"Unknown device")}${tags}</strong><span class="ql-dev-sub">${h(sub)}</span></div><div class="ql-dev-acts">${acts}</div></div>`}).join("")}</div>
+      <div class="ql-dev-note">Blocking signs that device out and stops it from signing in until you unblock it. Clearing the browser's website data on a device makes it show up as a new device.</div>`;
+  }
+  function paint(){
+    const card=document.querySelector(".ql-dev-card");if(!card)return;
+    const n=rows&&!missing?rows.length:0;
+    card.innerHTML=`<div class="profile-card-head"><strong>Devices</strong><small>${n?`${n} device${n===1?"":"s"}`:""}</small></div>${body()}`;
+  }
+  async function act(btn){
+    const id=btn.dataset.dev,kind=btn.dataset.devAct,c=cli();if(!c)return;
+    if(kind==="block"&&!btn.classList.contains("sure")){btn.classList.add("sure");btn.textContent="Tap to confirm";clearTimeout(btn._t);btn._t=setTimeout(()=>{btn.classList.remove("sure");btn.textContent="Block"},3500);return}
+    btn.disabled=true;
+    const r=kind==="forget"?await c.rpc("ql_forget_device",{p_device_id:id}):await c.rpc("ql_set_device_blocked",{p_device_id:id,p_blocked:kind==="block"});
+    if(r.error){btn.disabled=false;try{toast("Couldn't update the device. Please try again.")}catch(e){}return}
+    try{toast(kind==="block"?"Device blocked and signed out":kind==="unblock"?"Device unblocked":"Removed from the list")}catch(e){}
+    refresh(true);
+  }
+  document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-dev-act]");if(b){e.preventDefault();act(b)}});
+  function place(){
+    const grid=document.querySelector(".profile-content .profile-grid-v2");
+    if(!grid||!uid()){return}
+    if(document.querySelector(".ql-dev-card"))return;
+    const sec=document.createElement("section");sec.className="profile-grid ql-dev-wrap";
+    sec.innerHTML='<div class="profile-card ql-dev-card"></div>';
+    grid.after(sec);paint();refresh(false);
+  }
   if(typeof render==="function"){const prev=render;render=function(){const r=prev.apply(this,arguments);try{place()}catch(e){}return r}}
 })();
 </script>
