@@ -16803,6 +16803,49 @@ body.ql-white .ql-glass-folder-wrap svg path:nth-of-type(3){stroke:rgba(170,110,
 body.ql-neon .ql-loc-ov,body.ql-ocean .ql-loc-ov,body.ql-neon .ql-fp-field,body.ql-ocean .ql-fp-field{--lp-bg:var(--sk-panelB);--lp-card:color-mix(in srgb,var(--sk-veil) 6%,var(--sk-panelA));--lp-field:color-mix(in srgb,var(--sk-veil) 5%,transparent);--lp-text:var(--sk-text);--lp-muted:var(--sk-muted);--lp-line:color-mix(in srgb,var(--sk-accent) 30%,transparent);--lp-sep:color-mix(in srgb,var(--sk-accent) 14%,transparent);--lp-accent:var(--sk-accent);--lp-go:linear-gradient(90deg,var(--sk-warm),var(--sk-accent2));--lp-go-fg:var(--sk-on-accent)}
 body.ql-white .ql-loc-ov,body.ql-white .ql-fp-field{--lp-bg:rgba(244,246,252,.96);--lp-card:#fff;--lp-field:rgba(255,255,255,.75);--lp-line:rgba(99,102,241,.2);--lp-accent:#4f46e5;--lp-go:linear-gradient(135deg,#3b82f6,#6366f1)}
 </style>
+<script id="qlSelectBarIcons">
+/* Kuza: the Select Items bar looks like GoodNotes -- icon above a label for
+   Share, Copy Link, Duplicate, Move and Trash (red). Duplicate / Move /
+   Trash also show for a student's own library (qlCanMutate). */
+(function(){
+  const I={
+    shareSelectedBtn:['Share','<path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>'],
+    copySelectedBtn:['Copy Link','<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/>'],
+    duplicateSelectedBtn:['Duplicate','<rect x="8" y="8" width="13" height="13" rx="2.5"/><path d="M16 8V5.5A2.5 2.5 0 0 0 13.5 3h-8A2.5 2.5 0 0 0 3 5.5v8A2.5 2.5 0 0 0 5.5 16H8"/><path d="M14.5 11.5v6M11.5 14.5h6"/>'],
+    moveSelectedBtn:['Move','<path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"/><path d="M8 4v16"/><path d="M13 12h8"/><path d="m18 9 3 3-3 3"/>'],
+    trashSelectedBtn:['Trash','<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a1.5 1.5 0 0 0 1.5 1.4h7A1.5 1.5 0 0 0 17 20l1-13"/><path d="M10 11v6M14 11v6"/>'],
+    restoreSelectedBtn:['Restore','<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>'],
+    deleteSelectedBtn:['Delete','<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a1.5 1.5 0 0 0 1.5 1.4h7A1.5 1.5 0 0 0 17 20l1-13"/><path d="M9.5 11.5l5 5M14.5 11.5l-5 5"/>']
+  };
+  function dress(){
+    Object.entries(I).forEach(([id,[label,path]])=>{
+      const b=document.getElementById(id);if(!b||b.dataset.qlIco)return;
+      b.dataset.qlIco="1";b.classList.add("ql-sel-btn");
+      if(id==="trashSelectedBtn"||id==="deleteSelectedBtn")b.classList.add("ql-sel-danger");
+      b.innerHTML=`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg><span>${label}</span>`;
+    });
+    const can=typeof qlCanMutate==="function"&&qlCanMutate();
+    ["duplicateSelectedBtn","moveSelectedBtn","trashSelectedBtn"].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.toggle("ql-sel-can",!!can)});
+    const bar=document.getElementById("selectionBar");
+    if(bar){const n=(typeof state!=="undefined"&&state.selected)?state.selected.size:0;
+      ["duplicateSelectedBtn","moveSelectedBtn","trashSelectedBtn","shareSelectedBtn","copySelectedBtn","restoreSelectedBtn","deleteSelectedBtn"].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=!n})}
+  }
+  dress();
+  window.addEventListener("DOMContentLoaded",()=>setTimeout(dress,0));
+  if(typeof qlSyncSelectionBar==="function"){const prev=qlSyncSelectionBar;qlSyncSelectionBar=function(){const r=prev.apply(this,arguments);try{dress()}catch(e){}return r}}
+  if(typeof render==="function"){const prevR=render;render=function(){const r=prevR.apply(this,arguments);try{dress()}catch(e){}return r}}
+})();
+</script>
+<style id="qlSelectBarIconsStyle">
+.selection-bar .selection-actions{display:flex;align-items:center;gap:6px}
+.selection-bar .ql-sel-btn{display:inline-flex!important;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:84px;padding:8px 10px!important;border-radius:14px;border:0;background:transparent;cursor:pointer;font:inherit;font-size:13.5px!important;font-weight:650;color:var(--sk-text,#334155)!important}
+.selection-bar .ql-sel-btn:hover{background:color-mix(in srgb,var(--sk-accent,#3b82f6) 12%,transparent)}
+.selection-bar .ql-sel-btn svg{color:var(--sk-muted2,#64748b)}
+.selection-bar .ql-sel-btn.ql-sel-danger,.selection-bar .ql-sel-btn.ql-sel-danger svg{color:#ef4444!important}
+.selection-bar .ql-sel-btn:disabled{opacity:.4;cursor:default}
+body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:inline-flex!important}
+.selection-bar .done-btn{margin-left:8px}
+</style>
 <script id="qlMenuIcons">
 /* Kuza: icons in the "+ New" menu and the ☰ view menu (Select Items, Grid,
    List, and each sort option); the ✓ for the current choice sits on the right. */
