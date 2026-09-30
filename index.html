@@ -16846,6 +16846,81 @@ body.ql-white .ql-loc-ov,body.ql-white .ql-fp-field{--lp-bg:rgba(244,246,252,.96
 body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:inline-flex!important}
 .selection-bar .done-btn{margin-left:8px}
 </style>
+<style id="qlMobileView">
+/* Kuza: phone layout (≤760px). Top bar = menu · New · view · avatar with the
+   search on its own full-width row; the quick-action row (same as + New) is
+   hidden; a bottom tab bar gives one-tap access to the main pages. */
+.ql-tabbar{display:none}
+@media (max-width:760px){
+  body.ql-skin .topbar{display:grid!important;grid-template-columns:auto 1fr auto!important;grid-template-areas:"menu . actions" "search search search"!important;align-items:center;gap:10px 8px!important;padding:10px 14px 12px!important;position:sticky;top:0;z-index:60;height:auto!important}
+  body.ql-skin .topbar .top-left{grid-area:menu;display:flex!important;align-items:center}
+  body.ql-skin .topbar .top-actions{grid-area:actions;display:flex!important;align-items:center;gap:8px}
+  body.ql-skin #studentHeaderSearch{grid-area:search;width:100%!important;max-width:none!important;margin:0!important}
+  body.ql-skin #studentHeaderSearch input{font-size:15px!important}
+  body.ql-skin #mobileMenu{display:grid!important;place-items:center;width:44px;height:44px;border-radius:14px;font-size:22px;color:var(--sk-accent)!important;background:color-mix(in srgb,var(--sk-veil) 7%,transparent)!important;border:1px solid color-mix(in srgb,var(--sk-accent) 30%,transparent)!important}
+  body.ql-skin #newBtn{height:44px!important;padding:0 16px!important;font-size:15px!important}
+  body.ql-skin #viewBtn{width:44px!important;height:44px!important}
+  html body.ql-skin #adminQuickActions,html body.student-only-build.student-edit-mode.ql-skin #adminQuickActions{display:none!important}
+  body.ql-skin .page-heading{margin:14px 16px 8px!important;padding:0!important}
+  body.ql-skin .page-title{font-size:24px!important}
+  body.ql-skin .subbar{margin:0 16px 10px!important;padding:0!important}
+  body.ql-skin.profile-section .subbar{display:none!important}
+  body.ql-skin .content.grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;padding:0 0 110px!important;margin:0 16px!important}
+  body.ql-skin .content:not(.grid){padding:0 12px 110px!important}
+  body.ql-skin .content.grid .item-card{min-height:0!important;padding:8px 10px 12px!important}
+  body.ql-skin .content.grid .item-card>.file-icon:has(.ql-glass-badge){width:76px!important;height:84px!important;margin:10px auto 8px!important}
+  body.ql-skin .item-card .doc-badge.ql-glass-badge{width:72px!important;height:80px!important}
+  body.ql-skin .item-title{font-size:15px!important}
+  body.ql-skin .profile-content{padding-bottom:110px!important}
+  /* selection bar sits above the tab bar */
+  body.ql-skin .selection-bar.show{position:fixed!important;left:10px!important;right:10px!important;top:auto!important;bottom:calc(76px + env(safe-area-inset-bottom,0px))!important;z-index:70;flex-wrap:wrap;padding:8px 10px!important;border-radius:20px!important}
+  body.ql-skin .selection-bar .selection-left{width:100%;text-align:center;font-weight:700;margin-bottom:2px}
+  body.ql-skin .selection-bar .selection-actions{width:100%;justify-content:space-between}
+  body.ql-skin .selection-bar .ql-sel-btn{min-width:0!important;flex:1;padding:6px 2px!important;font-size:11.5px!important}
+  body.ql-skin .selection-bar .ql-sel-btn svg{width:22px;height:22px}
+  body.ql-skin .selection-bar .done-btn{margin-left:4px!important;padding:8px 12px!important}
+  body.ql-skin .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px))!important}
+  /* bottom tab bar */
+  body.ql-skin .ql-tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:65;height:62px;border-radius:22px;padding:4px;background:color-mix(in srgb,var(--sk-panelB) 88%,transparent);border:1px solid color-mix(in srgb,var(--sk-accent) 30%,transparent);box-shadow:0 12px 34px rgba(0,0,0,.35);-webkit-backdrop-filter:blur(18px) saturate(1.3);backdrop-filter:blur(18px) saturate(1.3)}
+  body.ql-white .ql-tabbar{background:rgba(255,255,255,.78);border-color:rgba(255,255,255,.95);box-shadow:0 12px 34px rgba(60,80,140,.22)}
+  .ql-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;border-radius:18px;background:transparent;color:var(--sk-muted);font:inherit;font-size:11px;font-weight:700;cursor:pointer;position:relative}
+  .ql-tab svg{width:23px;height:23px}
+  .ql-tab.on{color:var(--sk-accent);background:color-mix(in srgb,var(--sk-accent) 14%,transparent)}
+  .ql-tab .ql-tab-badge{position:absolute;top:4px;right:calc(50% - 20px);min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#ef4444;color:#fff;font-size:10px;line-height:16px}
+  body.ql-skin .qz-page-overlay.show~.ql-tabbar,body.ql-skin.ql-tab-hide .ql-tabbar{display:none}
+  /* results neon lines calmer on a phone */
+  .qz-res-neon .qz-neo-lines{opacity:.45}
+}
+</style>
+<script id="qlMobileTabbar">
+(function(){
+  const T=[
+    ["documents","Library",'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'],
+    ["random","Random",'<path d="M12 3.5l1.9 4.6 4.6 1.9-4.6 1.9L12 16.5l-1.9-4.6L5.5 10l4.6-1.9z"/><path d="M18.5 14.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/>'],
+    ["inbox","Shared",'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/>'],
+    ["recent","Recent",'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
+    ["profile","Profile",'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>']
+  ];
+  function build(){
+    if(document.getElementById("qlTabbar"))return;
+    const bar=document.createElement("nav");bar.id="qlTabbar";bar.className="ql-tabbar";bar.setAttribute("aria-label","Main");
+    bar.innerHTML=T.map(([k,l,i])=>`<button type="button" class="ql-tab" data-tab="${k}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${i}</svg><span>${l}</span></button>`).join("");
+    document.body.appendChild(bar);
+    bar.onclick=ev=>{const b=ev.target.closest("[data-tab]");if(!b)return;const k=b.dataset.tab;
+      try{if(k==="random"){(document.getElementById("randomQuizNavBtn")||{}).click?.();return}
+        if(k==="inbox"){(document.getElementById("studentSharedQuizInbox")||{}).click?.();return}
+        navigate(k)}catch(e){}sync()};
+    sync();
+  }
+  function sync(){const bar=document.getElementById("qlTabbar");if(!bar)return;const sec=(typeof state!=="undefined"&&state.section)||"documents";
+    bar.querySelectorAll(".ql-tab").forEach(b=>b.classList.toggle("on",b.dataset.tab===sec||(b.dataset.tab==="documents"&&sec==="documents")));
+    const signed=typeof state!=="undefined"&&state.user;bar.style.visibility=signed?"":"hidden";
+    const n=document.getElementById("studentSharedQuizBadge");const t=bar.querySelector('[data-tab="inbox"]');
+    if(t){let bd=t.querySelector(".ql-tab-badge");const v=n&&n.textContent.trim()!=="0"&&getComputedStyle(n).display!=="none"?n.textContent.trim():"";if(v){if(!bd){bd=document.createElement("span");bd.className="ql-tab-badge";t.appendChild(bd)}bd.textContent=v}else bd?.remove()}}
+  if(document.readyState==="loading")window.addEventListener("DOMContentLoaded",build);else build();
+  if(typeof render==="function"){const prev=render;render=function(){const r=prev.apply(this,arguments);try{build();sync()}catch(e){}return r}}
+})();
+</script>
 <script id="qlMenuIcons">
 /* Kuza: icons in the "+ New" menu and the ☰ view menu (Select Items, Grid,
    List, and each sort option); the ✓ for the current choice sits on the right. */
