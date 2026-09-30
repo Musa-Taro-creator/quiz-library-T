@@ -16608,8 +16608,8 @@ body.ql-white .profile-content.pfs-neon,body.ql-ocean .profile-content.pfs-neon{
 /* Theme: saved on this device (and to the account when signed in). */
 (function(){
   const SKINS=["neon","white","ocean"];
-  window.qlGetSkin=function(){let v="neon";try{v=localStorage.getItem("ql_app_skin")||v}catch(e){}try{const m=typeof state!=="undefined"&&state.user&&state.user.user_metadata&&state.user.user_metadata.ql_app_skin;if(m&&!localStorage.getItem("ql_app_skin"))v=m}catch(e){}return SKINS.includes(v)?v:"neon"};
-  window.qlApplySkin=function(v){v=SKINS.includes(v)?v:"neon";const b=document.body.classList;b.add("ql-skin");SKINS.forEach(k=>b.toggle("ql-"+k,k===v))};
+  window.qlGetSkin=function(){let v="white";try{v=localStorage.getItem("ql_app_skin")||v}catch(e){}try{const m=typeof state!=="undefined"&&state.user&&state.user.user_metadata&&state.user.user_metadata.ql_app_skin;if(m&&!localStorage.getItem("ql_app_skin"))v=m}catch(e){}return SKINS.includes(v)?v:"white"};
+  window.qlApplySkin=function(v){v=SKINS.includes(v)?v:"white";const b=document.body.classList;b.add("ql-skin");SKINS.forEach(k=>b.toggle("ql-"+k,k===v))};
   window.qlSetSkin=function(v){try{localStorage.setItem("ql_app_skin",v)}catch(e){}window.qlApplySkin(v);try{if(typeof service!=="undefined"&&service.client&&state.user){service.client.auth.updateUser({data:{ql_app_skin:v}}).catch(()=>{})}}catch(e){}};
   window.qlApplySkin(window.qlGetSkin());
 })();
