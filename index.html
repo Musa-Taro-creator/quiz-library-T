@@ -16556,6 +16556,71 @@ body.ql-neon .toast{background:rgba(12,12,22,.95)!important;color:#eaf2ff!import
 body.ql-neon .profile-content.pfs-neon{background:transparent!important}
 </style>
 <script id="qlNeonAppSkinOn">document.body.classList.add("ql-neon")</script>
+<script id="qlGlassIcons">
+/* Kuza approved "B in glass": one icon per type used everywhere -- frosted
+   glass page with the type icon and a glossy label (LINK / QUIZ / PDF), and
+   a solid glossy folder that keeps each folder's own colour and icon. */
+(function(){
+  const P={
+    link:{c1:"#34d399",c2:"#059669",w:"LINK",i:'<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/>'},
+    quiz:{c1:"#a78bfa",c2:"#7c3aed",w:"QUIZ",i:'<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4.5V3h6v1.5"/><path d="m9 12.5 2 2 4-4"/>'},
+    pdf:{c1:"#fb7185",c2:"#e11d48",w:"PDF",i:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M8.5 13h7M8.5 16.5h5"/>'}
+  };
+  function glassDoc(t){
+    const d=P[t],g="qlg"+t;
+    return `<svg class="ql-glass-svg" viewBox="30 0 452 512" aria-hidden="true"><defs>
+<linearGradient id="p${g}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset=".55" stop-color="#fff" stop-opacity=".14"/><stop offset="1" stop-color="${d.c1}" stop-opacity=".22"/></linearGradient>
+<linearGradient id="e${g}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".5" stop-color="#fff" stop-opacity=".2"/><stop offset="1" stop-color="${d.c1}" stop-opacity=".8"/></linearGradient>
+<linearGradient id="l${g}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${d.c1}" stop-opacity=".95"/><stop offset="1" stop-color="${d.c2}" stop-opacity=".88"/></linearGradient></defs>
+<ellipse cx="256" cy="452" rx="170" ry="26" fill="${d.c1}" opacity=".35"/>
+<path d="M128 8h220l124 124v340a32 32 0 0 1-32 32H128a32 32 0 0 1-32-32V40a32 32 0 0 1 32-32z" fill="url(#p${g})" stroke="url(#e${g})" stroke-width="6"/>
+<path d="M348 8v92a32 32 0 0 0 32 32h92z" fill="#fff" fill-opacity=".35" stroke="url(#e${g})" stroke-width="4"/>
+<path d="M140 30h150" stroke="#fff" stroke-opacity=".6" stroke-width="10" stroke-linecap="round"/>
+<g transform="translate(176 56) scale(6.6)" fill="none" stroke="${d.c1}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">${d.i}</g>
+<rect x="40" y="260" width="376" height="170" rx="30" fill="url(#l${g})" stroke="#fff" stroke-opacity=".55" stroke-width="4"/>
+<rect x="60" y="272" width="336" height="44" rx="22" fill="#fff" fill-opacity=".28"/>
+<text x="228" y="382" text-anchor="middle" font-family="-apple-system,Arial,sans-serif" font-weight="800" font-size="${d.w.length>3?98:108}" fill="#fff">${d.w}</text></svg>`;
+  }
+  const glassFolder=()=>`<svg class="ql-glass-folder-svg" viewBox="20 30 472 440" aria-hidden="true"><defs>
+<linearGradient id="qlgfh" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".45" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<linearGradient id="qlgfs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset=".6" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#000" stop-opacity=".04"/></linearGradient></defs>
+<ellipse cx="256" cy="446" rx="200" ry="22" fill="currentColor" opacity=".25"/>
+<path d="M40 80a30 30 0 0 1 30-30h120l40 44h212a30 30 0 0 1 30 30v40H40z" fill="currentColor"/>
+<path d="M40 80a30 30 0 0 1 30-30h120l40 44h212a30 30 0 0 1 30 30v40H40z" fill="#000" fill-opacity=".08"/>
+<path d="M30 150a30 30 0 0 1 30-30h392a30 30 0 0 1 30 30v252a34 34 0 0 1-34 34H64a34 34 0 0 1-34-34z" fill="currentColor" stroke="#fff" stroke-opacity=".7" stroke-width="5"/>
+<path d="M30 150a30 30 0 0 1 30-30h392a30 30 0 0 1 30 30v252a34 34 0 0 1-34 34H64a34 34 0 0 1-34-34z" fill="url(#qlgfs)"/>
+<path d="M30 150a30 30 0 0 1 30-30h392a30 30 0 0 1 30 30v100H30z" fill="url(#qlgfh)"/>
+<path d="M60 146h300" stroke="#fff" stroke-opacity=".75" stroke-width="12" stroke-linecap="round"/></svg>`;
+  if(typeof documentBadgeMarkup==="function"){
+    documentBadgeMarkup=function(x){
+      const t=x&&x.kind==="pdf"?"pdf":x&&x.kind==="quiz"?"quiz":"link";
+      return `<span class="doc-badge ql-glass-badge ql-glass-${t}">${glassDoc(t)}</span>`;
+    };
+  }
+  if(typeof iconMarkup==="function"){
+    const prevIcon=iconMarkup;
+    iconMarkup=function(x,large=false){
+      const html=prevIcon(x,large);
+      if(!x||x.kind!=="folder")return html;
+      const color=x.color||"#F6C64A";
+      return html.replace('class="item-icon folder-icon','class="item-icon folder-icon ql-glass-folder').replace('<span class="folder-center-icon">',`<span class="ql-glass-folder-wrap" style="color:${esc(color)}">${glassFolder()}</span><span class="folder-center-icon">`);
+    };
+  }
+})();
+</script>
+<style id="qlGlassIconsStyle">
+.doc-badge.ql-glass-badge{background:none!important;box-shadow:none!important;border:0!important;border-radius:0!important;padding:0!important;display:block!important;overflow:visible!important}
+.doc-badge.ql-glass-badge::before,.doc-badge.ql-glass-badge::after{display:none!important}
+.item-card .doc-badge.ql-glass-badge{width:88px!important;height:98px!important;margin:0 auto!important}
+.content.grid .item-card>.file-icon:has(.ql-glass-badge){width:92px!important;height:100px!important;margin:12px auto 12px!important;filter:none!important;box-shadow:none!important;background:none!important}
+.item-icon:has(.ql-glass-badge),.folder-icon.ql-glass-folder{filter:none!important}
+.doc-badge.ql-glass-badge .ql-glass-svg{width:100%!important;height:100%!important;display:block;overflow:visible}
+.folder-icon.ql-glass-folder{background:none!important;box-shadow:none!important;border:0!important;overflow:visible!important}
+.folder-icon.ql-glass-folder::before,.folder-icon.ql-glass-folder::after{display:none!important}
+.ql-glass-folder-wrap{position:absolute;left:0;right:0;bottom:0;top:-22%;display:block;pointer-events:none}
+.ql-glass-folder-wrap svg{width:100%;height:100%;display:block;overflow:visible}
+.folder-icon.ql-glass-folder .folder-center-icon{position:relative;z-index:1}
+</style>
 <script id="qlMenuIcons">
 /* Kuza: icons in the "+ New" menu and the ☰ view menu (Select Items, Grid,
    List, and each sort option); the ✓ for the current choice sits on the right. */
