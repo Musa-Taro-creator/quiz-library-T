@@ -16801,6 +16801,9 @@ body.ql-white .ql-glass-folder-wrap svg path:nth-of-type(3){stroke:rgba(170,110,
 .ql-loc-go{height:54px;border:0;border-radius:999px;cursor:pointer;font:inherit;font-size:17px;font-weight:700;color:var(--lp-go-fg,#fff);background:var(--lp-go,#3778c2)}
 .ql-loc-go:disabled{opacity:.45}
 body.ql-neon .ql-loc-ov,body.ql-ocean .ql-loc-ov,body.ql-neon .ql-fp-field,body.ql-ocean .ql-fp-field{--lp-bg:var(--sk-panelB);--lp-card:color-mix(in srgb,var(--sk-veil) 6%,var(--sk-panelA));--lp-field:color-mix(in srgb,var(--sk-veil) 5%,transparent);--lp-text:var(--sk-text);--lp-muted:var(--sk-muted);--lp-line:color-mix(in srgb,var(--sk-accent) 30%,transparent);--lp-sep:color-mix(in srgb,var(--sk-accent) 14%,transparent);--lp-accent:var(--sk-accent);--lp-go:linear-gradient(90deg,var(--sk-warm),var(--sk-accent2));--lp-go-fg:var(--sk-on-accent)}
+body.ql-neon .qz-external-share-choice label,body.ql-ocean .qz-external-share-choice label{background:color-mix(in srgb,var(--sk-veil) 6%,transparent)!important;border-color:color-mix(in srgb,var(--sk-accent) 30%,transparent)!important}
+body.ql-neon .qz-external-share-choice label b,body.ql-ocean .qz-external-share-choice label b{color:var(--sk-text)!important}
+body.ql-neon .qz-external-share-choice label small,body.ql-ocean .qz-external-share-choice label small{color:var(--sk-muted)!important}
 body.ql-white .ql-loc-ov,body.ql-white .ql-fp-field{--lp-bg:rgba(244,246,252,.96);--lp-card:#fff;--lp-field:rgba(255,255,255,.75);--lp-line:rgba(99,102,241,.2);--lp-accent:#4f46e5;--lp-go:linear-gradient(135deg,#3b82f6,#6366f1)}
 </style>
 <script id="qlSelectBarIcons">
@@ -16888,6 +16891,28 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
   .ql-tab.on{color:var(--sk-accent);background:color-mix(in srgb,var(--sk-accent) 14%,transparent)}
   .ql-tab .ql-tab-badge{position:absolute;top:4px;right:calc(50% - 20px);min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#ef4444;color:#fff;font-size:10px;line-height:16px}
   body.ql-skin .qz-page-overlay.show~.ql-tabbar,body.ql-skin.ql-tab-hide .ql-tabbar{display:none}
+  /* quiz editor: buttons in a 2-column grid instead of a row running off-screen */
+  .qz-q9-rail .qz-page-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;overflow:visible!important;flex-wrap:wrap!important;padding:0 14px!important}
+  .qz-q9-rail .qz-page-actions>.btn,.qz-q9-rail .qz-page-actions>button{width:100%!important;min-width:0!important;margin:0!important;justify-content:flex-start!important;font-size:13px!important;padding:10px 10px!important;white-space:normal!important;text-align:left}
+  .qz-question-head{flex-wrap:wrap!important;gap:8px!important}
+  .qz-question-num{white-space:nowrap!important}
+  .qz-question-head .qz-type-select{flex:1 1 auto;min-width:0}
+  /* small windows opened from the editor / library: use the full phone width */
+  .qz-subdialog-overlay{padding:8px!important;align-items:flex-end!important}
+  .qz-subdialog-box{width:100%!important;max-width:none!important;max-height:92vh!important;padding:16px!important;border-radius:22px 22px 18px 18px!important;box-sizing:border-box}
+  .qz-subdialog-box *{max-width:100%;box-sizing:border-box}
+  .qz-subdialog-box [class*="-grid"],.qz-subdialog-box [class*="grid-2"]{grid-template-columns:1fr!important}
+  .qz-subdialog-box .qz-addq-row2{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .qz-subdialog-box .qz-addq-row2 select,.qz-subdialog-box .qz-sa-label select{width:100%!important;min-width:0!important}
+  .qz-subdialog-box .qz-mvq-number-row{flex-wrap:wrap!important}
+  .qz-subdialog-box .qz-mvq-number-row input{flex:1 1 100%!important;min-width:0!important}
+  .qz-subdialog-box .qz-mvq-number-row button{flex:1 1 100%!important}
+  .overlay .modal{width:calc(100vw - 16px)!important;max-width:none!important;max-height:92vh!important;padding:16px!important}
+  /* shared-link / quiz start screen: centred card, full-width Start button */
+  .qz-runner-start{margin:24px 14px!important;padding:22px 18px!important;border-radius:22px;background:linear-gradient(160deg,#ffffff,#eef4ff);box-shadow:0 14px 36px rgba(40,60,120,.14)}
+  .qz-runner-start h2{font-size:24px!important;margin:0 0 6px!important}
+  .qz-runner-start .form-actions{display:flex!important;flex-direction:column-reverse!important;gap:10px!important}
+  .qz-runner-start .form-actions .btn{width:100%!important;height:50px!important;font-size:16px!important;border-radius:14px!important}
   /* results neon lines calmer on a phone */
   .qz-res-neon .qz-neo-lines{opacity:.45}
 }
