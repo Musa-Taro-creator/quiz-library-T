@@ -16857,6 +16857,15 @@ body.ql-white .ql-loc-ov,body.ql-white .ql-fp-field{--lp-bg:rgba(244,246,252,.96
 body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:inline-flex!important}
 .selection-bar .done-btn{margin-left:8px}
 </style>
+<style id="qlCardCenter">
+/* Kuza: item cards -- name and details centred under the icon, smaller box
+   that grows only when the name is long (name wraps, up to 3 lines). */
+.content.grid .item-card{min-height:0!important;text-align:center!important;display:flex!important;flex-direction:column!important;align-items:center!important;padding:8px 10px 14px!important}
+.content.grid .item-card .item-title{white-space:normal!important;overflow:hidden!important;text-overflow:clip!important;display:-webkit-box!important;-webkit-line-clamp:3;-webkit-box-orient:vertical;word-break:break-word;line-height:1.25!important;width:100%;margin:2px 0 4px!important;text-align:center!important}
+.content.grid .item-card .item-sub,.content.grid .item-card .search-result-meta{width:100%;text-align:center!important}
+.content.grid .item-card .card-actions{align-self:stretch}
+@media (min-width:761px){.content.grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))!important}}
+</style>
 <style id="qlMobileView">
 /* Kuza: phone layout (≤760px). Top bar = menu · New · view · avatar with the
    search on its own full-width row; the quick-action row (same as + New) is
