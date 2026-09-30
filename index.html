@@ -15600,7 +15600,7 @@ Q5 Answer B
   if(qzQuickActions&&!qzQuickActions.querySelector("[data-quiz-quick]")){
     const b=document.createElement("button");
     b.type="button";b.dataset.quizQuick="1";
-    b.innerHTML='<span class="quick-icon quick-quiz"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18H6z"></path><path d="M9 8h6M9 12h6M9 16h4"></path></svg></span><span>Create Quiz</span>';
+    b.innerHTML='<span class="quick-icon quick-quiz" style="color:#f472b6"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2.5"></rect><path d="M9 4.5V3h6v1.5"></path><path d="m9 12.5 2 2 4-4"></path></svg></span><span>Create Quiz</span>';
     b.onclick=()=>{openEditor("quiz")};
     const accessBtn=document.getElementById("accessModeBtn");
     if(accessBtn)qzQuickActions.insertBefore(b,accessBtn);else qzQuickActions.appendChild(b);
