@@ -16679,6 +16679,130 @@ body.ql-white .doc-badge.ql-glass-link{--gc:#10b981}body.ql-white .doc-badge.ql-
 body.ql-white .ql-glass-folder-wrap{filter:drop-shadow(0 6px 10px rgba(180,120,20,.3)) drop-shadow(0 2px 3px rgba(30,40,80,.15))}
 body.ql-white .ql-glass-folder-wrap svg path:nth-of-type(3){stroke:rgba(170,110,10,.45)}
 </style>
+<script id="qlFolderPicker">
+/* Kuza: "Position is difficult to find ... like GoodNotes is good" -- every
+   Position dropdown (Upload PDF, Add Quiz Link, New Folder, Create Quiz,
+   Move) becomes a field showing the chosen place; tapping it opens a
+   GoodNotes-style "Select a Location" sheet: what is being placed at the
+   top, a search box, a folder tree (tap a row to pick it, tap the arrow to
+   open it), and a big "Move to '...'" button. The real <select> stays
+   hidden underneath, so saving works exactly as before. */
+(function(){
+  const IDS=["uploadParent","editorParent","moveParent","qzNewParent","folderEditorParent"];
+  const FOLDER='<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path fill="#fff" fill-opacity=".28" d="M3 9h18v2H3z"/></svg>';
+  const e=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+  const folders=()=>(typeof state!=="undefined"&&Array.isArray(state.items))?state.items.filter(x=>x.kind==="folder"&&!x.is_trashed):[];
+  function pathOf(id){const out=[];const all=folders();let cur=all.find(f=>f.id===id);let g=0;while(cur&&g++<50){out.unshift(cur);cur=all.find(f=>f.id===cur.parent_id)}return out}
+  const nameOf=id=>id?((folders().find(f=>f.id===id)||{}).title||"Folder"):"Documents";
+  const pathText=id=>["Documents"].concat(pathOf(id).map(f=>f.title||"Folder")).join(" › ");
+  function whatIsPlaced(sel){
+    const m=sel.closest(".modal");const title=(m&&m.querySelector(".modal-title,h2,h3")||{}).textContent||"";
+    const nameInput=m&&(m.querySelector("#qzNewTitle,#editorTitle,#folderEditorTitle,input[type=text]"));
+    const n=nameInput&&nameInput.value.trim();
+    if(sel.id==="moveParent")return {label:title||"Move Items",sub:"Choose where to move"};
+    return {label:n||(title||"New item"),sub:"Choose where to save"};
+  }
+  function openSheet(sel,allowed,verb){
+    document.getElementById("qlLocSheet")?.remove();
+    let chosen=sel.value||"",q="";
+    const open=new Set([""].concat(pathOf(chosen).map(f=>f.id)));
+    const ov=document.createElement("div");ov.id="qlLocSheet";ov.className="ql-loc-ov";
+    const info=whatIsPlaced(sel);
+    ov.innerHTML=`<div class="ql-loc" role="dialog" aria-modal="true" aria-label="Select a Location">
+      <div class="ql-loc-head"><button type="button" class="ql-loc-x" aria-label="Close">×</button><div class="ql-loc-title">Select a Location</div><span></span></div>
+      <div class="ql-loc-item"><span class="ql-loc-big">${FOLDER}</span><div><b>${e(info.label)}</b><small class="ql-loc-now"></small></div></div>
+      <div class="ql-loc-search"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" placeholder="Search folders" autocomplete="off"></div>
+      <div class="ql-loc-tree"></div>
+      <button type="button" class="ql-loc-go"></button></div>`;
+    document.body.appendChild(ov);
+    requestAnimationFrame(()=>ov.classList.add("show"));
+    const tree=ov.querySelector(".ql-loc-tree"),go=ov.querySelector(".ql-loc-go"),now=ov.querySelector(".ql-loc-now");
+    const close=()=>{ov.classList.remove("show");setTimeout(()=>ov.remove(),200)};
+    ov.querySelector(".ql-loc-x").onclick=close;
+    ov.addEventListener("click",ev=>{if(ev.target===ov)close()});
+    const kidsOf=id=>folders().filter(f=>(f.parent_id||"")===(id||"")&&allowed.has(f.id)).sort((a,b)=>String(a.title).localeCompare(String(b.title)));
+    const hasKids=id=>kidsOf(id).length>0;
+    function row(id,depth){
+      const k=hasKids(id),isOpen=open.has(id);
+      const color=id?((folders().find(f=>f.id===id)||{}).color||"#6ea8fe"):"#5fb3e8";
+      return `<div class="ql-loc-row ${chosen===id?"on":""}" data-id="${e(id)}" style="--d:${depth}">
+        <span class="ql-loc-ico" style="color:${e(color)}">${FOLDER}</span><span class="ql-loc-name">${e(nameOf(id))}</span>
+        ${chosen===id?'<span class="ql-loc-check">✓</span>':''}
+        ${k?`<button type="button" class="ql-loc-exp ${isOpen?"open":""}" data-exp="${e(id)}" aria-label="${isOpen?"Collapse":"Open"} ${e(nameOf(id))}">›</button>`:'<span class="ql-loc-exp-sp"></span>'}</div>`+
+        (k&&isOpen?kidsOf(id).map(f=>row(f.id,depth+1)).join(""):"");
+    }
+    function render(){
+      now.textContent=pathText(chosen);
+      if(q){
+        const hits=folders().filter(f=>allowed.has(f.id)&&String(f.title||"").toLowerCase().includes(q));
+        tree.innerHTML=hits.length?hits.map(f=>`<div class="ql-loc-row ${chosen===f.id?"on":""}" data-id="${e(f.id)}" style="--d:0"><span class="ql-loc-ico" style="color:${e(f.color||"#6ea8fe")}">${FOLDER}</span><span class="ql-loc-name">${e(f.title||"Folder")}<small>${e(pathText(f.parent_id||""))}</small></span>${chosen===f.id?'<span class="ql-loc-check">✓</span>':''}<span class="ql-loc-exp-sp"></span></div>`).join(""):'<div class="ql-loc-empty">No folder found</div>';
+      }else tree.innerHTML=allowed.has("")?row("",0):kidsOf("").map(f=>row(f.id,0)).join("");
+      go.textContent=`${verb} '${nameOf(chosen)}'`;go.disabled=!allowed.has(chosen);
+      tree.querySelectorAll(".ql-loc-row").forEach(r=>r.onclick=ev=>{
+        const x=ev.target.closest("[data-exp]");
+        if(x){const id=x.dataset.exp;open.has(id)?open.delete(id):open.add(id);render();return}
+        chosen=r.dataset.id;if(hasKids(chosen))open.add(chosen);render();
+      });
+    }
+    ov.querySelector(".ql-loc-search input").oninput=ev=>{q=ev.target.value.trim().toLowerCase();render()};
+    go.onclick=()=>{sel.value=chosen;sel.dispatchEvent(new Event("change",{bubbles:true}));sel.dispatchEvent(new Event("input",{bubbles:true}));close()};
+    render();
+  }
+  function enhance(sel){
+    if(!sel||sel.dataset.qlPicker)return;
+    sel.dataset.qlPicker="1";
+    const allowed=new Set([...sel.options].map(o=>o.value));
+    const verb=sel.id==="moveParent"?"Move to":"Save in";
+    const btn=document.createElement("button");btn.type="button";btn.className="ql-fp-field";
+    sel.style.display="none";sel.insertAdjacentElement("afterend",btn);
+    const paint=()=>{const v=sel.value||"";btn.innerHTML=`<span class="ql-fp-ico" style="color:${e(v?((folders().find(f=>f.id===v)||{}).color||"#6ea8fe"):"#5fb3e8")}">${FOLDER}</span><span class="ql-fp-txt"><b>${e(nameOf(v))}</b><small>${e(pathText(v))}</small></span><span class="ql-fp-chg">Change ›</span>`};
+    btn.onclick=ev=>{ev.preventDefault();openSheet(sel,allowed,verb)};
+    sel.addEventListener("change",paint);
+    new MutationObserver(paint).observe(sel,{attributes:true,childList:true});
+    paint();
+  }
+  function scan(){IDS.forEach(id=>document.querySelectorAll("select#"+id).forEach(enhance))}
+  new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});
+  scan();
+})();
+</script>
+<style id="qlFolderPickerStyle">
+.ql-fp-field{display:flex;align-items:center;gap:12px;width:100%;margin-top:6px;padding:10px 14px;border-radius:14px;cursor:pointer;text-align:left;font:inherit;background:var(--lp-field,#f5f8fd);border:1px solid var(--lp-line,#d8e2f0);color:var(--lp-text,#16203a)}
+.ql-fp-ico{display:grid;place-items:center;flex-shrink:0}
+.ql-fp-txt{flex:1;min-width:0;display:flex;flex-direction:column}
+.ql-fp-txt b{font-size:15px;font-weight:750}
+.ql-fp-txt small{font-size:12px;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ql-fp-chg{flex-shrink:0;font-size:13px;font-weight:800;color:var(--lp-accent,#2f6fd6)}
+.ql-loc-ov{position:fixed;inset:0;z-index:2147482600;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(10,14,28,.35);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;transition:opacity .18s}
+.ql-loc-ov.show{opacity:1}
+.ql-loc{width:min(560px,100%);height:min(640px,calc(100vh - 32px));display:flex;flex-direction:column;gap:14px;padding:14px 16px 18px;border-radius:28px;background:var(--lp-bg,#f4f4f6);color:var(--lp-text,#16203a);border:1px solid var(--lp-line,transparent);box-shadow:0 30px 80px rgba(0,0,0,.35);transform:translateY(12px);transition:transform .2s}
+.ql-loc-ov.show .ql-loc{transform:none}
+.ql-loc-head{display:grid;grid-template-columns:44px 1fr 44px;align-items:center}
+.ql-loc-x{width:44px;height:44px;border-radius:50%;border:0;cursor:pointer;font-size:26px;line-height:1;background:var(--lp-card,#fff);color:var(--lp-text,#16203a);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.ql-loc-title{text-align:center;font-weight:800;font-size:17px}
+.ql-loc-item{display:flex;align-items:center;gap:14px;padding:0 4px}
+.ql-loc-big{width:64px;height:56px;display:grid;place-items:center;color:#6ea8fe}
+.ql-loc-big svg{width:64px;height:64px}
+.ql-loc-item b{display:block;font-size:17px}
+.ql-loc-item small{display:block;margin-top:2px;font-size:13px;opacity:.6}
+.ql-loc-search{display:flex;align-items:center;gap:10px;padding:0 14px;height:46px;border-radius:999px;background:var(--lp-card,#fff);color:var(--lp-muted,#6b7280)}
+.ql-loc-search input{flex:1;border:0!important;outline:0;background:transparent!important;font:inherit;font-size:16px;color:var(--lp-text,#16203a)!important;box-shadow:none!important;padding:0!important}
+.ql-loc-tree{flex:1;min-height:0;overflow:auto;border-radius:18px;background:var(--lp-card,#fff)}
+.ql-loc-row{display:flex;align-items:center;gap:12px;min-height:54px;padding:0 10px 0 calc(16px + var(--d) * 22px);cursor:pointer;border-bottom:1px solid var(--lp-sep,#ececf0)}
+.ql-loc-row:last-child{border-bottom:0}
+.ql-loc-row.on{background:color-mix(in srgb,var(--lp-accent,#2f6fd6) 10%,transparent)}
+.ql-loc-name{flex:1;min-width:0;font-size:16px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ql-loc-name small{display:block;font-size:11.5px;font-weight:500;opacity:.55}
+.ql-loc-check{color:var(--lp-accent,#2f6fd6);font-weight:900;font-size:18px}
+.ql-loc-exp{width:36px;height:36px;border:0;border-radius:10px;background:transparent;cursor:pointer;font-size:24px;line-height:1;color:var(--lp-muted,#9ca3af);transition:transform .15s}
+.ql-loc-exp.open{transform:rotate(90deg)}
+.ql-loc-exp-sp{width:36px;flex-shrink:0}
+.ql-loc-empty{padding:24px;text-align:center;opacity:.6}
+.ql-loc-go{height:54px;border:0;border-radius:999px;cursor:pointer;font:inherit;font-size:17px;font-weight:700;color:var(--lp-go-fg,#fff);background:var(--lp-go,#3778c2)}
+.ql-loc-go:disabled{opacity:.45}
+body.ql-neon .ql-loc-ov,body.ql-ocean .ql-loc-ov,body.ql-neon .ql-fp-field,body.ql-ocean .ql-fp-field{--lp-bg:var(--sk-panelB);--lp-card:color-mix(in srgb,var(--sk-veil) 6%,var(--sk-panelA));--lp-field:color-mix(in srgb,var(--sk-veil) 5%,transparent);--lp-text:var(--sk-text);--lp-muted:var(--sk-muted);--lp-line:color-mix(in srgb,var(--sk-accent) 30%,transparent);--lp-sep:color-mix(in srgb,var(--sk-accent) 14%,transparent);--lp-accent:var(--sk-accent);--lp-go:linear-gradient(90deg,var(--sk-warm),var(--sk-accent2));--lp-go-fg:var(--sk-on-accent)}
+body.ql-white .ql-loc-ov,body.ql-white .ql-fp-field{--lp-bg:rgba(244,246,252,.96);--lp-card:#fff;--lp-field:rgba(255,255,255,.75);--lp-line:rgba(99,102,241,.2);--lp-accent:#4f46e5;--lp-go:linear-gradient(135deg,#3b82f6,#6366f1)}
+</style>
 <script id="qlMenuIcons">
 /* Kuza: icons in the "+ New" menu and the ☰ view menu (Select Items, Grid,
    List, and each sort option); the ✓ for the current choice sits on the right. */
