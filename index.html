@@ -7240,7 +7240,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
        chooses Guest/Anonymous or Require student name when creating the link,
        so do not force the normal Student account gate for this one route. */
     let externalQuizShare=false;
-    try{const sp=new URLSearchParams(location.search||"");externalQuizShare=!!(sp.get("quiz_share")||sp.get("s"))}catch{}
+    try{const sp=new URLSearchParams(location.search||"");externalQuizShare=!!(sp.get("quiz_share")||sp.get("s")||sp.get("item_share"))}catch{}
     if(externalQuizShare){authGateVisible(false);return}
     const accountRequired=STUDENT_ONLY_BUILD||state.library.student_access_private===true;
     if(!accountRequired||state.isAdmin){authGateVisible(false);return}
@@ -13704,7 +13704,9 @@ Q5 Answer B
     let shortCode="";
     try{const sp=new URLSearchParams(location.search||"");if(!sp.get("quiz_share"))shortCode=String(sp.get("s")||"").trim()}catch{}
     if(shortCode&&!window.__qlShortShareToken&&!qzExternalRouteOpened){
-      try{window.__qlShortShareToken=await service.resolveShortShareLink(shortCode)}
+      try{const tok=await service.resolveShortShareLink(shortCode);
+        if(String(tok).startsWith("item:")){qzExternalRouteOpened=true;window.qlOpenItemShareViewer&&window.qlOpenItemShareViewer(String(tok).slice(5));return}
+        window.__qlShortShareToken=tok}
       catch(error){
         qzExternalRouteOpened=true;
         qzOpenPage(true);
@@ -18013,8 +18015,8 @@ body.ql-neon #itemMenu.ql-im button.danger,body.ql-ocean #itemMenu.ql-im button.
     add("open","Open",()=>openItem(x));
     add(fav?"favOn":"fav",fav?"Remove favorite":"Add favorite",()=>toggleFavorite(x));
     sep();
-    add("inShare","Share internally",()=>shareOne(x),isQuiz?{}:{off:true,note:"Quizzes only",offMsg:"Share internally works for quizzes only"});
-    add("exShare","Share externally",()=>{if(isQuiz&&typeof window.__quizTest?.openExternalQuizShare==="function")return window.__quizTest.openExternalQuizShare(x);return shareOne(x)});
+    add("inShare","Share internally",()=>window.qlShareInternally(x));
+    add("exShare","Share externally",()=>window.qlShareExternally(x));
     if(canEdit){
       sep();
       add("edit","Edit",()=>openEditor(x));
@@ -18024,6 +18026,309 @@ body.ql-neon #itemMenu.ql-im button.danger,body.ql-ocean #itemMenu.ql-im button.
       add("trash","Move to trash",()=>trashItems([x.id]),{cls:"danger"});
     }
   };
+})();
+</script>
+<style id="qlItemShareStyle">
+.ql-is-card{display:flex;gap:12px;align-items:center;padding:12px;border-radius:14px;border:1px solid var(--line,#e2e8f0);background:#fbfcfe}
+.ql-is-card .ql-is-ico{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:var(--kc);background:color-mix(in srgb,var(--kc) 14%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--kc) 35%,transparent)}
+.ql-is-card .ql-is-ico svg{width:22px;height:22px}
+.ql-is-card strong{display:block;font-size:15px;color:#0f172a}
+.ql-is-card span{display:block;font-size:12.5px;color:#64748b;margin-top:2px;line-height:1.4}
+.ql-is-note{padding:10px 12px;border-radius:12px;font-size:12.5px;line-height:1.5;background:#f0f8f4;border:1px solid #ccebdd;color:#365c4b}
+.ql-is-note b{color:#187b50}
+.ql-is-shell{display:grid;gap:12px}
+.ql-is-row{display:flex;gap:8px}
+.ql-is-row input{flex:1;min-width:0}
+.ql-is-person{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid #c7d2fe;background:#eef2ff}
+.ql-is-person b{display:block}.ql-is-person small{color:#64748b}
+.ql-is-avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;background:linear-gradient(135deg,#6366f1,#a855f7)}
+.ql-is-link{display:flex;gap:8px}.ql-is-link input{flex:1;min-width:0;font-size:13px}
+.ql-is-qr{display:grid;place-items:center;padding:12px;background:#fff;border-radius:14px}
+.ql-is-inbox-sec{display:grid;gap:10px;margin-bottom:12px}
+.ql-is-inbox-row{padding:12px;border-radius:14px;border:1px solid var(--line,#e2e8f0);background:#fbfcfe;display:grid;gap:10px}
+.ql-is-inbox-head{display:flex;gap:10px;align-items:center}
+.ql-is-inbox-head .ql-is-ico{flex:none;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:var(--kc);background:color-mix(in srgb,var(--kc) 14%,transparent)}
+.ql-is-inbox-head .ql-is-ico svg{width:20px;height:20px}
+.ql-is-inbox-head strong{display:block}.ql-is-inbox-head span{display:block;font-size:12px;color:#64748b}
+.ql-is-inbox-acts{display:flex;gap:8px;flex-wrap:wrap}.ql-is-inbox-acts select{flex:1;min-width:150px}
+body.ql-skin .ql-is-card,body.ql-skin .ql-is-inbox-row{background:color-mix(in srgb,var(--sk-veil) 7%,transparent)!important;border-color:color-mix(in srgb,var(--sk-accent) 28%,transparent)!important}
+body.ql-skin .ql-is-card strong,body.ql-skin .ql-is-inbox-head strong,body.ql-skin .ql-is-person b{color:var(--sk-text)!important}
+body.ql-skin .ql-is-card span,body.ql-skin .ql-is-inbox-head span,body.ql-skin .ql-is-person small{color:var(--sk-muted)!important}
+body.ql-skin .ql-is-note{background:color-mix(in srgb,#10b981 12%,transparent)!important;border-color:color-mix(in srgb,#10b981 38%,transparent)!important;color:var(--sk-muted)!important}
+body.ql-neon .ql-is-note b,body.ql-ocean .ql-is-note b{color:#34d399!important}
+body.ql-skin .ql-is-person{background:color-mix(in srgb,var(--sk-accent) 12%,transparent)!important;border-color:color-mix(in srgb,var(--sk-accent) 35%,transparent)!important}
+/* public link page */
+#qlItemViewer{position:fixed;inset:0;z-index:2147483000;overflow:auto;background:linear-gradient(160deg,#eef4ff,#fdf2f8 60%,#ecfeff);color:#0f172a;font-family:inherit;-webkit-overflow-scrolling:touch}
+.ql-iv-wrap{max-width:760px;margin:0 auto;padding:18px 16px 40px}
+.ql-iv-top{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.ql-iv-top img{width:40px;height:40px;border-radius:11px}
+.ql-iv-brand{font-weight:800;letter-spacing:.04em;font-size:15px;background:linear-gradient(90deg,#3b82f6,#a855f7,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
+.ql-iv-head{padding:18px;border-radius:22px;background:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.9);box-shadow:0 14px 40px rgba(30,41,90,.12);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.ql-iv-head h1{margin:0 0 4px;font-size:22px;line-height:1.25;word-break:break-word}
+.ql-iv-head p{margin:0;color:#64748b;font-size:13.5px}
+.ql-iv-crumbs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:16px 2px 8px;font-size:13.5px;color:#64748b}
+.ql-iv-crumbs button{border:0;background:none;color:#4f46e5;font:inherit;font-weight:700;cursor:pointer;padding:2px 4px}
+.ql-iv-list{display:grid;gap:10px}
+.ql-iv-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,.9);background:rgba(255,255,255,.8);box-shadow:0 6px 18px rgba(30,41,90,.08);cursor:pointer;font:inherit;color:inherit}
+.ql-iv-row:active{transform:scale(.99)}
+.ql-iv-row .ql-is-ico{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:var(--kc);background:color-mix(in srgb,var(--kc) 14%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--kc) 35%,transparent)}
+.ql-iv-row .ql-is-ico svg{width:22px;height:22px}
+.ql-iv-row b{display:block;font-size:15px;word-break:break-word}
+.ql-iv-row small{display:block;color:#64748b;font-size:12.5px;margin-top:2px}
+.ql-iv-row .ql-iv-go{margin-left:auto;flex:none;font-weight:800;font-size:13px;color:#4f46e5;padding:7px 12px;border-radius:999px;background:rgba(99,102,241,.1)}
+.ql-iv-empty,.ql-iv-msg{padding:22px;text-align:center;color:#64748b;border-radius:16px;background:rgba(255,255,255,.7)}
+.ql-iv-msg.err{color:#b91c1c;background:#fef2f2}
+</style>
+<script id="qlItemShare">
+/* Kuza: "Share internally" and "Share externally" work for PDFs, links and
+   folders (with everything inside), not only quizzes.
+   Internal: a copy goes to another account's "Shared with me"; saving it
+   rebuilds the folder tree there (PDF files are copied into their storage).
+   External: a link page (short link + QR) anyone can open, no account.
+   Database side: supabase/item_sharing.sql. */
+(function(){
+  const KC={folder:"#f59e0b",pdf:"#f43f5e",link:"#10b981",quiz:"#8b5cf6"};
+  const KI={
+    folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    pdf:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>',
+    link:'<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/>',
+    quiz:'<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4.5V3h6v1.5"/><path d="m9 12.5 2 2 4-4"/>'
+  };
+  const kIco=k=>`<span class="ql-is-ico" style="--kc:${KC[k]||"#64748b"}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${KI[k]||KI.pdf}</svg></span>`;
+  const KN={folder:"Folder",pdf:"PDF",link:"Link",quiz:"Quiz"};
+  const h=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const plural=(n,w)=>`${n} ${w}${n===1?"":"s"}`;
+  const setupMsg=e=>/ql_send_item_share|ql_create_external_item_share|ql_get_external_item_share|ql_received_item|ql_item_shares|function .* does not exist|schema cache|PGRST202|42883|42P01/i.test(String(e&&(e.message||e)))
+    ?`<div class="status error"><b>One Supabase step first:</b> run <b>item_sharing.sql</b> in Supabase → SQL Editor, then try again.</div>`:"";
+  const errHtml=e=>setupMsg(e)||`<div class="status error">${h(friendlyError(e))}</div>`;
+
+  /* ---------- the item and everything inside it ---------- */
+  function treeOf(root){
+    const all=[root];
+    if(root.kind==="folder")descendants(root.id).map(itemById).filter(x=>x&&!x.is_trashed).forEach(x=>all.push(x));
+    return all;
+  }
+  function summary(nodes){
+    const c={folder:0,pdf:0,link:0,quiz:0};nodes.slice(1).forEach(x=>{if(c[x.kind]!=null)c[x.kind]++});
+    const parts=[c.folder&&plural(c.folder,"folder"),c.quiz&&plural(c.quiz,"quiz").replace("quizs","quizzes"),c.pdf&&plural(c.pdf,"PDF"),c.link&&plural(c.link,"link")].filter(Boolean);
+    return parts.length?parts.join(" · "):"Empty folder";
+  }
+  async function buildPacket(root,{pdfSeconds,externalQuizzes,onStep}){
+    const nodes=treeOf(root),out=[];let i=0;
+    for(const x of nodes){
+      i++;onStep&&onStep(i,nodes.length,x);
+      const n={ref:x.id,parent_ref:x.id===root.id?null:x.parent_id,kind:x.kind,title:x.title||"",url:x.url||null,description:x.description||null,color:x.color||null,icon:x.icon||"",file_size:x.file_size||null};
+      if(x.kind==="pdf"&&x.storage_path){n.pdf_url=await service.signedUrl(x,pdfSeconds)}
+      if(x.kind==="quiz"){
+        if(externalQuizzes){n.quiz_link=await externalQuizLink(x)}
+        else{const qs=await service.getQuizQuestionsAdmin(x.id);n.quiz_settings={...(x.quiz_settings||{})};n.questions=(qs||[]).map(q=>{const c={...q};delete c.item_id;delete c.library_id;return c})}
+      }
+      out.push(n);
+    }
+    return {version:1,kind:root.kind,root_ref:root.id,title:root.title||"",nodes:out};
+  }
+  async function externalQuizLink(item){
+    const rows=await service.getQuizQuestionsAdmin(item.id);
+    const questions=(rows||[]).slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0)).map((q,i)=>({id:q.id,type:q.type,prompt:q.prompt,options:q.options||[],points:Number(q.points||1),image:q.image||null,images:q.images||[],correct_answer:q.correct_answer,explanation:q.explanation||null,allow_multiple:!!q.allow_multiple,session_label:q.session_label||null,session_labels:q.session_labels||[],question_position:i}));
+    const row=await service.createExternalQuizShare(item.id,item.title,"guest",{version:1,kind:"quiz",settings:{...(item.quiz_settings||{})},questions});
+    const token=row?.share_token||row?.token;if(!token)return null;
+    const code=await service.createShortShareLink(token).catch(()=>null);
+    const u=new URL(location.href);u.search="";u.hash="";u.searchParams.set(code?"s":"quiz_share",code||token);return u.toString();
+  }
+  const shareCard=(item,line)=>`<div class="ql-is-card">${kIco(item.kind)}<div><strong>${h(item.title||KN[item.kind])}</strong><span>${h(line)}</span></div></div>`;
+
+  /* ---------- Share internally ---------- */
+  async function shareInternally(item){
+    const nodes=treeOf(item);
+    const line=item.kind==="folder"?`${summary(nodes)} — everything inside is included`:`${KN[item.kind]} · sends a full copy`;
+    openModal(`Share ${KN[item.kind]} internally`,`<div class="ql-is-shell">${shareCard(item,line)}
+      <label>Student Quiz ID<div class="ql-is-row"><input id="qlIsTo" autocomplete="off" spellcheck="false" placeholder="QL-XXXXXXXX"><button id="qlIsFind" class="btn" type="button">Search</button></div></label>
+      <div id="qlIsStatus" class="status hidden"></div><div id="qlIsPerson"></div>
+      <div class="ql-is-note"><b>Full copy.</b> They choose a folder and save their own copy${item.kind==="folder"?" of the folder and everything in it":""}. Their changes don't affect yours.</div>
+      <div class="form-actions"><button id="qlIsCancel" class="btn" type="button">Cancel</button><button id="qlIsSend" class="btn primary" type="button" disabled>Share</button></div></div>`);
+    let who=null;const st=$("#qlIsStatus"),send=$("#qlIsSend"),inp=$("#qlIsTo");
+    const say=(t,cls)=>{st.className="status"+(cls?" "+cls:"");st.innerHTML=t};
+    $("#qlIsCancel").onclick=closeModal;
+    const find=async()=>{
+      const id=String(inp.value||"").trim().toUpperCase().replace(/\s+/g,"");who=null;send.disabled=true;$("#qlIsPerson").innerHTML="";
+      if(!/^QL-[A-Z0-9]{8}$/.test(id))return say("Enter a valid Quiz ID, for example QL-7K4P9M2Q.","error");
+      say("Searching…");
+      try{const {data,error}=await service.client.rpc("ql_find_student_by_share_id",{p_share_id:id});if(error)throw error;const row=Array.isArray(data)?data[0]:data;if(!row)throw new Error("No student was found with that Quiz ID.");
+        who=row;st.className="status hidden";
+        $("#qlIsPerson").innerHTML=`<div class="ql-is-person"><div class="ql-is-avatar">${h(String(row.display_name||"S").slice(0,1).toUpperCase())}</div><div><b>${h(row.display_name||"Student")}</b><small>${h(row.share_id||id)}${row.masked_email?" · "+h(row.masked_email):""}</small></div></div>`;send.disabled=false}
+      catch(e){say(h(friendlyError(e)),"error")}
+    };
+    $("#qlIsFind").onclick=find;inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();find()}};
+    send.onclick=async()=>{
+      if(!who)return;send.disabled=true;
+      try{
+        say("Preparing copy…");
+        const packet=await buildPacket(item,{pdfSeconds:60*60*24*30,onStep:(i,n)=>{if(n>1)say(`Preparing copy… ${i} / ${n}`)}});
+        say("Sending…");
+        const {error}=await service.client.rpc("ql_send_item_share",{p_recipient_share_id:who.share_id,p_kind:item.kind,p_title:item.title||"",p_item_count:packet.nodes.length,p_payload:packet});
+        if(error)throw error;
+        closeModal();toast(`${KN[item.kind]} shared with ${who.display_name||"student"}`);
+      }catch(e){send.disabled=false;st.className="status";st.innerHTML=errHtml(e)}
+    };
+  }
+
+  /* ---------- Share externally (link page) ---------- */
+  function qrInto(canvas,text){
+    const qr=window.qrcode(0,"M");qr.addData(String(text),"Byte");qr.make();
+    const n=qr.getModuleCount(),m=1,cell=Math.max(1,Math.floor(220/(n+m*2))),px=cell*(n+m*2),dpr=Math.min(3,window.devicePixelRatio||1);
+    canvas.width=px*dpr;canvas.height=px*dpr;canvas.style.width=px+"px";canvas.style.height=px+"px";
+    const c=canvas.getContext("2d");c.setTransform(dpr,0,0,dpr,0,0);c.fillStyle="#fff";c.fillRect(0,0,px,px);c.fillStyle="#111827";
+    for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(qr.isDark(r,k))c.fillRect((k+m)*cell,(r+m)*cell,cell,cell);
+  }
+  async function shareExternally(item){
+    const nodes=treeOf(item);
+    const line=item.kind==="folder"?`${summary(nodes)} — the page shows everything inside`:item.kind==="pdf"?"Anyone with the link can open this PDF":"Anyone with the link can open this link";
+    openModal(`Share ${KN[item.kind]} externally`,`<div class="ql-is-shell">${shareCard(item,line)}
+      <div class="ql-is-note"><b>No account needed.</b> Works in Safari, Chrome, Telegram, Messenger or WhatsApp.${item.kind!=="link"?" PDF links stay valid for 1 year.":""}${nodes.some(x=>x.kind==="quiz")?" Quizzes inside open as guest quizzes.":""}</div>
+      <div id="qlIsStatus" class="status hidden"></div>
+      <div id="qlIsMade" class="hidden ql-is-shell"><label>Share link<div class="ql-is-link"><input id="qlIsLink" readonly><button id="qlIsCopy" class="btn" type="button">Copy Link</button></div></label>
+        <button id="qlIsQrBtn" class="btn" type="button">Show QR Code</button><div id="qlIsQr" class="ql-is-qr hidden"><canvas id="qlIsQrCanvas"></canvas></div></div>
+      <div class="form-actions"><button id="qlIsCancel" class="btn" type="button">Close</button><button id="qlIsMake" class="btn primary" type="button">Create Share Link</button></div></div>`);
+    $("#qlIsCancel").onclick=closeModal;
+    const st=$("#qlIsStatus"),make=$("#qlIsMake");
+    const say=(t,cls)=>{st.className="status"+(cls?" "+cls:"");st.innerHTML=t};
+    make.onclick=async()=>{
+      make.disabled=true;
+      try{
+        say("Creating share link…");
+        const packet=await buildPacket(item,{pdfSeconds:60*60*24*365,externalQuizzes:true,onStep:(i,n)=>{if(n>1)say(`Creating share link… ${i} / ${n}`)}});
+        const {data:token,error}=await service.client.rpc("ql_create_external_item_share",{p_kind:item.kind,p_title:item.title||"",p_payload:packet});
+        if(error)throw error;if(!token)throw new Error("Share link was created without a token.");
+        const code=await service.createShortShareLink("item:"+token).catch(()=>null);
+        const u=new URL(location.href);u.search="";u.hash="";u.searchParams.set(code?"s":"item_share",code||token);const link=u.toString();
+        $("#qlIsLink").value=link;$("#qlIsMade").classList.remove("hidden");make.classList.add("hidden");say("Link ready — anyone with it can open the page.","success");
+        $("#qlIsCopy").onclick=async()=>{try{await navigator.clipboard.writeText(link)}catch{$("#qlIsLink").select();document.execCommand("copy")}toast("Share link copied")};
+        $("#qlIsQrBtn").onclick=()=>{const w=$("#qlIsQr");if(!w.classList.contains("hidden"))return w.classList.add("hidden");try{qrInto($("#qlIsQrCanvas"),link);w.classList.remove("hidden")}catch(e){say(h(friendlyError(e)),"error")}};
+      }catch(e){make.disabled=false;st.className="status";st.innerHTML=errHtml(e)}
+    };
+  }
+
+  /* ---------- Shared with me: receive PDFs, links, folders ---------- */
+  let inboxCount=0;
+  async function itemInbox(){const {data,error}=await service.client.rpc("ql_received_item_shares");if(error)throw error;return Array.isArray(data)?data:[]}
+  function folderOptions(){
+    const fs=state.items.filter(x=>x.kind==="folder"&&!x.is_trashed).map(x=>{let p=[];try{p=qlPathForFast(x.id).map(n=>n.title)}catch{p=[x.title]}return {id:x.id,label:p.join(" / ")||x.title}}).sort((a,b)=>a.label.localeCompare(b.label));
+    return `<option value="">My Library (root)</option>`+fs.map(f=>`<option value="${h(f.id)}">${h(f.label)}</option>`).join("");
+  }
+  async function saveShare(id,parentId,btn,status){
+    btn.disabled=true;const created=[],files=[];
+    const say=t=>{status.className="status";status.textContent=t};
+    try{
+      say("Opening…");
+      const {data:p,error}=await service.client.rpc("ql_get_received_item_share",{p_share_record_id:id});if(error)throw error;
+      if(!p||!Array.isArray(p.nodes)||!p.nodes.length)throw new Error("This shared copy is no longer available.");
+      const map=new Map();let n=0,failed=0;
+      const order=[];const byParent=new Map();p.nodes.forEach(x=>{const k=x.parent_ref||"__root";if(!byParent.has(k))byParent.set(k,[]);byParent.get(k).push(x)});
+      const walk=ref=>(byParent.get(ref)||[]).forEach(x=>{order.push(x);if(x.kind==="folder")walk(x.ref)});
+      const root=p.nodes.find(x=>x.ref===p.root_ref)||p.nodes[0];order.push(root);if(root.kind==="folder")walk(root.ref);
+      for(const x of order){
+        n++;say(`Saving… ${n} / ${order.length}`);
+        const newId=uid(),stamp=nowIso(),parent=x===root?(parentId||null):(map.get(x.parent_ref)||parentId||null);
+        const base={id:newId,library_id:LIBRARY_ID,parent_id:parent,kind:x.kind,title:String(x.title||KN[x.kind]),url:x.kind==="link"?x.url:null,description:x.description||null,color:x.color||(x.kind==="pdf"?"#e94b4b":null),icon:x.icon||"",position:Date.now()+n,is_trashed:false,admin_favorite:false,student_favorite:false,created_at:stamp,updated_at:stamp};
+        if(x.kind==="pdf"){
+          try{
+            if(!x.pdf_url)throw new Error("missing file");
+            const r=await fetch(x.pdf_url);if(!r.ok)throw new Error("The PDF link has expired");
+            const blob=await r.blob();const file=new File([blob],`${String(x.title||"file").replace(/[\\/:*?"<>|]+/g,"_")}.pdf`,{type:"application/pdf"});
+            const path=qlUploadPath(newId);await service.upload(file,path);files.push(path);
+            Object.assign(base,{storage_path:path,file_size:file.size,original_size:file.size,is_compressed:false,mime_type:"application/pdf"});
+          }catch(e){failed++;continue}
+        }
+        if(x.kind==="quiz")base.quiz_settings={...(x.quiz_settings||{})};
+        const row=await service.insertItem(base);created.push(newId);replaceLocal(row);map.set(x.ref,newId);
+        if(x.kind==="quiz"){const qs=(x.questions||[]).map((q,i)=>({...q,id:uid(),question_position:i}));await service.saveQuizQuestions(newId,qs,base.quiz_settings)}
+      }
+      await service.client.rpc("ql_finish_item_share",{p_share_record_id:id,p_saved:true});
+      await loadAll();closeModal();refreshCount();
+      toast(failed?`Saved — ${plural(failed,"PDF")} could not be copied`:"Saved to your library");
+      navigate("documents",parentId||null);
+    }catch(e){
+      try{if(created.length)await service.deleteMany(created);if(files.length)await service.removeFiles(files);state.items=state.items.filter(x=>!created.includes(x.id))}catch{}
+      btn.disabled=false;status.className="status";status.innerHTML=errHtml(e);
+    }
+  }
+  async function decorateInbox(body){
+    if(!body||body.dataset.qlIs)return;body.dataset.qlIs="1";
+    let rows=[];try{rows=await itemInbox()}catch(e){return}
+    inboxCount=rows.length;syncBadge();
+    if(!rows.length||!document.body.contains(body))return;
+    const empty=body.querySelector(".ql-share-inbox-empty");if(empty)empty.remove();
+    const sec=document.createElement("div");sec.className="ql-is-inbox-sec";
+    const opts=folderOptions();
+    sec.innerHTML=rows.map(r=>`<div class="ql-is-inbox-row" data-is-row="${h(r.share_record_id)}"><div class="ql-is-inbox-head">${kIco(r.kind)}<div><strong>${h(r.title||KN[r.kind])}</strong><span>${h(KN[r.kind]||"Item")}${r.kind==="folder"&&r.item_count>1?` · ${plural(r.item_count-1,"item")} inside`:""} · From ${h(r.sender_name||"Student")}${r.sender_share_id?" · "+h(r.sender_share_id):""}</span></div></div>
+      <div class="ql-is-inbox-acts"><select aria-label="Save to folder">${opts}</select><button class="btn primary" data-is-save type="button">Save to My Folder</button><button class="btn" data-is-dismiss type="button">Dismiss</button></div><div class="status hidden"></div></div>`).join("");
+    body.prepend(sec);
+    sec.querySelectorAll("[data-is-row]").forEach(row=>{
+      const id=row.dataset.isRow,st=row.querySelector(".status");
+      row.querySelector("[data-is-save]").onclick=e=>saveShare(id,row.querySelector("select").value,e.currentTarget,st);
+      row.querySelector("[data-is-dismiss]").onclick=async()=>{if(!confirm("Dismiss this shared item?"))return;try{const {error}=await service.client.rpc("ql_finish_item_share",{p_share_record_id:id,p_saved:false});if(error)throw error;row.remove();inboxCount=Math.max(0,inboxCount-1);syncBadge()}catch(e){alert(friendlyError(e))}};
+    });
+  }
+  /* badge = quiz shares (set by the app) + item shares */
+  let quizCount=0,lastText=null,lastShow=null;
+  function syncBadge(){
+    const b=document.getElementById("studentSharedQuizBadge");if(!b)return;
+    const total=quizCount+inboxCount,t=total>99?"99+":String(total);
+    lastText=t;lastShow=total>0;
+    if(b.textContent!==t)b.textContent=t;
+    if(b.classList.contains("show")!==lastShow)b.classList.toggle("show",lastShow);
+  }
+  async function refreshCount(){
+    if(!service.client||!state.user||!qlIsStudentWorkspace())return;
+    try{const {data,error}=await service.client.rpc("ql_received_item_share_count");if(error)return;inboxCount=Number(data||0);syncBadge()}catch{}
+  }
+  new MutationObserver(()=>{
+    const body=document.getElementById("qlShareInboxBody");
+    if(body&&!body.querySelector(".status:not(.hidden)")?.textContent?.startsWith("Loading"))decorateInbox(body);
+    const b=document.getElementById("studentSharedQuizBadge");
+    if(b&&!b.dataset.qlIsObs){b.dataset.qlIsObs="1";new MutationObserver(()=>{if(b.textContent===lastText&&b.classList.contains("show")===lastShow)return;quizCount=b.classList.contains("show")?(parseInt(b.textContent)||0):0;syncBadge()}).observe(b,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:["class"]})}
+  }).observe(document.documentElement,{childList:true,subtree:true});
+  setInterval(()=>{if(document.visibilityState==="visible")refreshCount()},60000);
+  setTimeout(refreshCount,4000);
+
+  /* ---------- public link page ---------- */
+  async function openViewer(token){
+    document.getElementById("setupScreen")?.classList.remove("show");
+    const gate=document.getElementById("studentAccessGate");if(gate){gate.classList.remove("show");gate.setAttribute("aria-hidden","true")}
+    let v=document.getElementById("qlItemViewer");if(!v){v=document.createElement("div");v.id="qlItemViewer";document.body.appendChild(v)}
+    const logo=document.querySelector('link[rel="apple-touch-icon"]')?.href||"";
+    const frame=inner=>`<div class="ql-iv-wrap"><div class="ql-iv-top">${logo?`<img src="${logo}" alt="">`:""}<span class="ql-iv-brand">QUIZ LIBRARY</span></div>${inner}</div>`;
+    v.innerHTML=frame(`<div class="ql-iv-msg">Loading…</div>`);
+    let share;
+    try{const {data,error}=await service.client.rpc("ql_get_external_item_share",{p_token:String(token)});if(error)throw error;if(!data)throw new Error("This shared link is invalid or no longer available.");share=data}
+    catch(e){v.innerHTML=frame(`<div class="ql-iv-msg err">${h(friendlyError(e))}</div>`);return}
+    const p=share.payload||{},nodes=Array.isArray(p.nodes)?p.nodes:[];
+    const root=nodes.find(x=>x.ref===p.root_ref)||nodes[0];
+    if(!root){v.innerHTML=frame(`<div class="ql-iv-msg err">This shared link is empty.</div>`);return}
+    const kids=ref=>nodes.filter(x=>x.parent_ref===ref).sort((a,b)=>(a.kind==="folder"?0:1)-(b.kind==="folder"?0:1)||String(a.title).localeCompare(String(b.title)));
+    const countIn=ref=>{let c=0;const w=r=>kids(r).forEach(x=>{c++;if(x.kind==="folder")w(x.ref)});w(ref);return c};
+    const open=x=>{if(x.kind==="link"&&x.url)window.open(x.url,"_blank","noopener");else if(x.kind==="pdf"&&x.pdf_url)window.open(x.pdf_url,"_blank","noopener");else if(x.kind==="quiz"&&x.quiz_link)location.href=x.quiz_link;else alert("This item can't be opened.")};
+    const sub=x=>x.kind==="folder"?plural(kids(x.ref).length,"item"):x.kind==="pdf"?(x.file_size?fmtBytes(x.file_size)+" · PDF":"PDF"):x.kind==="quiz"?"Quiz":String(x.url||"Link").replace(/^https?:\/\//,"").slice(0,48);
+    const go={folder:"Open",pdf:"View",link:"Open",quiz:"Start"};
+    const rowHtml=x=>`<button type="button" class="ql-iv-row" data-ref="${h(x.ref)}">${kIco(x.kind)}<span><b>${h(x.title||KN[x.kind])}</b><small>${h(sub(x))}</small></span><span class="ql-iv-go">${go[x.kind]}</span></button>`;
+    const show=ref=>{
+      const cur=nodes.find(x=>x.ref===ref)||root;
+      const path=[];let c=cur;while(c){path.unshift(c);c=c.parent_ref?nodes.find(x=>x.ref===c.parent_ref):null}
+      const head=`<div class="ql-iv-head"><h1>${h(root.title||KN[root.kind])}</h1><p>${root.kind==="folder"?`Shared folder · ${plural(countIn(root.ref),"item")}`:`Shared ${KN[root.kind]}`}</p></div>`;
+      let body;
+      if(root.kind!=="folder")body=`<div class="ql-iv-list" style="margin-top:14px">${rowHtml(root)}</div>`;
+      else{const list=kids(cur.ref);body=`<div class="ql-iv-crumbs">${path.map((x,i)=>i<path.length-1?`<button type="button" data-crumb="${h(x.ref)}">${h(x.title)}</button><span>›</span>`:`<span>${h(x.title)}</span>`).join("")}</div>`+(list.length?`<div class="ql-iv-list">${list.map(rowHtml).join("")}</div>`:`<div class="ql-iv-empty">This folder is empty.</div>`)}
+      v.innerHTML=frame(head+body);v.scrollTop=0;
+      v.querySelectorAll("[data-crumb]").forEach(b=>b.onclick=()=>show(b.dataset.crumb));
+      v.querySelectorAll("[data-ref]").forEach(b=>b.onclick=()=>{const x=nodes.find(n=>n.ref===b.dataset.ref);if(!x)return;if(x.kind==="folder"&&x!==root)show(x.ref);else if(x.kind!=="folder")open(x)});
+    };
+    show(root.ref);
+  }
+  window.qlOpenItemShareViewer=openViewer;
+  window.addEventListener("DOMContentLoaded",()=>{try{const t=new URLSearchParams(location.search).get("item_share");if(t)setTimeout(()=>openViewer(t),150)}catch{}});
+
+  window.qlShareInternally=x=>x&&x.kind==="quiz"?shareOne(x):shareInternally(x);
+  window.qlShareExternally=x=>x&&x.kind==="quiz"?window.__quizTest.openExternalQuizShare(x):shareExternally(x);
 })();
 </script>
 </body></html>
