@@ -286,10 +286,11 @@ const planTag=(id,extra="")=>{const p=planById(id);return `<span class="tag" sty
 function go(v){
   const views={dash,users,plansView,pay,ctl,news,settingsView};
   const map={dash:"dash",users:"users",plans:"plansView",pay:"pay",ctl:"ctl",news:"news",settings:"settingsView"};
-  if(!map[v])v="dash";cur=v;location.hash=v;
+  if(!map[v])v="dash";const same=v===cur&&$("#view").children.length&&!$("#view .loading");const y=window.scrollY;cur=v;if(location.hash.slice(1)!==v)location.hash=v;
   $$(".nav").forEach(n=>n.classList.toggle("on",n.dataset.v===v));
-  $("#view").innerHTML=`<div class="loading">Loading…</div>`;
-  views[map[v]]().catch(e=>{$("#view").innerHTML=`<div class="card"><div class="err">${h(errMsg(e))}</div></div>`});
+  /* same page refreshing itself (filters, tabs, after saving): keep it on screen and keep the scroll position */
+  if(same){$("#view").style.minHeight=$("#view").offsetHeight+"px"}else{$("#view").innerHTML=`<div class="loading">Loading…</div>`;window.scrollTo(0,0)}
+  views[map[v]]().then(()=>{if(same){window.scrollTo(0,y);requestAnimationFrame(()=>{window.scrollTo(0,y);$("#view").style.minHeight=""})}}).catch(e=>{$("#view").style.minHeight="";$("#view").innerHTML=`<div class="card"><div class="err">${h(errMsg(e))}</div></div>`});
 }
 const head=(t,s,r="")=>`<div class="top"><div><h1>${t}</h1><div class="sub">${s}</div></div><div class="sp"></div>${r}</div>`;
 
