@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Quiz Library Admin</title>
+<link rel="icon" href="icons/icon-192.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f4f6fb;--panel:#fff;--line:#e6e9f2;--text:#111827;--muted:#6b7280;--acc:#6366f1;--acc2:#a855f7;--ok:#10b981;--bad:#ef4444}
+*{box-sizing:border-box}html,body{margin:0}body{font-family:-apple-system,"Segoe UI",Inter,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+.hidden{display:none!important}
+/* login */
+.login{min-height:100vh;display:grid;place-items:center;padding:20px;background:linear-gradient(140deg,#0f172a,#312e81 60%,#6d28d9)}
+.login-card{width:min(400px,100%);background:#fff;border-radius:24px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.login-card .brand{display:flex;align-items:center;gap:12px;margin-bottom:18px}.login-card img{width:48px;height:48px;border-radius:13px}
+.login-card h1{margin:0;font-size:20px}.login-card p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.fld{display:grid;gap:6px;margin-bottom:12px}.fld>label{font-size:12.5px;font-weight:700;color:#475569}
+.in{width:100%;border:1px solid var(--line);border-radius:11px;padding:10px 12px;background:#fff;font-size:14px}
+.in:focus{outline:2px solid #c7d2fe;border-color:#818cf8}
+textarea.in{min-height:90px;resize:vertical}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 13px;border-radius:10px;border:1px solid var(--line);background:#fff;font-weight:700;font-size:13px;color:#334155;cursor:pointer;white-space:nowrap}
+.btn:disabled{opacity:.55;cursor:progress}
+.btn.p{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;border:0}.btn.g{background:#10b981;color:#fff;border:0}
+.btn.r{color:#dc2626;border-color:#fecaca}.btn.dark{background:#111827;color:#fff;border-color:#111827}.btn.big{padding:11px 16px;font-size:14.5px;width:100%}
+.err{margin:10px 0 0;padding:10px 12px;border-radius:10px;background:#fef2f2;color:#b91c1c;font-size:13px}
+/* shell */
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+.side{background:#0f172a;color:#cbd5e1;padding:20px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh;align-self:start}
+.brand2{display:flex;align-items:center;gap:10px;margin:0 6px 22px}.brand2 img{width:38px;height:38px;border-radius:10px}
+.brand2 b{display:block;color:#fff;letter-spacing:.05em;font-size:14px}.brand2 small{color:#a5b4fc;font-weight:700;font-size:11px;letter-spacing:.12em}
+.nav{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:11px;font-size:14px;font-weight:600;cursor:pointer;border:0;background:none;color:inherit;text-align:left;width:100%}
+.nav svg{width:18px;height:18px;flex:none}.nav:hover{background:rgba(255,255,255,.06)}
+.nav.on{background:linear-gradient(90deg,rgba(99,102,241,.35),rgba(168,85,247,.2));color:#fff}
+.nav .pill{margin-left:auto;background:#ef4444;color:#fff;font-size:11px;border-radius:999px;padding:1px 7px}
+.side .foot{margin-top:auto;padding:12px;border-radius:12px;background:rgba(255,255,255,.06);font-size:12px;line-height:1.5}
+.side .foot button{margin-top:8px;background:none;border:1px solid rgba(255,255,255,.2);color:#cbd5e1;border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px}
+.main{padding:22px 28px;min-width:0}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap}.top h1{margin:0;font-size:24px}.top .sub{color:var(--muted);font-size:13px}.top .sp{flex:1}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 2px 8px rgba(15,23,42,.04);min-width:0}
+.card h3{margin:0 0 12px;font-size:15px;display:flex;align-items:center;gap:8px}.card h3 .r{margin-left:auto;font-size:12px;color:var(--acc);font-weight:700;cursor:pointer}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+.kpi small{color:var(--muted);font-weight:600;font-size:12.5px}.kpi b{display:block;font-size:26px;margin:6px 0 2px}.kpi .d{font-size:12px;font-weight:700;color:var(--muted)}.up{color:var(--ok)!important}
+.row2{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:16px}
+.bars{display:flex;align-items:flex-end;gap:8px;height:170px;padding-top:8px;margin-bottom:22px}
+.bars div{flex:1;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,#a5b4fc,#6366f1);position:relative;min-height:3px}
+.bars div i{position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-style:normal;font-size:10.5px;color:var(--muted)}
+.bars div em{position:absolute;top:-17px;left:0;right:0;text-align:center;font-style:normal;font-size:10.5px;font-weight:700;color:#4338ca}
+.donut{width:150px;height:150px;border-radius:50%;margin:6px auto 12px;display:grid;place-items:center}
+.donut div{width:92px;height:92px;border-radius:50%;background:#fff;display:grid;place-items:center;text-align:center;font-size:12px;color:var(--muted)}.donut b{display:block;font-size:20px;color:var(--text)}
+.leg{display:grid;gap:8px;font-size:13px}.leg span{display:flex;align-items:center;gap:8px}.leg i{width:10px;height:10px;border-radius:3px}.leg em{margin-left:auto;font-style:normal;font-weight:700}
+.tbl{width:100%;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;color:var(--muted);font-weight:600;font-size:12px;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px;border-bottom:1px solid #f1f3f8;vertical-align:middle;white-space:nowrap}
+.u{display:flex;align-items:center;gap:10px;min-width:170px}.av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;flex:none}
+.u small{display:block;color:var(--muted);font-size:12px;word-break:break-all}
+.tag{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:800;white-space:nowrap;background:#f1f5f9;color:#475569}
+.tag.ok{background:#ecfdf5;color:#047857}.tag.wait{background:#fffbeb;color:#b45309}.tag.no{background:#fef2f2;color:#b91c1c}
+.bar{height:7px;border-radius:9px;background:#eef0f6;overflow:hidden;width:110px}.bar i{display:block;height:100%;background:linear-gradient(90deg,#6366f1,#a855f7)}
+.filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.filters .btn.on{background:#111827;color:#fff;border-color:#111827}
+.note{margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.5}
+.empty{padding:26px;text-align:center;color:var(--muted)}
+.plans{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.plan{border-radius:20px;padding:20px;background:#fff;border:1px solid var(--line);position:relative}
+.plan .nm{font-weight:800;font-size:18px;display:flex;align-items:center;gap:8px}.plan .dot{width:12px;height:12px;border-radius:50%}
+.plan .pr{font-size:28px;font-weight:800;margin:8px 0 2px}.plan .pr small{font-size:13px;color:var(--muted);font-weight:600}
+.plan ul{list-style:none;padding:0;margin:12px 0;display:grid;gap:8px;font-size:13.5px}
+.plan li{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dashed #eef0f6;padding-bottom:6px}.plan li b{font-weight:700}
+.plan .badge{position:absolute;top:-11px;right:16px;color:#fff;font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px}
+.addplan{border:2px dashed #c7d2fe;border-radius:20px;display:grid;place-items:center;color:var(--acc);font-weight:800;min-height:200px;background:#fafaff;cursor:pointer;font-size:16px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}.seg button{padding:7px 12px;border-radius:10px;border:1px solid var(--line);font-size:12.5px;font-weight:700;color:#334155;background:#fff;cursor:pointer}
+.seg button.on{background:#eef2ff;border-color:#818cf8;color:#3730a3}
+.sw{flex:none;width:46px;height:26px;border-radius:999px;background:#cbd5e1;position:relative;border:0;cursor:pointer;padding:0}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .15s}
+.sw.on{background:linear-gradient(135deg,#10b981,#059669)}.sw.on::after{left:23px}
+.grpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
+.tg{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed #eef0f6;font-size:13.5px;flex-wrap:wrap}.tg:last-child{border-bottom:0}.tg>span{flex:1}
+.mode{display:inline-flex;flex:none;border:1px solid var(--line);border-radius:9px;overflow:hidden}.mode button{border:0;background:#fff;padding:5px 8px;font-size:11.5px;font-weight:800;color:#64748b;cursor:pointer;white-space:nowrap}
+.mode button.on[data-m=on]{background:#ecfdf5;color:#047857}.mode button.on[data-m=plan]{background:#eef2ff;color:#4338ca}.mode button.on[data-m=off]{background:#fef2f2;color:#b91c1c}
+.master{display:flex;align-items:center;gap:16px}.master .big{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;font-size:26px;flex:none}
+.master b{display:block;font-size:17px}.master small{color:var(--muted)}
+.codegen{display:grid;grid-template-columns:1fr 1.2fr;gap:16px;margin-bottom:16px}
+.codebox{border-radius:18px;padding:20px;background:linear-gradient(135deg,#eef2ff,#faf5ff);border:1px dashed #a5b4fc;text-align:center}
+.codebox .c{font-family:ui-monospace,Menlo,monospace;font-size:26px;font-weight:800;letter-spacing:.1em;color:#3730a3;margin:8px 0;word-break:break-all}
+.codebox small{color:var(--muted)}
+.mono{font-family:ui-monospace,Menlo,monospace;font-weight:800;letter-spacing:.04em;white-space:nowrap}
+.rec{width:46px;height:58px;border-radius:8px;object-fit:cover;background:#eef2ff;cursor:zoom-in;border:1px solid var(--line)}
+.inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.small{width:90px}
+/* modal + toast */
+.ovl{position:fixed;inset:0;background:rgba(15,23,42,.45);display:grid;place-items:center;padding:16px;z-index:50}
+.dlg{width:min(720px,100%);max-height:calc(100vh - 32px);overflow:auto;background:#fff;border-radius:22px;box-shadow:0 30px 80px rgba(0,0,0,.3)}
+.dlg.wide{width:min(980px,100%)}
+.dlg-h{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:1}.dlg-h b{font-size:18px}
+.dlg-h .x{margin-left:auto;width:34px;height:34px;border-radius:50%;background:#f1f5f9;border:0;cursor:pointer;font-size:16px}
+.dlg-b{padding:16px 20px}.dlg-f{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--line);position:sticky;bottom:0;background:#fff}.dlg-f .sp{flex:1}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.lim{display:grid;grid-template-columns:1fr 110px auto;align-items:center;gap:10px;padding:6px 0;border-bottom:1px dashed #eef0f6;font-size:13.5px}
+.lim .uu{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.sw.sm{width:36px;height:20px}.sw.sm::after{width:14px;height:14px}.sw.sm.on::after{left:19px}
+.chk{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13.5px;border-bottom:1px dashed #eef0f6;cursor:pointer}
+.chk input{width:18px;height:18px;accent-color:#6366f1}
+.dots{display:flex;gap:8px;flex-wrap:wrap}.dots button{width:28px;height:28px;border-radius:50%;border:0;cursor:pointer}.dots button.on{outline:3px solid #c7d2fe;outline-offset:2px}
+.sec-t{font-weight:800;font-size:12px;color:#475569;margin:10px 0 6px;text-transform:uppercase;letter-spacing:.06em}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#111827;color:#fff;padding:11px 18px;border-radius:999px;font-weight:700;font-size:13.5px;z-index:80;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.loading{padding:30px;text-align:center;color:var(--muted)}
+.ann-prev{padding:12px 16px;border-radius:14px;font-weight:600;font-size:14px}
+.ann-prev.info{background:#eef2ff;color:#3730a3}.ann-prev.warning{background:#fffbeb;color:#92400e}.ann-prev.success{background:#ecfdf5;color:#065f46}
+.qrprev{width:140px;height:140px;border-radius:12px;border:1px solid var(--line);object-fit:contain;background:#fff}
+@media(max-width:900px){
+ .app{grid-template-columns:1fr}.side{position:sticky;top:0;height:auto;flex-direction:row;overflow-x:auto;padding:10px;z-index:20;gap:4px}
+ .brand2,.side .foot{display:none}.nav{width:auto;flex:none;padding:8px 11px;font-size:13px}
+ .main{padding:16px}.grid4{grid-template-columns:repeat(2,1fr)}.row2,.codegen,.two{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div id="login" class="login hidden">
+  <div class="login-card">
+    <div class="brand"><img src="icons/apple-touch-icon.png" alt=""><div><h1>Quiz Library Admin</h1><p>Sign in with your admin account</p></div></div>
+    <form id="loginForm">
+      <div class="fld"><label>Email</label><input id="lEmail" class="in" type="email" autocomplete="username" required></div>
+      <div class="fld"><label>Password</label><input id="lPass" class="in" type="password" autocomplete="current-password" required></div>
+      <button class="btn p big" id="lBtn" type="submit">Sign in</button>
+      <div id="lErr" class="err hidden"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="app hidden">
+  <aside class="side">
+    <div class="brand2"><img src="icons/apple-touch-icon.png" alt=""><div><b>QUIZ LIBRARY</b><small>ADMIN</small></div></div>
+    <button class="nav" data-v="dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</button>
+    <button class="nav" data-v="users"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6 6 0 0 1 3.5 5.5"/></svg>Users</button>
+    <button class="nav" data-v="plans"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z"/></svg>Plans &amp; Limits</button>
+    <button class="nav" data-v="pay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg>Payments<span class="pill hidden" id="payPill">0</span></button>
+    <button class="nav" data-v="ctl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Website Control</button>
+    <button class="nav" data-v="news"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>Announcements</button>
+    <button class="nav" data-v="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Settings</button>
+    <div class="foot">Signed in as<br><b id="meEmail" style="color:#fff;word-break:break-all"></b><br><button id="signOut">Sign out</button></div>
+  </aside>
+  <main class="main" id="view"></main>
+</div>
+
+<script>
+"use strict";
+const SUPABASE_URL="https://hcultemyohiljypthtyb.supabase.co";
+const SUPABASE_KEY="sb_publishable_MLyLNla9gaM3r8EUM00hYg_Gyejrvbd";
+const STUDENT_SITE=new URL("./",location.href).toString();
+/* The switchable parts of the students' website. Keep in sync with index.html (qlPlans). */
+const FEATURES=[
+ ["Left menu & tabs",[["nav_random","Random Quiz"],["nav_inbox","Shared with me"],["nav_favorites","Favorites"],["nav_recent","Recent"],["nav_shared_links","Shared Links"],["nav_trash","Trash"],["nav_install","Install app"]]],
+ ["+ New menu",[["new_folder","Create Folder"],["new_link","Add Quiz Link"],["new_pdf","Upload PDF"],["new_quiz","Create Quiz"]]],
+ ["⋮ menu on items",[["item_share_in","Share internally"],["item_share_ex","Share externally (link + QR)"],["item_duplicate","Duplicate"],["item_move","Move"],["item_edit","Edit"],["item_trash","Move to trash"]]],
+ ["Taking a quiz",[["quiz_autoadv","Auto-advance"],["quiz_shuffle","Shuffle"],["quiz_bookmark","Bookmark & Flag"],["quiz_summary","Quiz Summary"],["quiz_results","Quiz Results"]]],
+ ["Quiz editor",[["ed_addnew","Add New Questions"],["ed_images","Image Manager"],["ed_move","Move Questions"],["ed_sections","Sections"],["ed_find","Find & check problems"]]],
+ ["Profile & account",[["pf_edit","Edit Profile"],["pf_avatar","Change Avatar"],["pf_themes","App themes"],["pf_devices","Devices list"],["signup","New sign-ups"]]]
+];
+const LIMITS=[["storage_mb","Storage","MB"],["quizzes","Quizzes",""],["pdfs","PDF uploads",""],["questions_per_quiz","Questions per quiz",""],["results_kept","Results kept per quiz",""]];
+const COLORS=["#94a3b8","#6366f1","#0ea5e9","#a855f7","#ec4899","#f59e0b","#10b981","#ef4444"];
+
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"ql-admin-auth"}});
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const h=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money=v=>v==null||v===""?"—":"$"+Number(v).toFixed(Number(v)%1?2:0);
+const day=t=>{if(!t)return"—";const d=new Date(t);return d.toLocaleDateString([], {day:"numeric",month:"short",year:"numeric"})};
+const ago=t=>{if(!t)return"—";const s=(Date.now()-new Date(t))/1000;if(s<60)return"just now";if(s<3600)return Math.round(s/60)+" min ago";if(s<86400)return Math.round(s/3600)+" h ago";if(s<172800)return"Yesterday";return Math.round(s/86400)+" days ago"};
+const bytes=b=>{b=Number(b||0);if(b<1048576)return(b/1024).toFixed(0)+" KB";if(b<1073741824)return(b/1048576).toFixed(b<10485760?1:0)+" MB";return(b/1073741824).toFixed(1)+" GB"};
+const mb=v=>v==null?"Unlimited":v>=1024?(v/1024).toFixed(v%1024?1:0)+" GB":v+" MB";
+const avColor=s=>COLORS[[...String(s||"?")].reduce((a,c)=>a+c.charCodeAt(0),0)%COLORS.length];
+const errMsg=e=>{const m=String(e&&(e.message||e.error_description||e)||"Something went wrong");if(/function .* does not exist|schema cache|PGRST202|42883/i.test(m))return "Run plans_admin.sql in Supabase first, then reload.";return m};
+function toast(t){const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2400)}
+async function rpc(name,args){const {data,error}=await sb.rpc(name,args||{});if(error)throw error;return data}
+function modal(title,body,{wide,foot}={}){
+  const o=document.createElement("div");o.className="ovl";
+  o.innerHTML=`<div class="dlg ${wide?"wide":""}"><div class="dlg-h"><b>${title}</b><button class="x" type="button">✕</button></div><div class="dlg-b">${body}</div>${foot?`<div class="dlg-f">${foot}</div>`:""}</div>`;
+  o.querySelector(".x").onclick=()=>o.remove();o.addEventListener("click",e=>{if(e.target===o)o.remove()});document.body.appendChild(o);return o;
+}
+async function copy(t){try{await navigator.clipboard.writeText(t)}catch{const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove()}toast("Copied")}
+function resizeImage(file,max=1200,q=.72){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height));const c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",q))};im.onerror=rej;im.src=r.result};r.onerror=rej;r.readAsDataURL(file)})}
+
+/* ---------------- auth ---------------- */
+let me=null,plans=[],settings={},cur="dash";
+async function boot(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session)return showLogin();
+  me=session.user;
+  let ok=false;try{ok=await rpc("ql_am_i_admin")}catch(e){return showLogin(errMsg(e))}
+  if(!ok){await sb.auth.signOut();return showLogin("This account is not an admin. Use the account set in plans_admin.sql.")}
+  $("#login").classList.add("hidden");$("#app").classList.remove("hidden");$("#meEmail").textContent=me.email||"";
+  await loadCommon();go((location.hash||"#dash").slice(1));
+}
+function showLogin(msg){$("#app").classList.add("hidden");$("#login").classList.remove("hidden");const e=$("#lErr");e.classList.toggle("hidden",!msg);e.textContent=msg||""}
+$("#loginForm").onsubmit=async ev=>{ev.preventDefault();const b=$("#lBtn");b.disabled=true;b.textContent="Signing in…";
+  const {error}=await sb.auth.signInWithPassword({email:$("#lEmail").value.trim(),password:$("#lPass").value});
+  b.disabled=false;b.textContent="Sign in";if(error)return showLogin(error.message);boot()};
+$("#signOut").onclick=async()=>{await sb.auth.signOut();location.hash="";showLogin()};
+$$(".nav").forEach(n=>n.onclick=()=>go(n.dataset.v));
+async function loadCommon(){
+  const [p,cfg]=await Promise.all([rpc("ql_admin_plans").catch(()=>[]),sb.from("ql_site_settings").select("key,value")]);
+  plans=p||[];settings={};(cfg.data||[]).forEach(r=>settings[r.key]=r.value||{});
+  rpc("ql_admin_payments",{p_status:"waiting"}).then(r=>{const n=(r||[]).length;const pill=$("#payPill");pill.textContent=n;pill.classList.toggle("hidden",!n)}).catch(()=>{});
+}
+const planById=id=>plans.find(p=>p.id===id)||{id,name:id||"—",color:"#94a3b8"};
+const planTag=(id,extra="")=>{const p=planById(id);return `<span class="tag" style="background:${p.color}22;color:${p.color}">${h(p.name)}${extra}</span>`};
+function go(v){
+  const views={dash,users,plansView,pay,ctl,news,settingsView};
+  const map={dash:"dash",users:"users",plans:"plansView",pay:"pay",ctl:"ctl",news:"news",settings:"settingsView"};
+  if(!map[v])v="dash";cur=v;location.hash=v;
+  $$(".nav").forEach(n=>n.classList.toggle("on",n.dataset.v===v));
+  $("#view").innerHTML=`<div class="loading">Loading…</div>`;
+  views[map[v]]().catch(e=>{$("#view").innerHTML=`<div class="card"><div class="err">${h(errMsg(e))}</div></div>`});
+}
+const head=(t,s,r="")=>`<div class="top"><div><h1>${t}</h1><div class="sub">${s}</div></div><div class="sp"></div>${r}</div>`;
+
+/* ---------------- dashboard ---------------- */
+async function dash(){
+  const [s,waiting]=await Promise.all([rpc("ql_admin_stats"),rpc("ql_admin_payments",{p_status:"waiting"})]);
+  const weeks=s.signups_weeks||[],max=Math.max(1,...weeks);
+  const byPlan=s.by_plan||{},total=Object.values(byPlan).reduce((a,b)=>a+b,0)||1;
+  let acc=0;const segs=plans.map(p=>{const n=byPlan[p.id]||0;const a=acc;acc+=n/total*100;return `${p.color} ${a}% ${acc}%`});
+  const inc=Number(s.income_month||0),last=Number(s.income_last_month||0);
+  $("#view").innerHTML=head("Dashboard","Your Quiz Library at a glance",`<button class="btn" onclick="go('dash')">↻ Refresh</button>`)+`
+  <div class="grid4">
+   <div class="card kpi"><small>Total users</small><b>${s.users}</b><span class="d up">▲ ${s.users_month} this month</span></div>
+   <div class="card kpi"><small>Paying users</small><b>${s.paying}</b><span class="d">on a paid plan now</span></div>
+   <div class="card kpi"><small>Income this month</small><b>${money(inc)}</b><span class="d ${inc>=last?"up":""}">${last?(inc>=last?"▲ ":"▼ ")+Math.abs(Math.round((inc-last)/last*100))+"% vs last month":"approved payments"}</span></div>
+   <div class="card kpi"><small>Storage used</small><b>${bytes(s.storage_bytes)}</b><span class="d">all PDFs on Supabase</span></div>
+  </div>
+  <div class="row2">
+   <div class="card"><h3>New sign-ups<span class="r" style="cursor:default;color:var(--muted)">Last 12 weeks</span></h3><div class="bars">${weeks.map((n,i)=>`<div style="height:${Math.max(2,n/max*100)}%"><em>${n||""}</em><i>${i===weeks.length-1?"Now":"W"+(i+1)}</i></div>`).join("")}</div></div>
+   <div class="card"><h3>Users by plan</h3><div class="donut" style="background:conic-gradient(${segs.join(",")||"#e5e7eb 0 100%"})"><div><span><b>${s.users}</b>users</span></div></div>
+    <div class="leg">${plans.map(p=>`<span><i style="background:${p.color}"></i>${h(p.name)}<em>${byPlan[p.id]||0}</em></span>`).join("")}</div></div>
+  </div>
+  <div class="row2">
+   <div class="card"><h3>Waiting for approval<span class="r" onclick="go('pay')">View all</span></h3>${waiting.length?`<div class="tbl"><table><tr><th>User</th><th>Plan</th><th>Amount</th><th></th></tr>${waiting.slice(0,5).map(r=>`<tr><td><div class="u"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div>${h(r.name)}<small>${h(r.email)}</small></div></div></td><td>${planTag(r.plan_id," · "+r.period)}</td><td><b>${money(r.amount)}</b></td><td><button class="btn g" data-appr="${r.id}">Approve</button></td></tr>`).join("")}</table></div>`:`<div class="empty">Nothing waiting 🎉</div>`}</div>
+   <div class="card"><h3>Needs attention</h3><div class="leg" style="gap:12px">
+     <span>💳 ${s.waiting_payments} payment${s.waiting_payments==1?"":"s"} waiting<em><button class="btn" onclick="go('pay')">Open</button></em></span>
+     <span>⏰ ${s.ending_7d} plan${s.ending_7d==1?"":"s"} end in the next 7 days<em><button class="btn" onclick="usersFilter='ending';go('users')">Open</button></em></span>
+     <span>🔒 ${s.suspended} suspended account${s.suspended==1?"":"s"}<em><button class="btn" onclick="usersFilter='suspended';go('users')">Open</button></em></span>
+     <span>${settings.site&&settings.site.open===false?"🔴 Website is CLOSED":"🟢 Website is open"}<em><button class="btn" onclick="go('ctl')">Control</button></em></span></div></div>
+  </div>`;
+  $$("[data-appr]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{await rpc("ql_admin_decide_payment",{p_id:b.dataset.appr,p_approve:true,p_note:""});toast("Approved — plan is on");await loadCommon();go("dash")}catch(e){b.disabled=false;alert(errMsg(e))}});
+}
+
+/* ---------------- users ---------------- */
+let usersFilter="all",usersSearch="",usersPage=0;
+async function users(){
+  const rows=await rpc("ql_admin_users",{p_search:usersSearch,p_filter:usersFilter,p_limit:50,p_offset:usersPage*50});
+  const total=rows[0]?Number(rows[0].total):0;
+  $("#view").innerHTML=head("Users","Everyone who has a Quiz Library account",`<input id="uSearch" class="in" style="width:280px;max-width:100%" placeholder="Search name or email…" value="${h(usersSearch)}">`)+`
+  <div class="filters">${[["all","All"],...plans.map(p=>[p.id,p.name]),["ending","Ending soon"],["suspended","Suspended"]].map(([k,l])=>`<button class="btn ${usersFilter===k?"on":""}" data-f="${h(k)}">${h(l)}</button>`).join("")}</div>
+  <div class="card"><div class="tbl"><table><tr><th>User</th><th>Plan</th><th>Ends</th><th>Storage</th><th>Quizzes · PDFs</th><th>Device</th><th>Last active</th><th></th></tr>
+  ${rows.length?rows.map(r=>{const p=planById(r.plan_id),lim=(p.limits||{}).storage_mb,used=Number(r.usage?.storage_bytes||0),cap=lim==null?null:(lim+Number(r.extra_storage_mb||0))*1048576;
+    return `<tr><td><div class="u"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div>${h(r.name)}<small>${h(r.email)}</small></div></div></td>
+    <td>${r.status==="suspended"?`<span class="tag no">Suspended</span>`:planTag(r.plan_id)}</td><td>${r.ends_at?day(r.ends_at):"—"}</td>
+    <td><div class="bar"><i style="width:${cap?Math.min(100,used/cap*100):5}%"></i></div><small>${bytes(used)} / ${cap?bytes(cap):"∞"}</small></td>
+    <td>${r.usage?.quizzes||0} · ${r.usage?.pdfs||0}</td><td>${h(r.device||"—")}</td><td>${ago(r.last_sign_in_at)}</td>
+    <td><button class="btn" data-u="${r.user_id}">Manage</button></td></tr>`}).join(""):`<tr><td colspan="8" class="empty">No users found</td></tr>`}</table></div>
+  <div class="inline" style="margin-top:10px;justify-content:space-between"><span class="note" style="margin:0">${total} user${total==1?"":"s"}</span><span class="inline">${usersPage?`<button class="btn" id="uPrev">‹ Prev</button>`:""}${(usersPage+1)*50<total?`<button class="btn" id="uNext">Next ›</button>`:""}</span></div>
+  <div class="note">You see sizes and counts only — people's quizzes and PDFs stay private.</div></div>`;
+  let t;$("#uSearch").oninput=e=>{clearTimeout(t);t=setTimeout(()=>{usersSearch=e.target.value.trim();usersPage=0;go("users")},450)};
+  $$("[data-f]").forEach(b=>b.onclick=()=>{usersFilter=b.dataset.f;usersPage=0;go("users")});
+  $("#uPrev")&&($("#uPrev").onclick=()=>{usersPage--;go("users")});$("#uNext")&&($("#uNext").onclick=()=>{usersPage++;go("users")});
+  $$("[data-u]").forEach(b=>b.onclick=()=>manageUser(rows.find(r=>r.user_id===b.dataset.u)));
+}
+function manageUser(r){
+  const o=modal(`Manage · ${h(r.name)}`,`<div class="note" style="margin:0 0 12px">${h(r.email)} · now on ${planTag(r.plan_id)} ${r.ends_at?"until "+day(r.ends_at):"(no end date)"}</div>
+   <div class="sec-t">Change plan</div><div class="inline"><select id="mPlan" class="in" style="width:auto">${plans.map(p=>`<option value="${h(p.id)}" ${p.id===r.plan_id?"selected":""}>${h(p.name)}</option>`).join("")}</select>
+    <select id="mLen" class="in" style="width:auto"><option value="30">for 1 month</option><option value="90">for 3 months</option><option value="365">for 1 year</option><option value="">no end date</option></select><button class="btn p" id="mSet">Set plan</button></div>
+   <div class="sec-t">Add time to current plan</div><div class="inline"><button class="btn" data-add="7">+7 days</button><button class="btn" data-add="30">+1 month</button><button class="btn" data-add="365">+1 year</button></div>
+   <div class="sec-t">Extra storage on top of the plan</div><div class="inline"><input id="mExtra" class="in small" type="number" min="0" value="${Number(r.extra_storage_mb||0)}"> MB <button class="btn" id="mExtraSave">Save</button></div>
+   <div class="sec-t">Account</div><div class="inline"><button class="btn" id="mOut">Sign out all devices</button>${r.status==="suspended"?`<button class="btn g" id="mSus">Unsuspend account</button>`:`<button class="btn r" id="mSus">Suspend account</button>`}</div>
+   <div class="note">Suspended accounts are signed out and see a message until you unsuspend them. Nothing is deleted.</div>`);
+  const act=async(a,args,msg)=>{try{await rpc("ql_admin_update_user",{p_user:r.user_id,p_action:a,p_plan:null,p_days:null,p_value:null,...args});toast(msg);o.remove();go("users")}catch(e){alert(errMsg(e))}};
+  o.querySelector("#mSet").onclick=()=>{const d=o.querySelector("#mLen").value;act("set_plan",{p_plan:o.querySelector("#mPlan").value,p_days:d?Number(d):null},"Plan changed")};
+  o.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>act("add_days",{p_plan:r.plan_id,p_days:Number(b.dataset.add)},"Time added"));
+  o.querySelector("#mExtraSave").onclick=()=>act("extra_storage",{p_value:Number(o.querySelector("#mExtra").value||0)},"Extra storage saved");
+  o.querySelector("#mOut").onclick=()=>{if(confirm("Sign this account out on every device?"))act("logout",{},"Signed out everywhere")};
+  o.querySelector("#mSus").onclick=()=>{const s=r.status!=="suspended";if(!s||confirm("Suspend this account? They will be signed out."))act(s?"suspend":"unsuspend",{},s?"Account suspended":"Account active again")};
+}
+
+/* ---------------- plans ---------------- */
+async function plansView(){
+  plans=await rpc("ql_admin_plans");
+  const lim=(p,k)=>{const v=(p.limits||{})[k];return v==null?"Unlimited":k==="storage_mb"?mb(v):v};
+  $("#view").innerHTML=head("Plans &amp; Limits","Change a plan and it applies to everyone on it",`<button class="btn p" id="addPlan">＋ Add new plan</button>`)+`
+  <div class="plans">${plans.map(p=>`<div class="plan" style="${p.badge?`border:2px solid ${p.color};box-shadow:0 12px 30px ${p.color}33`:""}">${p.badge?`<span class="badge" style="background:${p.color}">${h(p.badge)}</span>`:""}
+    <div class="nm"><span class="dot" style="background:${p.color}"></span>${h(p.name)}${p.visibility!=="public"?` <span class="tag">${p.visibility==="code"?"Code only":"Hidden"}</span>`:""}</div>
+    <div class="note" style="margin:2px 0 0">${h(p.tagline||"")}</div>
+    <div class="pr">${p.is_default?"$0 <small>forever</small>":`${money(p.price_month)} <small>/ month${p.price_year!=null?" · "+money(p.price_year)+" / year":""}${p.price_lifetime!=null?" · "+money(p.price_lifetime)+" once":""}</small>`}</div>
+    <ul>${LIMITS.map(([k,l])=>`<li>${l}<b>${lim(p,k)}</b></li>`).join("")}<li>People on it<b>${p.members||0}</b></li></ul>
+    <button class="btn ${p.badge?"p":""}" data-edit="${h(p.id)}">Edit</button></div>`).join("")}
+    <div class="addplan" id="addPlan2">＋ Add new plan</div></div>
+  <div class="card" style="margin-top:16px"><h3>Plan order on the Upgrade page</h3><div class="seg" id="order">${plans.map((p,i)=>`<span class="inline" style="gap:4px"><button class="btn" data-up="${i}" ${i?"":"disabled"}>‹</button><b style="font-size:13px">${h(p.name)}</b><button class="btn" data-down="${i}" ${i<plans.length-1?"":"disabled"}>›</button></span>`).join("")}</div>
+  <div class="note">Hidden plans never show on the Upgrade page. "Code only" plans can be given with an activation code.</div></div>`;
+  $("#addPlan").onclick=$("#addPlan2").onclick=()=>editPlan(null);
+  $$("[data-edit]").forEach(b=>b.onclick=()=>editPlan(plans.find(p=>p.id===b.dataset.edit)));
+  const move=async(i,d)=>{const ids=plans.map(p=>p.id);[ids[i],ids[i+d]]=[ids[i+d],ids[i]];await rpc("ql_admin_order_plans",{p_ids:ids});go("plans")};
+  $$("[data-up]").forEach(b=>b.onclick=()=>move(+b.dataset.up,-1));$$("[data-down]").forEach(b=>b.onclick=()=>move(+b.dataset.down,1));
+}
+function editPlan(p){
+  const isNew=!p;p=p||{name:"",tagline:"",color:"#0ea5e9",badge:"",price_month:null,price_year:null,price_lifetime:null,visibility:"public",limits:{storage_mb:1024,quizzes:null,pdfs:null,questions_per_quiz:null,results_kept:null},features:{}};
+  const L=p.limits||{},F=p.features||{};
+  const priceRow=(k,l)=>`<div class="lim"><span>${l}</span><input class="in" data-price="${k}" type="number" min="0" step="0.01" value="${p[k]??""}" placeholder="—" ${p[k]==null?"disabled":""}><span class="uu"><button type="button" class="sw sm ${p[k]!=null?"on":""}" data-poff="${k}"></button>Offer</span></div>`;
+  const o=modal(isNew?"Add new plan":`Edit plan · ${h(p.name)}`,`<div class="two"><div>
+    <div class="sec-t">Name &amp; look</div>
+    <div class="fld"><label>Plan name</label><input id="pName" class="in" value="${h(p.name)}" placeholder="e.g. Student"></div>
+    <div class="fld"><label>Short line under the name</label><input id="pTag" class="in" value="${h(p.tagline)}" placeholder="e.g. For one school year"></div>
+    <div class="fld"><label>Colour</label><div class="dots">${COLORS.map(c=>`<button type="button" data-c="${c}" class="${c===p.color?"on":""}" style="background:${c}"></button>`).join("")}</div></div>
+    <div class="fld"><label>Badge</label><div class="seg" id="pBadge">${["","MOST POPULAR","BEST VALUE","NEW"].map(b=>`<button type="button" data-b="${b}" class="${b===p.badge?"on":""}">${b||"None"}</button>`).join("")}<input class="in" id="pBadgeC" style="width:130px" placeholder="Custom…" value="${["","MOST POPULAR","BEST VALUE","NEW"].includes(p.badge)?"":h(p.badge)}"></div></div>
+    ${p.is_default?`<div class="note">This is the free plan everyone falls back to — it has no price.</div>`:`<div class="sec-t">Price (USD)</div>${priceRow("price_month","Per month")}${priceRow("price_year","Per year")}${priceRow("price_lifetime","One-time (lifetime)")}`}
+    <div class="sec-t">Who can get it</div><div class="seg" id="pVis">${[["public","Show on Upgrade page"],["code","Only with a code"],["hidden","Hidden (nobody new)"]].map(([k,l])=>`<button type="button" data-v="${k}" class="${p.visibility===k?"on":""}">${l}</button>`).join("")}</div>
+   </div><div>
+    <div class="sec-t">Limits</div>
+    ${LIMITS.map(([k,l,u])=>`<div class="lim"><span>${l}${u?` (${u})`:""}</span><input class="in" data-lim="${k}" type="number" min="0" value="${L[k]??""}" ${L[k]==null?"disabled":""}><span class="uu"><button type="button" class="sw sm ${L[k]==null?"on":""}" data-unl="${k}"></button>Unlimited</span></div>`).join("")}
+    <div class="sec-t">Features in this plan</div>
+    <div class="note" style="margin:0 0 6px">Ticks count for features set to "By plan" in Website Control.</div>
+    ${FEATURES.flatMap(g=>g[1]).filter(f=>f[0]!=="signup").map(([k,l])=>`<label class="chk"><input type="checkbox" data-feat="${k}" ${F[k]?"checked":""}>${l}<span class="tag" style="margin-left:auto">${modeLabel((settings.features||{})[k])}</span></label>`).join("")}
+   </div></div>`,{wide:true,foot:`${isNew||p.is_default?"":`<button class="btn r" id="pDel">Delete plan</button>`}<span class="sp"></span><button class="btn" id="pCancel">Cancel</button><button class="btn p" id="pSave">Save plan</button>`});
+  let color=p.color,badge=p.badge,vis=p.visibility;
+  o.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{color=b.dataset.c;o.querySelectorAll("[data-c]").forEach(x=>x.classList.toggle("on",x===b))});
+  o.querySelectorAll("[data-b]").forEach(b=>b.onclick=()=>{badge=b.dataset.b;o.querySelector("#pBadgeC").value="";o.querySelectorAll("[data-b]").forEach(x=>x.classList.toggle("on",x===b))});
+  o.querySelector("#pBadgeC").oninput=e=>{badge=e.target.value.trim().toUpperCase();o.querySelectorAll("[data-b]").forEach(x=>x.classList.remove("on"))};
+  o.querySelectorAll("#pVis [data-v]").forEach(b=>b.onclick=()=>{vis=b.dataset.v;o.querySelectorAll("#pVis [data-v]").forEach(x=>x.classList.toggle("on",x===b))});
+  o.querySelectorAll("[data-unl]").forEach(b=>b.onclick=()=>{b.classList.toggle("on");const i=o.querySelector(`[data-lim="${b.dataset.unl}"]`);i.disabled=b.classList.contains("on");if(!i.disabled&&!i.value)i.value=10;if(i.disabled)i.value=""});
+  o.querySelectorAll("[data-poff]").forEach(b=>b.onclick=()=>{b.classList.toggle("on");const i=o.querySelector(`[data-price="${b.dataset.poff}"]`);i.disabled=!b.classList.contains("on");if(i.disabled)i.value=""});
+  o.querySelector("#pCancel").onclick=()=>o.remove();
+  o.querySelector("#pSave").onclick=async()=>{
+    const limits={};o.querySelectorAll("[data-lim]").forEach(i=>limits[i.dataset.lim]=i.disabled||i.value===""?null:Number(i.value));
+    const features={};o.querySelectorAll("[data-feat]").forEach(i=>{if(i.checked)features[i.dataset.feat]=true});
+    const body={id:isNew?"":p.id,name:o.querySelector("#pName").value.trim(),tagline:o.querySelector("#pTag").value.trim(),color,badge,visibility:vis,sort:p.sort??(plans.length+1)*10,limits,features};
+    ["price_month","price_year","price_lifetime"].forEach(k=>{const i=o.querySelector(`[data-price="${k}"]`);body[k]=p.is_default?(k==="price_lifetime"?"":"0"):(i&&!i.disabled&&i.value!==""?i.value:"")});
+    if(!body.name)return alert("Give the plan a name");
+    if(!p.is_default&&!body.price_month&&!body.price_year&&!body.price_lifetime&&vis==="public"&&!confirm("This plan has no price. Save anyway?"))return;
+    try{await rpc("ql_admin_save_plan",{p:body});toast("Plan saved");o.remove();go("plans")}catch(e){alert(errMsg(e))}
+  };
+  const del=o.querySelector("#pDel");if(del)del.onclick=async()=>{
+    const others=plans.filter(x=>x.id!==p.id);const to=prompt(`Move people on ${p.name} to which plan?\n${others.map(x=>x.id+" = "+x.name).join("\n")}`,others.find(x=>x.is_default)?.id||others[0]?.id);
+    if(!to)return;try{await rpc("ql_admin_delete_plan",{p_id:p.id,p_move_to:to.trim()});toast("Plan deleted");o.remove();go("plans")}catch(e){alert(errMsg(e))}};
+}
+const modeLabel=m=>m==="off"?"Hidden":m==="plan"?"By plan":"Everyone";
+
+/* ---------------- payments + codes ---------------- */
+let payTab="receipts",payStatus="waiting",codeFilter="active";
+async function pay(){
+  const tabs=`<div class="filters"><button class="btn ${payTab==="receipts"?"on":""}" data-t="receipts">Receipts</button><button class="btn ${payTab==="codes"?"on":""}" data-t="codes">Activation codes</button></div>`;
+  if(payTab==="receipts")return receipts(tabs);return codes(tabs);
+}
+async function receipts(tabs){
+  const rows=await rpc("ql_admin_payments",{p_status:payStatus});
+  $("#view").innerHTML=head("Payments","Approve a receipt, or give an activation code")+tabs+`
+  <div class="filters">${[["waiting","Waiting"],["approved","Approved"],["rejected","Rejected"]].map(([k,l])=>`<button class="btn ${payStatus===k?"on":""}" data-s="${k}">${l}</button>`).join("")}</div>
+  <div class="card"><div class="tbl"><table><tr><th>Receipt</th><th>User</th><th>Plan</th><th>Amount</th><th>Sent</th><th></th></tr>
+  ${rows.length?rows.map(r=>`<tr><td>${r.receipt?`<img class="rec" src="${h(r.receipt)}" data-big="${r.id}" alt="receipt">`:"—"}</td><td><div class="u"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div>${h(r.name)}<small>${h(r.email)}</small></div></div></td>
+   <td>${planTag(r.plan_id," · "+(r.period==="month"?"1 month":r.period==="year"?"1 year":"lifetime"))}</td><td><b>${money(r.amount)}</b></td><td>${ago(r.created_at)}</td>
+   <td>${r.status==="waiting"?`<span class="inline"><button class="btn g" data-ok="${r.id}">Approve</button><button class="btn r" data-no="${r.id}">Reject</button></span>`:`<span class="tag ${r.status==="approved"?"ok":"no"}">${r.status}</span>${r.admin_note?`<div class="note" style="margin:4px 0 0">${h(r.admin_note)}</div>`:""}`}</td></tr>`).join(""):`<tr><td colspan="6" class="empty">No ${payStatus} payments</td></tr>`}</table></div>
+  <div class="note">Approve = their plan switches on right away (1 month = 30 days, 1 year = 365 days), added on top of any time they still have.</div></div>`;
+  $$("[data-t]").forEach(b=>b.onclick=()=>{payTab=b.dataset.t;go("pay")});
+  $$("[data-s]").forEach(b=>b.onclick=()=>{payStatus=b.dataset.s;go("pay")});
+  $$("[data-big]").forEach(i=>i.onclick=()=>modal("Receipt",`<img src="${i.src}" style="width:100%;border-radius:12px">`));
+  const decide=async(id,ok)=>{let note="";if(!ok){note=prompt("Reason (the student sees this):","Payment not found")??null;if(note===null)return}
+    try{await rpc("ql_admin_decide_payment",{p_id:id,p_approve:ok,p_note:note});toast(ok?"Approved — plan is on":"Rejected");await loadCommon();go("pay")}catch(e){alert(errMsg(e))}};
+  $$("[data-ok]").forEach(b=>b.onclick=()=>{b.disabled=true;decide(b.dataset.ok,true)});$$("[data-no]").forEach(b=>b.onclick=()=>decide(b.dataset.no,false));
+}
+let gen={plan:null,days:30,uses:1,valid:7,count:1};
+async function codes(tabs){
+  const all=await rpc("ql_admin_codes");const now=Date.now();
+  const st=c=>c.cancelled?"cancelled":c.expires_at&&new Date(c.expires_at)<now?"expired":c.max_uses!=null&&c.uses>=c.max_uses?"used":"active";
+  const cnt=k=>all.filter(c=>st(c)===k).length;const list=all.filter(c=>st(c)===codeFilter);
+  const paid=plans.filter(p=>!p.is_default);gen.plan=gen.plan||paid[0]?.id||plans[0]?.id;
+  const seg=(key,opts)=>`<div class="seg" data-g="${key}">${opts.map(([v,l])=>`<button type="button" data-v="${v}" class="${String(gen[key])===String(v)?"on":""}">${l}</button>`).join("")}<input class="in small" data-custom="${key}" type="number" min="1" placeholder="Custom" value="${[...opts.map(o=>String(o[0]))].includes(String(gen[key]))?"":gen[key]??""}"></div>`;
+  $("#view").innerHTML=head("Payments","Approve a receipt, or give an activation code")+tabs+`
+  <div class="codegen"><div class="card"><h3>Generate a code</h3>
+    <div class="fld"><label>Plan it gives</label><div class="seg" data-g="plan">${plans.map(p=>`<button type="button" data-v="${h(p.id)}" class="${gen.plan===p.id?"on":""}">${h(p.name)}</button>`).join("")}</div></div>
+    <div class="fld"><label>Plan length (days)</label>${seg("days",[[7,"7 days"],[30,"1 month"],[90,"3 months"],[365,"1 year"],["","Never ends"]])}</div>
+    <div class="fld"><label>How many times can it be used?</label>${seg("uses",[[1,"Once"],[2,"2 times"],["","No limit"]])}</div>
+    <div class="fld"><label>Code stops working after (days)</label>${seg("valid",[[1,"1 day"],[7,"7 days"],[30,"30 days"],["","Never"]])}</div>
+    <div class="fld"><label>Note (only you see it)</label><input id="gNote" class="in" placeholder="e.g. Sokha — paid by ABA 1 Oct"></div>
+    <div class="fld"><label>How many codes</label>${seg("count",[[1,"1"],[5,"5"],[10,"10"]])}</div>
+    <div class="fld"><label>Your own code word (optional, first code only)</label><input id="gCustom" class="in" placeholder="e.g. CLASS-2026"></div>
+    <button class="btn p" id="gGo">Generate code</button></div>
+   <div class="card"><h3>New code</h3><div id="gOut"><div class="empty">Your new code appears here</div></div></div></div>
+  <div class="card"><h3>All codes</h3>
+   <div class="filters">${[["active","Active"],["used","Used up"],["expired","Expired"],["cancelled","Cancelled"]].map(([k,l])=>`<button class="btn ${codeFilter===k?"on":""}" data-cf="${k}">${l} ${cnt(k)}</button>`).join("")}</div>
+   <div class="tbl"><table><tr><th>Code</th><th>Gives</th><th>Used</th><th>Stops working</th><th>Note</th><th>Used by</th><th></th></tr>
+   ${list.length?list.map(c=>`<tr><td class="mono">${h(c.code)}</td><td>${planTag(c.plan_id," · "+(c.days?c.days+" days":"no end"))}</td><td>${c.uses} / ${c.max_uses??"No limit"}</td><td>${c.expires_at?day(c.expires_at):"Never"}</td><td>${h(c.note)}</td>
+    <td>${(c.used_by||[]).length?h((c.used_by||[]).slice(0,3).join(", "))+((c.used_by||[]).length>3?` +${c.used_by.length-3}`:""):"—"}</td>
+    <td class="inline"><button class="btn" data-cp="${h(c.code)}">Copy</button>${st(c)==="active"?`<button class="btn r" data-cx="${h(c.code)}">Cancel</button>`:""}</td></tr>`).join(""):`<tr><td colspan="7" class="empty">No codes here</td></tr>`}</table></div>
+   <div class="note">Each person can use a code only once. A code adds its days on top of the plan they already have.</div></div>`;
+  $$("[data-t]").forEach(b=>b.onclick=()=>{payTab=b.dataset.t;go("pay")});
+  $$("[data-g]").forEach(g=>{g.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{gen[g.dataset.g]=b.dataset.v===""?"":isNaN(b.dataset.v)?b.dataset.v:Number(b.dataset.v);g.querySelectorAll("[data-v]").forEach(x=>x.classList.toggle("on",x===b));const c=g.querySelector("[data-custom]");if(c)c.value=""});
+    const c=g.querySelector("[data-custom]");if(c)c.oninput=()=>{if(c.value){gen[g.dataset.g]=Number(c.value);g.querySelectorAll("[data-v]").forEach(x=>x.classList.remove("on"))}}});
+  $$("[data-cf]").forEach(b=>b.onclick=()=>{codeFilter=b.dataset.cf;go("pay")});
+  $$("[data-cp]").forEach(b=>b.onclick=()=>copy(b.dataset.cp));
+  $$("[data-cx]").forEach(b=>b.onclick=async()=>{if(!confirm("Cancel this code? It will stop working."))return;await rpc("ql_admin_cancel_code",{p_code:b.dataset.cx});toast("Code cancelled");go("pay")});
+  $("#gGo").onclick=async()=>{
+    const b=$("#gGo");b.disabled=true;
+    try{
+      const rows=await rpc("ql_admin_create_codes",{p_plan:gen.plan,p_days:gen.days===""?null:gen.days,p_max_uses:gen.uses===""?null:gen.uses,p_valid_days:gen.valid===""?null:gen.valid,p_note:$("#gNote").value.trim(),p_count:gen.count||1,p_custom:$("#gCustom").value.trim()||null});
+      const p=planById(gen.plan),len=gen.days===""?"no end date":gen.days+" days";
+      const msg=c=>`Your Quiz Library ${p.name} code: ${c.code}\nOpen My Profile → Enter activation code.${c.expires_at?" Valid until "+day(c.expires_at)+".":""}\n${STUDENT_SITE}`;
+      $("#gOut").innerHTML=rows.map(c=>`<div class="codebox" style="margin-bottom:10px"><small>${h(p.name)} · ${len} · ${c.max_uses?`use ${c.max_uses===1?"once":c.max_uses+" times"}`:"no use limit"} · ${c.expires_at?"stops working "+day(c.expires_at):"never expires"}</small><div class="c">${h(c.code)}</div>
+        <div class="inline" style="justify-content:center"><button class="btn p" data-c1="${h(c.code)}">Copy code</button><button class="btn" data-c2="${h(c.code)}">Copy message</button></div></div>`).join("");
+      $$("[data-c1]").forEach(x=>x.onclick=()=>copy(x.dataset.c1));$$("[data-c2]").forEach(x=>x.onclick=()=>copy(msg(rows.find(r=>r.code===x.dataset.c2))));
+      toast(rows.length>1?rows.length+" codes made":"Code made");
+    }catch(e){alert(errMsg(e))}finally{b.disabled=false}
+  };
+}
+
+/* ---------------- website control ---------------- */
+async function saveSetting(key,value,msg="Saved — students see it within seconds"){settings[key]=value;await rpc("ql_admin_set_setting",{p_key:key,p_value:value});toast(msg)}
+async function ctl(){
+  await loadCommon();
+  const site={open:true,message:"Quiz Library is under maintenance. Back soon!",close_at:null,...(settings.site||{})},F={...(settings.features||{})};
+  const closingSoon=site.open!==false&&site.close_at&&new Date(site.close_at)>Date.now();
+  $("#view").innerHTML=head("Website Control","Switch anything in the students' website on or off — students see changes within seconds")+`
+  <div class="row2"><div class="card"><div class="master"><div class="big" style="background:${site.open!==false?"#ecfdf5;color:#059669":"#fef2f2;color:#dc2626"}">●</div><div style="flex:1"><b>Website is ${site.open!==false?"OPEN":"CLOSED"}</b><small>${site.open!==false?(closingSoon?"Closes automatically "+new Date(site.close_at).toLocaleString():"Students can sign in and use Quiz Library"):"Students see your message below. You can still use admin."}</small></div><button class="sw ${site.open!==false?"on":""}" id="siteSw" style="transform:scale(1.2)"></button></div>
+    <div class="fld" style="margin-top:12px"><label>Message students see when closed</label><input id="siteMsg" class="in" value="${h(site.message)}"></div>
+    <div class="inline"><label class="note" style="margin:0">Close automatically at</label><input id="siteAt" class="in" style="width:auto" type="datetime-local" value="${site.close_at?new Date(new Date(site.close_at).getTime()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16):""}"><button class="btn" id="siteSave">Save</button>${site.close_at?`<button class="btn" id="siteAtClear">Clear time</button>`:""}</div></div>
+   <div class="card"><h3>Who can see each button</h3><div class="leg" style="gap:10px;font-size:13px">
+    <span><span class="tag ok">Everyone</span>&nbsp; every user sees and can use it</span>
+    <span><span class="tag" style="background:#eef2ff;color:#4338ca">By plan</span>&nbsp; only plans with it ticked (others see a lock + Upgrade)</span>
+    <span><span class="tag no">Hidden</span>&nbsp; nobody sees it</span></div>
+    <div class="note">Tick features for each plan in Plans &amp; Limits → Edit.</div></div></div>
+  <div class="grpgrid">${FEATURES.map(([g,items])=>`<div class="card"><h3>${h(g)}<span class="r" data-gall="${h(g)}" data-m="off">Hide all</span><span class="r" data-gall="${h(g)}" data-m="on" style="margin-left:8px">Show all</span></h3>
+    ${items.map(([k,l])=>{const m=F[k]||"on";return `<div class="tg"><span>${h(l)}</span><span class="mode" data-k="${k}">${(k==="signup"?[["on","On"],["off","Off"]]:[["on","Everyone"],["plan","By plan"],["off","Hidden"]]).map(([v,t])=>`<button type="button" data-m="${v}" class="${m===v?"on":""}">${t}</button>`).join("")}</span></div>`}).join("")}</div>`).join("")}</div>`;
+  $("#siteSw").onclick=async()=>{const open=site.open===false;if(!open&&!confirm("Close the website for students now?"))return;await saveSetting("site",{...site,open,close_at:open?null:site.close_at},open?"Website is open":"Website closed");go("ctl")};
+  $("#siteSave").onclick=async()=>{const at=$("#siteAt").value;await saveSetting("site",{...site,message:$("#siteMsg").value.trim()||site.message,close_at:at?new Date(at).toISOString():null});go("ctl")};
+  $("#siteAtClear")&&($("#siteAtClear").onclick=async()=>{await saveSetting("site",{...site,close_at:null});go("ctl")});
+  $$(".mode").forEach(s=>s.querySelectorAll("button").forEach(b=>b.onclick=async()=>{F[s.dataset.k]=b.dataset.m;s.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));await saveSetting("features",F)}));
+  $$("[data-gall]").forEach(b=>b.onclick=async()=>{const items=FEATURES.find(g=>g[0]===b.dataset.gall)[1];items.forEach(([k])=>F[k]=b.dataset.m);await saveSetting("features",F);go("ctl")});
+}
+
+/* ---------------- announcements ---------------- */
+async function news(){
+  await loadCommon();const a={active:false,text:"",level:"info",...(settings.announcement||{})};
+  $("#view").innerHTML=head("Announcements","A message shown at the top of the students' website")+`
+  <div class="card" style="max-width:760px"><div class="fld"><label>Message</label><textarea id="aText" class="in" maxlength="300" placeholder="e.g. New: share whole folders with your friends!">${h(a.text)}</textarea></div>
+   <div class="fld"><label>Colour</label><div class="seg" id="aLvl">${[["info","Blue · news"],["success","Green · good news"],["warning","Yellow · warning"]].map(([k,l])=>`<button type="button" data-l="${k}" class="${a.level===k?"on":""}">${l}</button>`).join("")}</div></div>
+   <div class="fld"><label>Preview</label><div class="ann-prev ${a.level}" id="aPrev">📢 ${h(a.text||"Your message")}</div></div>
+   <div class="inline"><button class="sw ${a.active?"on":""}" id="aSw"></button><b id="aState">${a.active?"Showing to students":"Not showing"}</b><span style="flex:1"></span><button class="btn p" id="aSave">Save</button></div>
+   <div class="note">Students can close it; it comes back when you change the message.</div></div>`;
+  let lvl=a.level,on=a.active;
+  const prev=()=>{const p=$("#aPrev");p.className="ann-prev "+lvl;p.textContent="📢 "+($("#aText").value||"Your message")};
+  $("#aText").oninput=prev;$$("#aLvl [data-l]").forEach(b=>b.onclick=()=>{lvl=b.dataset.l;$$("#aLvl [data-l]").forEach(x=>x.classList.toggle("on",x===b));prev()});
+  $("#aSw").onclick=()=>{on=!on;$("#aSw").classList.toggle("on",on);$("#aState").textContent=on?"Showing to students":"Not showing"};
+  $("#aSave").onclick=()=>saveSetting("announcement",{active:on&&!!$("#aText").value.trim(),text:$("#aText").value.trim(),level:lvl,id:Date.now()});
+}
+
+/* ---------------- settings ---------------- */
+async function settingsView(){
+  await loadCommon();const p={bank:"",account_name:"",account_number:"",qr_image:"",note:"",receipts:true,...(settings.payment||{})};
+  $("#view").innerHTML=head("Settings","How students pay you")+`
+  <div class="card" style="max-width:760px"><h3>Payment details shown to students</h3><div class="two"><div>
+   <div class="fld"><label>Bank / wallet</label><input id="sBank" class="in" value="${h(p.bank)}" placeholder="e.g. ABA Bank"></div>
+   <div class="fld"><label>Account name</label><input id="sName" class="in" value="${h(p.account_name)}"></div>
+   <div class="fld"><label>Account number</label><input id="sNum" class="in" value="${h(p.account_number)}"></div>
+   <div class="fld"><label>Extra note (optional)</label><input id="sNote" class="in" value="${h(p.note)}" placeholder="e.g. Put your email in the payment note"></div></div>
+   <div><div class="fld"><label>Payment QR image</label>${p.qr_image?`<img class="qrprev" id="sQrImg" src="${h(p.qr_image)}">`:`<div class="qrprev" id="sQrImg" style="display:grid;place-items:center;color:var(--muted);font-size:12px">No QR yet</div>`}
+     <div class="inline" style="margin-top:8px"><label class="btn">Upload QR<input id="sQr" type="file" accept="image/*" hidden></label>${p.qr_image?`<button class="btn r" id="sQrDel">Remove</button>`:""}</div></div>
+    <label class="chk"><input type="checkbox" id="sRec" ${p.receipts!==false?"checked":""}>Students can pay and upload a receipt</label>
+    <div class="note">Untick to allow activation codes only.</div></div></div>
+   <button class="btn p" id="sSave" style="margin-top:12px">Save payment details</button></div>
+  <div class="card" style="max-width:760px;margin-top:16px"><h3>Admin account</h3><div class="note" style="margin:0">Signed in as <b>${h(me.email)}</b>. To add another admin, add their email in plans_admin.sql (the ADMIN EMAIL line) and run it again.<br>Students' website: <a href="${STUDENT_SITE}" target="_blank" rel="noopener">${h(STUDENT_SITE)}</a></div></div>`;
+  let qr=p.qr_image;
+  $("#sQr").onchange=async e=>{const f=e.target.files[0];if(!f)return;qr=await resizeImage(f,700,.85);const i=$("#sQrImg");i.outerHTML=`<img class="qrprev" id="sQrImg" src="${qr}">`};
+  $("#sQrDel")&&($("#sQrDel").onclick=()=>{qr="";$("#sQrImg").outerHTML=`<div class="qrprev" id="sQrImg" style="display:grid;place-items:center;color:var(--muted);font-size:12px">No QR</div>`});
+  $("#sSave").onclick=()=>saveSetting("payment",{bank:$("#sBank").value.trim(),account_name:$("#sName").value.trim(),account_number:$("#sNum").value.trim(),note:$("#sNote").value.trim(),qr_image:qr,receipts:$("#sRec").checked},"Payment details saved");
+}
+
+window.addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(v&&v!==cur&&!$("#app").classList.contains("hidden"))go(v)});
+boot().catch(e=>showLogin(errMsg(e)));
+</script>
+</body>
+</html>

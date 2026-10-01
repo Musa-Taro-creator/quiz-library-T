@@ -118,7 +118,7 @@ on conflict (id) do nothing;
 
 insert into public.ql_site_settings (key, value) values
  ('site','{"open":true,"message":"Quiz Library is under maintenance. Back soon!","close_at":null,"signups":true}'),
- ('features','{}'),
+ ('features','{"item_share_ex":"plan","pf_themes":"plan","ed_images":"plan"}'),
  ('announcement','{"active":false,"text":"","level":"info"}'),
  ('payment','{"bank":"","account_name":"","account_number":"","qr_image":"","note":"","receipts":true}')
 on conflict (key) do nothing;
