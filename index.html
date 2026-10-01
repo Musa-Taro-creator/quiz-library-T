@@ -18398,7 +18398,7 @@ body.ql-ocean .qs-acts button.g{background:rgba(255,255,255,.1);color:#fff7ed;bo
 .qu-p.cur{background:#f8fafc}.qu-p.hl{border:2px solid var(--pc,#6366f1);box-shadow:0 12px 30px rgba(99,102,241,.2)}
 .qu-p .bd{position:absolute;top:-10px;right:12px;font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:999px;color:#fff;background:var(--pc,#6366f1)}
 .qu-p h4{margin:0;font-size:17px}.qu-p .tl{font-size:12.5px;color:#64748b}.qu-p .pr{font-size:26px;font-weight:800;margin:6px 0 2px}.qu-p .pr small{font-size:12px;color:#64748b;font-weight:600}
-.qu-p ul{list-style:none;padding:0;margin:10px 0 14px;display:grid;gap:7px;font-size:13px;color:#334155;flex:1}
+.qu-p ul{list-style:none;padding:0;margin:10px 0 14px;display:grid;gap:7px;align-content:start;font-size:13px;color:#334155;flex:1}
 .qu-p li::before{content:"✓ ";color:#10b981;font-weight:800}.qu-p li.no{color:#94a3b8}.qu-p li.no::before{content:"✕ ";color:#cbd5e1}
 .qu-p .b{display:block;width:100%;text-align:center;padding:10px;border-radius:12px;font-weight:800;font-size:14px;background:#eef2ff;color:#4338ca;border:0;cursor:pointer;font-family:inherit}
 .qu-p.hl .b{background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff}.qu-p .b:disabled{background:#e2e8f0;color:#64748b;cursor:default}
@@ -18632,8 +18632,14 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   function featureLines(p){
     const L=p.limits||{},out=[];
     out.push([`${L.quizzes==null?"Unlimited":L.quizzes} quizzes`,true]);out.push([`${L.pdfs==null?"Unlimited":L.pdfs} PDFs`,true]);
-    const names={item_share_ex:"Share externally + QR",pf_themes:"All 3 themes",ed_images:"Image Manager",nav_random:"Random Quiz",item_share_in:"Share internally"};
-    for(const k in names){if(featMode(k)==="plan")out.push([names[k],!!(p.features&&p.features[k])])}
+    /* only the features the admin ticked for this plan (same names as admin → Features in this plan) */
+    const names={nav_random:"Random Quiz",nav_inbox:"Shared with me",nav_favorites:"Favorites",nav_recent:"Recent",nav_shared_links:"Shared Links",nav_trash:"Trash",nav_install:"Install app",
+      new_folder:"Create Folder",new_link:"Add Quiz Link",new_pdf:"Upload PDF",new_quiz:"Create Quiz",
+      item_share_in:"Share internally",item_share_ex:"Share externally + QR",item_duplicate:"Duplicate",item_move:"Move",item_edit:"Edit",item_trash:"Move to trash",
+      quiz_autoadv:"Auto-advance",quiz_shuffle:"Shuffle",quiz_bookmark:"Bookmark & Flag",quiz_summary:"Quiz Summary",quiz_results:"Quiz Results",
+      ed_addnew:"Add New Questions",ed_images:"Image Manager",ed_move:"Move Questions",ed_sections:"Sections",ed_find:"Find & check problems",
+      pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list"};
+    for(const k in names){if(p.features&&p.features[k]&&featMode(k)!=="off")out.push([names[k],true])}
     return out;
   }
   function openUpgrade(reason,focusCode){
