@@ -18741,8 +18741,8 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     el.dataset.qlGreet="1";
     const g0=(cfg&&cfg.settings&&cfg.settings.site&&cfg.settings.site.greet)||{};
     const p=myGreet||{};if(p.off){el.remove();return}
-    const g={...g0};if(p.greeting){g.first=p.greeting;g.back=p.greeting}if(p.note)g.note=p.note;
-    if(!g0.first&&!g0.back&&!g0.note&&g0.on==null&&!p.greeting&&!p.note)return;
+    const g={...g0};if(p.greeting){g.first=p.greeting;g.back=p.greeting}if(p.note)g.note=p.note;if(p.seconds)g.seconds=p.seconds;
+    if(!g0.first&&!g0.back&&!g0.note&&g0.on==null&&!p.greeting&&!p.note&&!p.seconds)return;
     if(g.on===false){el.remove();return}
     const name=(state.user&&state.user.user_metadata&&(state.user.user_metadata.full_name||state.user.user_metadata.name))||(state.user&&String(state.user.email||"").split("@")[0])||"Student";
     const t=el.querySelector(".student-welcome-title"),back=/back/i.test(t?t.textContent:"");

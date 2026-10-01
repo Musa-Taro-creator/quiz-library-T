@@ -386,6 +386,7 @@ function manageUser(r){
    <div class="sec-t">👋 Personal greeting</div>
    <div class="note" style="margin:0 0 8px">Only for this person — replaces the normal greeting. Use {name} for their name. Leave both empty to use the normal greeting.</div>
    <div class="two"><div class="fld"><label>Greeting</label><input id="pgT" class="in" maxlength="80" placeholder="e.g. Hi {name}, happy birthday! 🎂"></div><div class="fld"><label>Extra line</label><input id="pgN" class="in" maxlength="160" placeholder="optional"></div></div>
+   <div class="fld"><label>Show for (seconds, optional)</label><input id="pgS" class="in small" type="number" min="1" max="60" placeholder="normal"></div>
    <div class="inline"><label class="chk" style="margin:0"><input type="checkbox" id="pgOff">No greeting for this person</label><span style="flex:1"></span><button class="btn p" id="pgSave">Save greeting</button></div>
    <div class="sec-t">Extra storage on top of the plan</div><div class="inline"><input id="mExtra" class="in small" type="number" min="0" value="${Number(r.extra_storage_mb||0)}"> MB <button class="btn" id="mExtraSave">Save</button></div>
    <div class="sec-t">Account</div><div class="inline"><button class="btn" id="mOut">Sign out all devices</button>${r.status==="suspended"?`<button class="btn g" id="mSus">Unsuspend account</button>`:`<button class="btn r" id="mSus">Suspend account</button>`}</div>
@@ -396,8 +397,8 @@ function manageUser(r){
   const act=async(a,args,msg)=>{try{await rpc("ql_admin_update_user",{p_user:r.user_id,p_action:a,p_plan:null,p_days:null,p_value:null,...args});toast(msg);o.remove();go("users")}catch(e){alert(errMsg(e))}};
   o.querySelector("#mSet").onclick=()=>{const d=o.querySelector("#mLen").value;act("set_plan",{p_plan:o.querySelector("#mPlan").value,p_days:d?Number(d):null},"Plan changed")};
   o.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>act("add_days",{p_plan:r.plan_id,p_days:Number(b.dataset.add)},"Time added"));
-  rpc("ql_admin_get_greeting",{p_user:r.user_id}).then(g=>{if(!g)return;o.querySelector("#pgT").value=g.greeting||"";o.querySelector("#pgN").value=g.note||"";o.querySelector("#pgOff").checked=!!g.off}).catch(()=>{});
-  o.querySelector("#pgSave").onclick=async()=>{try{await rpc("ql_admin_set_greeting",{p_user:r.user_id,p_greeting:o.querySelector("#pgT").value.trim(),p_note:o.querySelector("#pgN").value.trim(),p_off:o.querySelector("#pgOff").checked});toast("Personal greeting saved")}catch(e){alert(/ql_admin_set_greeting|PGRST202|42883|does not exist/.test(errMsg(e))?"Run user_greetings.sql in Supabase first.":errMsg(e))}};
+  rpc("ql_admin_get_greeting",{p_user:r.user_id}).then(g=>{if(!g)return;o.querySelector("#pgT").value=g.greeting||"";o.querySelector("#pgN").value=g.note||"";o.querySelector("#pgOff").checked=!!g.off;o.querySelector("#pgS").value=g.seconds||""}).catch(()=>{});
+  o.querySelector("#pgSave").onclick=async()=>{try{await rpc("ql_admin_set_greeting",{p_user:r.user_id,p_greeting:o.querySelector("#pgT").value.trim(),p_note:o.querySelector("#pgN").value.trim(),p_off:o.querySelector("#pgOff").checked,p_seconds:o.querySelector("#pgS").value?Math.min(60,Math.max(1,Math.round(Number(o.querySelector("#pgS").value)))):null});toast("Personal greeting saved")}catch(e){alert(/ql_admin_set_greeting|PGRST202|42883|does not exist/.test(errMsg(e))?"Run user_greetings.sql in Supabase first.":errMsg(e))}};
   let gDays=30;
   o.querySelectorAll("[data-gl]").forEach(b=>b.onclick=()=>{gDays=b.dataset.gl===""?null:Number(b.dataset.gl);o.querySelector("#gN").value="";o.querySelectorAll("[data-gl]").forEach(x=>x.classList.toggle("on",x===b))});
   const gCustom=()=>{const n=Number(o.querySelector("#gN").value);if(n>0){gDays=n*Number(o.querySelector("#gU").value);o.querySelectorAll("[data-gl]").forEach(x=>x.classList.remove("on"))}};
@@ -601,14 +602,15 @@ async function news(){
    <div class="two"><div class="fld"><label>First time they sign in</label><input id="grFirst" class="in" maxlength="80" value="${h(gr.first||"Welcome, {name}! 👋")}"></div>
     <div class="fld"><label>When they come back</label><input id="grBack" class="in" maxlength="80" value="${h(gr.back||"Welcome back, {name}! 👋")}"></div></div>
    <div class="fld"><label>Extra line under it (optional)</label><input id="grNote" class="in" maxlength="160" value="${h(gr.note||"")}" placeholder="e.g. Good luck with your exams!"></div>
-   <div class="fld"><label>Show for (seconds)</label><div class="seg" id="grSec">${[2,3,5,8].map(n=>`<button type="button" data-gs="${n}" class="${Number(gr.seconds||3)===n?"on":""}">${n} s</button>`).join("")}</div></div>
+   <div class="fld"><label>Show for (seconds)</label><div class="seg" id="grSec">${[2,3,5,8].map(n=>`<button type="button" data-gs="${n}" class="${Number(gr.seconds||3)===n?"on":""}">${n} s</button>`).join("")}<input id="grSecC" class="in small" type="number" min="1" max="60" placeholder="Custom" value="${[2,3,5,8].includes(Number(gr.seconds||3))?"":Number(gr.seconds)}"> <span class="note" style="margin:0">seconds (1–60)</span></div></div>
    <div class="fld"><label>Preview</label><div class="gr-prev"><b id="grPrevT"></b><span id="grPrevN"></span></div></div>
    <button class="btn p" id="grSave">Save greeting</button></div>`;
   let grOn=gr.on!==false,grSec=Number(gr.seconds||3);
   const grPrev=()=>{$("#grPrevT").textContent=($("#grBack").value||"Welcome back, {name}! 👋").replace(/\{name\}/gi,"Sokha");$("#grPrevN").textContent=$("#grNote").value;$("#grPrevN").style.display=$("#grNote").value?"":"none"};
   ["#grFirst","#grBack","#grNote"].forEach(id=>$(id).oninput=grPrev);grPrev();
   $("#grSw").onclick=()=>{grOn=!grOn;$("#grSw").classList.toggle("on",grOn);$("#grState").textContent=grOn?"Showing greeting":"Greeting turned off"};
-  $$("#grSec [data-gs]").forEach(b=>b.onclick=()=>{grSec=Number(b.dataset.gs);$$("#grSec [data-gs]").forEach(x=>x.classList.toggle("on",x===b))});
+  $$("#grSec [data-gs]").forEach(b=>b.onclick=()=>{grSec=Number(b.dataset.gs);$("#grSecC").value="";$$("#grSec [data-gs]").forEach(x=>x.classList.toggle("on",x===b))});
+  $("#grSecC").oninput=()=>{const n=Math.round(Number($("#grSecC").value));if(n>=1){grSec=Math.min(60,n);$$("#grSec [data-gs]").forEach(x=>x.classList.remove("on"))}};
   $("#grSave").onclick=()=>saveSetting("site",{...(settings.site||{}),greet:{on:grOn,first:$("#grFirst").value.trim(),back:$("#grBack").value.trim(),note:$("#grNote").value.trim(),seconds:grSec}},grOn?"Greeting saved":"Greeting turned off");
   let lvl=a.level,on=a.active;
   const prev=()=>{const p=$("#aPrev");p.className="ann-prev "+lvl;p.textContent="📢 "+($("#aText").value||"Your message")};
