@@ -1,5 +1,6 @@
 -- Quiz Library — Dashboard: a board every student can see.
--- Students post a quiz, PDF, link or folder; the admin approves it first.
+-- Students post a quiz, PDF, link or folder; it shows right away (admin can remove it,
+-- and controls the Post to Dashboard button in Website Control).
 -- On the Dashboard others can TAKE quizzes and OPEN the rest (view only).
 -- "Save to my library" (full access) is a separate switch the admin controls
 -- in Website Control (key dash_save: Everyone / By plan / Lock / Hidden).
@@ -49,13 +50,13 @@ begin
   if p_payload is null or jsonb_typeof(p_payload->'nodes') <> 'array' then raise exception 'missing content'; end if;
   if not ql__feature_ok(v_uid, 'item_share_dash') then raise exception 'Posting to the Dashboard is not available on your plan.'; end if;
   if exists (select 1 from ql_subscriptions where user_id = v_uid and status = 'suspended') then raise exception 'This account is suspended.'; end if;
-  if (select count(*) from ql_dash_posts where owner_id = v_uid and status = 'pending') >= 10 then
-    raise exception 'You already have 10 posts waiting for approval.';
+  if (select count(*) from ql_dash_posts where owner_id = v_uid and created_at > now() - interval '1 day') >= 30 then
+    raise exception 'You posted a lot today. Please try again tomorrow.';
   end if;
   select coalesce(u.raw_user_meta_data->>'full_name', u.raw_user_meta_data->>'name', split_part(u.email, '@', 1)) into v_name
     from auth.users u where u.id = v_uid;
-  insert into ql_dash_posts (owner_id, kind, title, item_count, author_name, payload)
-  values (v_uid, p_kind, left(coalesce(p_title, ''), 200), greatest(coalesce(p_item_count, 1), 1), left(v_name, 80), p_payload)
+  insert into ql_dash_posts (owner_id, kind, title, item_count, author_name, payload, status, decided_at)
+  values (v_uid, p_kind, left(coalesce(p_title, ''), 200), greatest(coalesce(p_item_count, 1), 1), left(v_name, 80), p_payload, 'approved', now())
   returning id into v_id;
   return v_id;
 end;

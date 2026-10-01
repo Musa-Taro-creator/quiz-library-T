@@ -287,7 +287,6 @@ $$(".nav").forEach(n=>n.onclick=()=>go(n.dataset.v));
 async function loadCommon(){
   const [p,cfg]=await Promise.all([rpc("ql_admin_plans").catch(()=>[]),sb.from("ql_site_settings").select("key,value")]);
   plans=p||[];settings={};(cfg.data||[]).forEach(r=>settings[r.key]=r.value||{});
-  rpc("ql_admin_dash",{p_status:"pending"}).then(r=>{const n=(r||[]).length;const pill=$("#boardPill");pill.textContent=n;pill.classList.toggle("hidden",!n)}).catch(()=>{});
   rpc("ql_admin_payments",{p_status:"waiting"}).then(r=>{const n=(r||[]).length;const pill=$("#payPill");pill.textContent=n;pill.classList.toggle("hidden",!n)}).catch(()=>{});
 }
 const planById=id=>plans.find(p=>p.id===id)||{id,name:id||"—",color:"#94a3b8"};
@@ -578,12 +577,12 @@ async function news(){
 }
 
 /* ---------------- student dashboard (posts) ---------------- */
-let boardStatus="pending";
+let boardStatus="approved";
 const KIND={quiz:["Quiz","#8b5cf6"],pdf:["PDF","#f43f5e"],link:["Link","#10b981"],folder:["Folder","#f59e0b"]};
 async function board(){
   let rows;try{rows=await rpc("ql_admin_dash",{p_status:boardStatus})}catch(e){if(/ql_admin_dash|PGRST202|42883|does not exist/.test(errMsg(e))){$("#view").innerHTML=head("Student Dashboard","Posts students share with everyone")+`<div class="card"><div class="note" style="margin:0">Run <b>dashboard.sql</b> in Supabase → SQL Editor first.</div></div>`;return}throw e}
-  $("#view").innerHTML=head("Student Dashboard","Students post quizzes, PDFs, links and folders — you approve them before everyone sees them")+`
-  <div class="filters">${[["pending","Waiting"],["approved","On the Dashboard"],["rejected","Not approved"],["removed","Removed"]].map(([k,l])=>`<button class="btn ${boardStatus===k?"on":""}" data-bs="${k}">${l}</button>`).join("")}</div>
+  $("#view").innerHTML=head("Student Dashboard","What students posted for everyone — remove anything you don't want there")+`
+  <div class="filters">${[["approved","On the Dashboard"],["removed","Removed"]].map(([k,l])=>`<button class="btn ${boardStatus===k?"on":""}" data-bs="${k}">${l}</button>`).join("")}</div>
   <div class="card"><div class="tbl"><table><tr><th>Post</th><th>By</th><th>Inside</th><th>Sent</th><th>Opened</th><th></th></tr>
   ${rows.length?rows.map(r=>{const k=KIND[r.kind]||["Item","#64748b"],nodes=r.nodes||[];const inside=r.kind==="folder"?`${Math.max(0,nodes.length-1)} items`:r.kind==="quiz"?`${(nodes[0]||{}).questions??"?"} questions`:k[0];
     return `<tr><td><span class="tag" style="background:${k[1]}22;color:${k[1]}">${k[0]}</span> <b>${h(r.title||k[0])}</b></td><td><div class="u"><div class="av" style="background:${avColor(r.email||"")}">${h((r.author_name||"?")[0].toUpperCase())}</div><div>${h(r.author_name||"")}<small>${h(r.email||"")}</small></div></div></td>

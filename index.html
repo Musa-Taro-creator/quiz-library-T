@@ -18403,16 +18403,16 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     const nodes=treeOf(item);
     const line=item.kind==="folder"?`${summary(nodes)} — everything inside is posted`:item.kind==="quiz"?"Others can take this quiz — they can't see the answers or edit it":"Others can open it (view only)";
     openModal("Post to Dashboard",`<div class="ql-is-shell">${shareCard(item,line)}
-      <div class="ql-is-note"><b>Every student can see it</b> after the admin approves it. Quizzes can be taken; PDFs, links and folders can be opened. You can take it down any time in Dashboard → My posts.</div>
+      <div class="ql-is-note"><b>Every student can see it</b> right away. Quizzes can be taken; PDFs, links and folders can be opened. You can take it down any time in Dashboard → My posts.</div>
       <div id="qlIsStatus" class="status hidden"></div>
-      <div class="form-actions"><button id="qlIsCancel" class="btn" type="button">Cancel</button><button id="qlDashGo" class="btn primary" type="button">Post for approval</button></div></div>`);
+      <div class="form-actions"><button id="qlIsCancel" class="btn" type="button">Cancel</button><button id="qlDashGo" class="btn primary" type="button">Post</button></div></div>`);
     $("#qlIsCancel").onclick=closeModal;const st=$("#qlIsStatus"),go=$("#qlDashGo");
     const say=(t,c)=>{st.className="status"+(c?" "+c:"");st.innerHTML=t};
     go.onclick=async()=>{go.disabled=true;
       try{say("Preparing…");
         const packet=await buildPacket(item,{pdfSeconds:60*60*24*365,externalQuizzes:true,both:true,onStep:(i,n)=>{if(n>1)say(`Preparing… ${i} / ${n}`)}});
         const {error}=await service.client.rpc("ql_dash_post",{p_kind:item.kind,p_title:item.title||"",p_item_count:packet.nodes.length,p_payload:packet});
-        if(error)throw error;closeModal();toast("Posted — waiting for admin approval");
+        if(error)throw error;closeModal();toast("Posted to the Dashboard");
       }catch(e){go.disabled=false;st.className="status";st.innerHTML=/ql_dash_post|PGRST202|42883/.test(String(e&&e.message))?`<div class="status error"><b>One Supabase step first:</b> run <b>dashboard.sql</b> in Supabase → SQL Editor.</div>`:errHtml(e)}};
   }
   let dashTab="all",dashKind="",dashQ="";
