@@ -80,10 +80,10 @@ td{padding:10px;border-bottom:1px solid #f1f3f8;vertical-align:middle;white-spac
 .sw{flex:none;width:46px;height:26px;border-radius:999px;background:#cbd5e1;position:relative;border:0;cursor:pointer;padding:0}
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .15s}
 .sw.on{background:linear-gradient(135deg,#10b981,#059669)}.sw.on::after{left:23px}
-.grpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
-.tg{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed #eef0f6;font-size:13.5px;flex-wrap:wrap}.tg:last-child{border-bottom:0}.tg>span{flex:1}
+.grpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:14px}.grpgrid h3{flex-wrap:wrap;row-gap:4px}@media(max-width:900px){.grpgrid{grid-template-columns:1fr}}
+.tg{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed #eef0f6;font-size:13.5px;flex-wrap:wrap}.tg:last-child{border-bottom:0}.tg>span{flex:1 1 130px}.tg>.mode{margin-left:auto;flex:none}
 .mode{display:inline-flex;flex:none;border:1px solid var(--line);border-radius:9px;overflow:hidden}.mode button{border:0;background:#fff;padding:5px 8px;font-size:11.5px;font-weight:800;color:#64748b;cursor:pointer;white-space:nowrap}
-.mode button.on[data-m=on]{background:#ecfdf5;color:#047857}.mode button.on[data-m=plan]{background:#eef2ff;color:#4338ca}.mode button.on[data-m=off]{background:#fef2f2;color:#b91c1c}
+.mode button.on[data-m=on]{background:#ecfdf5;color:#047857}.mode button.on[data-m=plan]{background:#eef2ff;color:#4338ca}.mode button.on[data-m=off]{background:#fef2f2;color:#b91c1c}.mode button.on[data-m=lock]{background:#fff7ed;color:#c2410c}
 .master{display:flex;align-items:center;gap:16px}.master .big{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;font-size:26px;flex:none}
 .master b{display:block;font-size:17px}.master small{color:var(--muted)}
 .codegen{display:grid;grid-template-columns:1fr 1.2fr;gap:16px;margin-bottom:16px}
@@ -163,6 +163,7 @@ body.t-neon .tag,body.t-ocean .tag{background:rgba(255,255,255,.08);color:var(--
 body.t-neon .tag.ok,body.t-ocean .tag.ok{background:rgba(16,185,129,.18);color:#6ee7b7}body.t-neon .tag.no,body.t-ocean .tag.no{background:rgba(239,68,68,.18);color:#fca5a5}
 body.t-neon .mode button.on[data-m=on],body.t-ocean .mode button.on[data-m=on]{background:rgba(16,185,129,.25);color:#6ee7b7}
 body.t-neon .mode button.on[data-m=plan],body.t-ocean .mode button.on[data-m=plan]{background:rgba(129,140,248,.3);color:#c7d2fe}
+body.t-neon .mode button.on[data-m=lock],body.t-ocean .mode button.on[data-m=lock]{background:rgba(251,146,60,.25);color:#fdba74}
 body.t-neon .mode button.on[data-m=off],body.t-ocean .mode button.on[data-m=off]{background:rgba(239,68,68,.25);color:#fca5a5}
 body.t-neon .donut div,body.t-ocean .donut div{background:#0b1324}body.t-ocean .donut div{background:#0a3a50}
 body.t-neon .donut b,body.t-ocean .donut b,body.t-neon .kpi b{color:inherit}
@@ -437,7 +438,7 @@ function editPlan(p){
     const others=plans.filter(x=>x.id!==p.id);const to=prompt(`Move people on ${p.name} to which plan?\n${others.map(x=>x.id+" = "+x.name).join("\n")}`,others.find(x=>x.is_default)?.id||others[0]?.id);
     if(!to)return;try{await rpc("ql_admin_delete_plan",{p_id:p.id,p_move_to:to.trim()});toast("Plan deleted");o.remove();go("plans")}catch(e){alert(errMsg(e))}};
 }
-const modeLabel=m=>m==="off"?"Hidden":m==="plan"?"By plan":"Everyone";
+const modeLabel=m=>m==="off"?"Hidden":m==="plan"?"By plan":m==="lock"?"Locked":"Everyone";
 
 /* ---------------- payments + codes ---------------- */
 let payTab="receipts",payStatus="waiting",codeFilter="active";
@@ -519,15 +520,16 @@ async function ctl(){
    <div class="card"><h3>Who can see each button</h3><div class="leg" style="gap:10px;font-size:13px">
     <span><span class="tag ok">Everyone</span>&nbsp; every user sees and can use it</span>
     <span><span class="tag" style="background:#eef2ff;color:#4338ca">By plan</span>&nbsp; only plans with it ticked (others see a lock + Upgrade)</span>
+    <span><span class="tag" style="background:#fff7ed;color:#c2410c">Lock</span>&nbsp; everyone sees it with a 🔒 but nobody can use it</span>
     <span><span class="tag no">Hidden</span>&nbsp; nobody sees it</span></div>
     <div class="note">Tick features for each plan in Plans &amp; Limits → Edit.</div></div></div>
-  <div class="grpgrid">${FEATURES.map(([g,items])=>`<div class="card"><h3>${h(g)}<span class="r" data-gall="${h(g)}" data-m="off">Hide all</span><span class="r" data-gall="${h(g)}" data-m="on" style="margin-left:8px">Show all</span></h3>
-    ${items.map(([k,l])=>{const m=F[k]||"on";return `<div class="tg"><span>${h(l)}</span><span class="mode" data-k="${k}">${(k==="signup"?[["on","On"],["off","Off"]]:[["on","Everyone"],["plan","By plan"],["off","Hidden"]]).map(([v,t])=>`<button type="button" data-m="${v}" class="${m===v?"on":""}">${t}</button>`).join("")}</span></div>`}).join("")}</div>`).join("")}</div>`;
+  <div class="grpgrid">${FEATURES.map(([g,items])=>`<div class="card"><h3>${h(g)}<span class="r" data-gall="${h(g)}" data-m="off">Hide all</span><span class="r" data-gall="${h(g)}" data-m="plan" style="margin-left:8px">By plan all</span><span class="r" data-gall="${h(g)}" data-m="lock" style="margin-left:8px">Lock all</span><span class="r" data-gall="${h(g)}" data-m="on" style="margin-left:8px">Show all</span></h3>
+    ${items.map(([k,l])=>{const m=F[k]||"on";return `<div class="tg"><span>${h(l)}</span><span class="mode" data-k="${k}">${(k==="signup"?[["on","On"],["off","Off"]]:[["on","Everyone"],["plan","By plan"],["lock","Lock"],["off","Hidden"]]).map(([v,t])=>`<button type="button" data-m="${v}" class="${m===v?"on":""}">${t}</button>`).join("")}</span></div>`}).join("")}</div>`).join("")}</div>`;
   $("#siteSw").onclick=async()=>{const open=site.open===false;if(!open&&!confirm("Close the website for students now?"))return;await saveSetting("site",{...site,open,close_at:open?null:site.close_at},open?"Website is open":"Website closed");go("ctl")};
   $("#siteSave").onclick=async()=>{const at=$("#siteAt").value;await saveSetting("site",{...site,message:$("#siteMsg").value.trim()||site.message,close_at:at?new Date(at).toISOString():null});go("ctl")};
   $("#siteAtClear")&&($("#siteAtClear").onclick=async()=>{await saveSetting("site",{...site,close_at:null});go("ctl")});
   $$(".mode").forEach(s=>s.querySelectorAll("button").forEach(b=>b.onclick=async()=>{F[s.dataset.k]=b.dataset.m;s.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));await saveSetting("features",F)}));
-  $$("[data-gall]").forEach(b=>b.onclick=async()=>{const items=FEATURES.find(g=>g[0]===b.dataset.gall)[1];items.forEach(([k])=>F[k]=b.dataset.m);await saveSetting("features",F);go("ctl")});
+  $$("[data-gall]").forEach(b=>b.onclick=async()=>{const items=FEATURES.find(g=>g[0]===b.dataset.gall)[1];items.forEach(([k])=>{F[k]=k==="signup"&&(b.dataset.m==="plan"||b.dataset.m==="lock")?(F[k]||"on"):b.dataset.m});await saveSetting("features",F);go("ctl")});
 }
 
 /* ---------------- announcements ---------------- */

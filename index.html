@@ -18481,7 +18481,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   const sub=()=>mine&&mine.subscription;
   const now=()=>Date.now()+skew;
   const featMode=k=>((cfg&&cfg.settings&&cfg.settings.features)||{})[k]||"on";
-  function allowed(k){const m=featMode(k);if(m==="off")return "off";if(m==="plan"){if(k==="signup")return "on";const p=curPlan();return p&&p.features&&p.features[k]?"on":"locked"}return "on"}
+  function allowed(k){const m=featMode(k);if(m==="off")return "off";if(m==="lock")return k==="signup"?"on":"frozen";if(m==="plan"){if(k==="signup")return "on";const p=curPlan();return p&&p.features&&p.features[k]?"on":"locked"}return "on"}
 
   /* ---------- load ---------- */
   async function loadCfg(){
@@ -18558,16 +18558,17 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   function applyFeatures(){
     if(!ready)return;
     const hide=[],lock=[];
-    for(const k in SEL){const a=allowed(k);if(a==="off")hide.push(...SEL[k]);else if(a==="locked")lock.push(...SEL[k].map(s=>[s,k]))}
+    for(const k in SEL){const a=allowed(k);if(a==="off")hide.push(...SEL[k]);else if(a==="locked"||a==="frozen")lock.push(...SEL[k].map(s=>[s,k,a==="frozen"]))}
     let st=document.getElementById("qlFeatHide");if(!st){st=document.createElement("style");st.id="qlFeatHide";document.head.appendChild(st)}
     const css=hide.length?hide.map(x=>"html body:not(.ql-feat-none) "+x).join(",")+"{display:none!important}":"";if(st.textContent!==css)st.textContent=css;
-    document.querySelectorAll(".ql-locked").forEach(e=>{e.classList.remove("ql-locked");delete e.dataset.qlLock});
-    lock.forEach(([s,k])=>{try{document.querySelectorAll(s).forEach(e=>{e.classList.add("ql-locked");e.dataset.qlLock=k})}catch{}});
-    if(allowed("pf_themes")==="locked"&&typeof qlGetSkin==="function"&&qlGetSkin()!=="white"){try{qlSetSkin("white")}catch{}}
+    document.querySelectorAll(".ql-locked").forEach(e=>{e.classList.remove("ql-locked");delete e.dataset.qlLock;delete e.dataset.qlFrozen});
+    lock.forEach(([s,k,fr])=>{try{document.querySelectorAll(s).forEach(e=>{e.classList.add("ql-locked");e.dataset.qlLock=k;if(fr)e.dataset.qlFrozen="1"})}catch{}});
+    if(["locked","frozen"].includes(allowed("pf_themes"))&&typeof qlGetSkin==="function"&&qlGetSkin()!=="white"){try{qlSetSkin("white")}catch{}}
   }
   document.addEventListener("click",e=>{
     const el=e.target.closest&&e.target.closest(".ql-locked");if(!el)return;
     e.preventDefault();e.stopImmediatePropagation();try{closeMenus()}catch{}
+    if(el.dataset.qlFrozen){try{toast("🔒 This feature is locked for now.")}catch{}return}
     openUpgrade("This is available on a higher plan.");
   },true);
   /* new quiz / PDF: check the limit before the form opens */
