@@ -175,6 +175,12 @@ button:disabled{cursor:not-allowed;opacity:.58}
 .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,130%);opacity:0;background:#172033;color:white;padding:12px 18px;border-radius:999px;z-index:150;transition:.22s}
 .toast.show{transform:translate(-50%,0);opacity:1}
 .toast:not(.show){pointer-events:none;visibility:hidden}
+body.ql-skin .ql-share-quiz-card{background:color-mix(in srgb,var(--sk-veil) 7%,transparent)!important;border-color:color-mix(in srgb,var(--sk-accent) 28%,transparent)!important}
+body.ql-skin .ql-share-quiz-card strong{color:var(--sk-text)!important}
+body.ql-skin .ql-share-quiz-card span{color:var(--sk-muted)!important}
+body.ql-skin .ql-share-rule{background:color-mix(in srgb,#10b981 12%,transparent)!important;border-color:color-mix(in srgb,#10b981 38%,transparent)!important;color:var(--sk-muted)!important}
+body.ql-neon .ql-share-rule strong,body.ql-ocean .ql-share-rule strong{color:#34d399!important}
+body.ql-white .ql-share-rule strong{color:#187b50!important}
 #studentHeaderSearchInput::-webkit-search-cancel-button,#studentHeaderSearchInput::-webkit-search-decoration{-webkit-appearance:none;appearance:none;display:none}
 .undo{display:none;position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#172033;color:white;padding:10px 12px 10px 16px;border-radius:16px;z-index:151;align-items:center;gap:8px}
 .undo.show{display:flex}
@@ -14890,7 +14896,12 @@ Q5 Answer B
       const pctEl=document.getElementById("qzProgressPct");
       if(pctEl)pctEl.textContent=`${questions.length?Math.round((answeredCount/questions.length)*100):0}% complete`;
       bodyEl.querySelectorAll("[data-navidx]").forEach(btn=>{
-        btn.onclick=()=>goToQuestion(Number(btn.dataset.navidx));
+        btn.onclick=()=>{
+          /* phone drawer: close it so the chosen question is visible */
+          const sh=document.getElementById("qzExamShell");
+          if(sh&&sh.classList.contains("qz-navdrawer-open")&&btn.closest("#qzNavGrid"))sh.classList.remove("qz-navdrawer-open");
+          goToQuestion(Number(btn.dataset.navidx));
+        };
       });
     }
     function syncNav(){renderNav()}
