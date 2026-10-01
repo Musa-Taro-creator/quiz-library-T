@@ -245,7 +245,6 @@ const avColor=s=>COLORS[[...String(s||"?")].reduce((a,c)=>a+c.charCodeAt(0),0)%C
 const errMsg=e=>{const m=String(e&&(e.message||e.error_description||e)||"Something went wrong");if(/function .* does not exist|schema cache|PGRST202|42883/i.test(m))return "Run plans_admin.sql in Supabase first, then reload.";return m};
 function toast(t){const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2400)}
 async function rpc(name,args){const {data,error}=await sb.rpc(name,args||{});if(error)throw error;return data}
-async function payway(body){const {data,error}=await sb.functions.invoke("payway",{body});if(error){let m="";try{const j=await error.context.json();m=j&&j.error}catch{}throw new Error(m||"The payway Edge Function is not deployed yet (or can't be reached).")}if(data&&data.error)throw new Error(data.error);return data}
 function modal(title,body,{wide,foot}={}){
   const o=document.createElement("div");o.className="ovl";
   o.innerHTML=`<div class="dlg ${wide?"wide":""}"><div class="dlg-h"><b>${title}</b><button class="x" type="button">✕</button></div><div class="dlg-b">${body}</div>${foot?`<div class="dlg-f">${foot}</div>`:""}</div>`;
@@ -462,19 +461,16 @@ async function pay(){
 async function receipts(tabs){
   const rows=await rpc("ql_admin_payments",{p_status:payStatus});
   $("#view").innerHTML=head("Payments","Approve a receipt, or give an activation code")+tabs+`
-  <div class="filters">${[["waiting","Waiting"],["approved","Approved"],["rejected","Rejected"],["aba","ABA automatic"]].map(([k,l])=>`<button class="btn ${payStatus===k?"on":""}" data-s="${k}">${l}</button>`).join("")}${payStatus==="aba"?`<button class="btn" id="abaSync" style="margin-left:auto">↻ Check with ABA</button>`:""}</div>
+  <div class="filters">${[["waiting","Waiting"],["approved","Approved"],["rejected","Rejected"]].map(([k,l])=>`<button class="btn ${payStatus===k?"on":""}" data-s="${k}">${l}</button>`).join("")}</div>
   <div class="card"><div class="tbl"><table><tr><th>Receipt</th><th>User</th><th>Plan</th><th>Amount</th><th>Sent</th><th></th></tr>
-  ${rows.length?rows.map(r=>`<tr><td>${r.receipt?`<img class="rec" src="${h(r.receipt)}" data-big="${r.id}" alt="receipt">`:r.method==="aba"?`<span class="tag" style="background:#e0f2fe;color:#0369a1">ABA</span><small style="display:block;color:var(--muted);font-size:10.5px;margin-top:3px">${h(r.tran_id||"")}</small>`:"—"}</td><td><div class="u"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div>${h(r.name)}<small>${h(r.email)}</small></div></div></td>
+  ${rows.length?rows.map(r=>`<tr><td>${r.receipt?`<img class="rec" src="${h(r.receipt)}" data-big="${r.id}" alt="receipt">`:"—"}</td><td><div class="u"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div>${h(r.name)}<small>${h(r.email)}</small></div></div></td>
    <td>${planTag(r.plan_id," · "+(r.period==="month"?"1 month":r.period==="year"?"1 year":"lifetime"))}</td><td><b>${money(r.amount)}</b></td><td>${ago(r.created_at)}</td>
-   <td>${r.status==="waiting"?`<span class="inline"><button class="btn g" data-ok="${r.id}">Approve</button><button class="btn r" data-no="${r.id}">Reject</button></span>${r.admin_note?`<div class="note" style="margin:4px 0 0">${h(r.admin_note)}</div>`:""}`
-     :r.method==="aba"&&r.status!=="approved"&&r.status!=="rejected"?`<span class="tag ${r.status==="pending"?"wait":""}">${r.status==="pending"?"Waiting for payment":r.status==="expired"?"QR expired · not paid":"Not completed"}</span><div class="inline" style="margin-top:6px"><button class="btn" data-ok="${r.id}" title="Use only if the student shows you an ABA receipt">Switch on anyway</button></div>`
-     :`<span class="tag ${r.status==="approved"?"ok":"no"}">${r.method==="aba"&&r.status==="approved"&&(r.admin_note||"").includes("automatically")?"Paid automatically":r.status}</span>${r.admin_note&&!(r.admin_note||"").includes("automatically")?`<div class="note" style="margin:4px 0 0">${h(r.admin_note)}</div>`:""}`}</td></tr>`).join(""):`<tr><td colspan="6" class="empty">No ${payStatus==="aba"?"ABA":payStatus} payments</td></tr>`}</table></div>
+   <td>${r.status==="waiting"?`<span class="inline"><button class="btn g" data-ok="${r.id}">Approve</button><button class="btn r" data-no="${r.id}">Reject</button></span>`:`<span class="tag ${r.status==="approved"?"ok":"no"}">${r.status}</span>${r.admin_note?`<div class="note" style="margin:4px 0 0">${h(r.admin_note)}</div>`:""}`}</td></tr>`).join(""):`<tr><td colspan="6" class="empty">No ${payStatus} payments</td></tr>`}</table></div>
   <div class="note">Approve = their plan switches on right away (1 month = 30 days, 1 year = 365 days), added on top of any time they still have.</div></div>`;
   $$("[data-t]").forEach(b=>b.onclick=()=>{payTab=b.dataset.t;go("pay")});
   $$("[data-s]").forEach(b=>b.onclick=()=>{payStatus=b.dataset.s;go("pay")});
-  $("#abaSync")&&($("#abaSync").onclick=async e=>{const b=e.currentTarget;b.disabled=true;b.textContent="Checking…";try{const r=await payway({action:"admin_sync"});toast(r.approved?`${r.approved} payment${r.approved>1?"s":""} found paid — plans switched on`:`Checked ${r.checked} — nothing new`);await loadCommon();go("pay")}catch(x){b.disabled=false;b.textContent="↻ Check with ABA";alert(errMsg(x))}});
   $$("[data-big]").forEach(i=>i.onclick=()=>modal("Receipt",`<img src="${i.src}" style="width:100%;border-radius:12px">`));
-  const decide=async(id,ok)=>{let note="";const row=rows.find(x=>x.id===id);if(ok&&row&&row.method==="aba"&&row.status!=="waiting"&&!confirm("ABA did not confirm this payment. Switch the plan on anyway?"))return;if(!ok){note=prompt("Reason (the student sees this):","Payment not found")??null;if(note===null)return}
+  const decide=async(id,ok)=>{let note="";if(!ok){note=prompt("Reason (the student sees this):","Payment not found")??null;if(note===null)return}
     try{await rpc("ql_admin_decide_payment",{p_id:id,p_approve:ok,p_note:note});toast(ok?"Approved — plan is on":"Rejected");await loadCommon();go("pay")}catch(e){alert(errMsg(e))}};
   $$("[data-ok]").forEach(b=>b.onclick=()=>{b.disabled=true;decide(b.dataset.ok,true)});$$("[data-no]").forEach(b=>b.onclick=()=>decide(b.dataset.no,false));
 }
@@ -587,31 +583,13 @@ async function settingsView(){
     <label class="chk"><input type="checkbox" id="sRec" ${p.receipts!==false?"checked":""}>Students can pay and upload a receipt</label>
     <div class="note">Untick to allow activation codes only.</div></div></div>
    <button class="btn p" id="sSave" style="margin-top:12px">Save payment details</button></div>
-  <div class="card" style="max-width:760px;margin-top:16px"><h3>ABA PayWay — automatic payments</h3>
-   <div class="note" style="margin:0 0 10px">Students get a KHQR made for the exact price. When ABA confirms the payment, their plan switches on by itself — no approving needed. Your Merchant ID and API key are kept in Supabase (Edge Function secrets), never here.</div>
-   <label class="chk"><input type="checkbox" id="abaOn" ${p.aba_enabled?"checked":""}>Students pay with ABA KHQR (automatic)</label>
-   <div class="fld" style="margin-top:10px"><label>Currency of your plan prices</label><div class="seg" id="abaCur">${["USD","KHR"].map(c=>`<button type="button" data-cur="${c}" class="${(p.aba_currency||"USD")===c?"on":""}">${c==="USD"?"US Dollar ($)":"Riel (៛)"}</button>`).join("")}</div></div>
-   <div class="inline" style="margin-top:12px"><button class="btn p" id="abaSave">Save ABA settings</button><button class="btn" id="abaTest">Test connection</button></div>
-   <div id="abaRes" class="note" style="margin-top:10px"></div>
-   <details style="margin-top:8px"><summary class="note" style="cursor:pointer;font-weight:800;margin:0">How to set it up (once)</summary><ol class="note" style="line-height:1.7;margin:8px 0 0">
-    <li>Run <b>aba_payway.sql</b> in Supabase → SQL Editor.</li>
-    <li>Supabase → Edge Functions → Deploy a new function → Via Editor → name it <b>payway</b> → paste <b>supabase/functions/payway/index.ts</b> → Deploy.</li>
-    <li>In that function's Details, turn <b>Verify JWT</b> OFF (ABA's message needs it) and save.</li>
-    <li>Edge Functions → Secrets: add <b>ABA_MERCHANT_ID</b>, <b>ABA_API_KEY</b> and <b>ABA_MODE</b> = <b>sandbox</b> (test keys) — later <b>live</b>.</li>
-    <li>Ask ABA to whitelist your website <b>${h(new URL(STUDENT_SITE).origin)}</b> and to enable <b>KHQR (abapay_khqr)</b> for the QR API.</li>
-    <li>Tick the box above, Save, press Test connection, then buy a plan as a student.</li></ol></details></div>
   <div class="card" style="max-width:760px;margin-top:16px"><h3>Admin account</h3><div class="note" style="margin:0">Signed in as <b>${h(me.email)}</b>. To add another admin, add their email in plans_admin.sql (the ADMIN EMAIL line) and run it again.<br>Students' website: <a href="${STUDENT_SITE}" target="_blank" rel="noopener">${h(STUDENT_SITE)}</a></div></div>`;
-  let abaCur=p.aba_currency||"USD";$$("#abaCur [data-cur]").forEach(b=>b.onclick=()=>{abaCur=b.dataset.cur;$$("#abaCur [data-cur]").forEach(x=>x.classList.toggle("on",x===b))});
-  $("#abaSave").onclick=()=>saveSetting("payment",{...(settings.payment||{}),aba_enabled:$("#abaOn").checked,aba_currency:abaCur},$("#abaOn").checked?"ABA automatic payments are ON":"ABA payments are off");
-  $("#abaTest").onclick=async e=>{const b=e.currentTarget,o=$("#abaRes");b.disabled=true;o.textContent="Asking ABA…";
-    try{const r=await payway({action:"admin_ping"});o.innerHTML=r.key_ok?`✅ Connected to ABA (<b>${r.mode==="live"?"LIVE — real money":"sandbox — test mode"}</b>, merchant ${h(r.merchant_id)}).`:`⚠️ ABA answered “${h(r.aba_message||r.aba_code)}”. Check ABA_MERCHANT_ID / ABA_API_KEY and ABA_MODE (sandbox keys only work in sandbox).`}
-    catch(x){o.textContent="⚠️ "+errMsg(x)}finally{b.disabled=false}};
   $$("[data-sp]").forEach(b=>b.onclick=()=>{const [f,d]=b.dataset.sp.split(",");$("#spFiles").value=f;$("#spDb").value=d});
   $("#spSave").onclick=()=>saveSetting("supabase",{files_mb:Number($("#spFiles").value||1024),db_mb:Number($("#spDb").value||500),warn_percent:Math.min(100,Math.max(50,Number($("#spWarn").value||90)))},"Supabase size saved");
   let qr=p.qr_image;
   $("#sQr").onchange=async e=>{const f=e.target.files[0];if(!f)return;qr=await resizeImage(f,700,.85);const i=$("#sQrImg");i.outerHTML=`<img class="qrprev" id="sQrImg" src="${qr}">`};
   $("#sQrDel")&&($("#sQrDel").onclick=()=>{qr="";$("#sQrImg").outerHTML=`<div class="qrprev" id="sQrImg" style="display:grid;place-items:center;color:var(--muted);font-size:12px">No QR</div>`});
-  $("#sSave").onclick=()=>saveSetting("payment",{...(settings.payment||{}),bank:$("#sBank").value.trim(),account_name:$("#sName").value.trim(),account_number:$("#sNum").value.trim(),note:$("#sNote").value.trim(),qr_image:qr,receipts:$("#sRec").checked},"Payment details saved");
+  $("#sSave").onclick=()=>saveSetting("payment",{bank:$("#sBank").value.trim(),account_name:$("#sName").value.trim(),account_number:$("#sNum").value.trim(),note:$("#sNote").value.trim(),qr_image:qr,receipts:$("#sRec").checked},"Payment details saved");
 }
 
 window.addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(v&&v!==cur&&!$("#app").classList.contains("hidden"))go(v)});
