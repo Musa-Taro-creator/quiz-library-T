@@ -382,6 +382,7 @@ function manageUser(r){
     <div class="seg" id="gLen">${[[30,"1 month"],[90,"3 months"],[365,"1 year"],["","No end"]].map(([v,l],i)=>`<button type="button" data-gl="${v}" class="${i===0?"on":""}">${l}</button>`).join("")}</div>
     <span class="dcust"><input id="gN" class="in small" type="number" min="1" placeholder="Custom"><select id="gU" class="in small"><option value="1">days</option><option value="30">months</option><option value="365">years</option></select></span></div>
    <div class="inline" style="margin-top:8px"><input id="gMsg" class="in" style="flex:1;min-width:180px" placeholder="Message (optional), e.g. Thanks for joining!" maxlength="300"><button class="btn p" id="gSend">Send gift</button></div>
+   <div class="seg" id="gIdeas" style="margin-top:8px">${["Thanks for joining Quiz Library! 🎉","Welcome gift — enjoy Pro! 🎁","Thank you for your support ❤️","Good luck with your exams! 📚","Happy birthday! 🎂","Sorry for the trouble — this one's on us 🙏","You're one of our top students! 🏆","Happy New Year! 🎆"].map(t=>`<button type="button" data-gi="${h(t)}">${h(t)}</button>`).join("")}</div>
    <div id="gList" style="margin-top:8px"></div>
    <div class="sec-t">👋 Personal greeting</div>
    <div class="note" style="margin:0 0 8px">Only for this person — replaces the normal greeting. Use {name} for their name. Leave both empty to use the normal greeting.</div>
@@ -402,6 +403,7 @@ function manageUser(r){
   let gDays=30;
   o.querySelectorAll("[data-gl]").forEach(b=>b.onclick=()=>{gDays=b.dataset.gl===""?null:Number(b.dataset.gl);o.querySelector("#gN").value="";o.querySelectorAll("[data-gl]").forEach(x=>x.classList.toggle("on",x===b))});
   const gCustom=()=>{const n=Number(o.querySelector("#gN").value);if(n>0){gDays=n*Number(o.querySelector("#gU").value);o.querySelectorAll("[data-gl]").forEach(x=>x.classList.remove("on"))}};
+  o.querySelectorAll("[data-gi]").forEach(b=>b.onclick=()=>{o.querySelector("#gMsg").value=b.dataset.gi;o.querySelector("#gMsg").focus()});
   o.querySelector("#gN").oninput=gCustom;o.querySelector("#gU").onchange=gCustom;
   const gLen=d=>d==null?"no end date":d%365===0?`${d/365} year${d/365>1?"s":""}`:d%30===0?`${d/30} month${d/30>1?"s":""}`:`${d} day${d>1?"s":""}`;
   const gLoad=async()=>{const box=o.querySelector("#gList");try{const gs=await rpc("ql_admin_user_gifts",{p_user:r.user_id});
