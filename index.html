@@ -18610,7 +18610,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       ${end&&left!=null?`<div class="qs-bar"><i style="width:${left}%"></i></div><div class="qs-meta"><span>Started ${new Date(start).toLocaleDateString([], {day:"numeric",month:"short",year:"numeric"})}</span><span>${Math.round(left)}% of your plan time left</span></div>`:""}
       ${cap&&Number(u.storage_bytes||0)/cap>=.9?`<div class="qs-wait">⚠️ Your storage is almost full (${Math.min(100,Math.round(Number(u.storage_bytes||0)/cap*100))}%). Upgrade to keep adding PDFs.</div>`:""}
       <div class="qs-wait hidden" id="qsWait"></div>
-      <div class="qs-acts"><button type="button" data-qs="up">${paid?"Renew / Upgrade":"Upgrade"}</button><button type="button" class="g" data-qs="code">Enter activation code</button><button type="button" class="g" data-qs="hist">Payment history</button></div></div>`;
+      <div class="qs-acts"><button type="button" data-qs="up">${paid?"Renew / Upgrade":"Upgrade"}</button><button type="button" class="g" data-qs="code">Enter promo code</button><button type="button" class="g" data-qs="hist">Payment history</button></div></div>`;
   }
   async function placeCard(){
     if(!ready||!signedIn()||!mine)return;
@@ -18650,7 +18650,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
           <div class="pr">${p.is_default?"$0":money(pr)} ${p.is_default?"":`<small>/ ${per==="lifetime"?"once":per}</small>`}</div>
           <ul>${featureLines(p).map(([t,ok])=>`<li class="${ok?"":"no"}">${h(t)}</li>`).join("")}</ul>
           ${p.is_default?`<button class="b" type="button" disabled>${isCur?"Your plan":"Free"}</button>`:receipts?`<button class="b" type="button" data-buy="${h(p.id)}" data-per="${per}">${isCur?"Renew "+h(p.name):"Choose "+h(p.name)}</button>`:`<button class="b" type="button" disabled>Ask for a code</button>`}</div>`}).join("")}</div>
-        <div class="qu-code"><b>Have a code?</b><input id="quCode" placeholder="QLP-XXXX-XXXX" autocomplete="off" spellcheck="false"><button type="button" id="quCodeGo">Activate</button></div><div id="quCodeSt" class="status hidden" style="margin-top:8px"></div>`;
+        <div class="qu-code"><b>Have a promo code?</b><input id="quCode" placeholder="Enter promo code" autocomplete="off" spellcheck="false"><button type="button" id="quCodeGo">Activate</button></div><div id="quCodeSt" class="status hidden" style="margin-top:8px"></div>`;
       openModal("Choose your plan",body);
       const m=document.querySelector(".modal");if(m)m.style.width="min(880px,96vw)";
       document.querySelectorAll("[data-per].qu-toggle button,.qu-toggle [data-per]").forEach(b=>b.onclick=()=>{period=b.dataset.per;render()});
