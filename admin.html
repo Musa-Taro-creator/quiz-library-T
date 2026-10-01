@@ -212,6 +212,7 @@ body.t-ocean .bars div{background:linear-gradient(180deg,#fdba74,#0e6377)}
     <button class="nav" data-v="plans"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z"/></svg>Plans &amp; Limits</button>
     <button class="nav" data-v="pay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg>Payments<span class="pill hidden" id="payPill">0</span></button>
     <button class="nav" data-v="ctl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Website Control</button>
+    <button class="nav" data-v="board"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="7" height="8" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.6"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.6"/><rect x="3.5" y="14.5" width="7" height="6" rx="1.6"/></svg>Student Dashboard<span class="pill hidden" id="boardPill">0</span></button>
     <button class="nav" data-v="news"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>Announcements</button>
     <button class="nav" data-v="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Settings</button>
     <div class="foot">Signed in as<br><b id="meEmail" style="color:#fff;word-break:break-all"></b><br><button id="signOut">Sign out</button><div class="thsw" id="thsw"><button data-th="white" title="White Glass"></button><button data-th="neon" title="Neon Lines"></button><button data-th="ocean" title="Ocean Sunrise"></button></div></div>
@@ -226,9 +227,10 @@ const SUPABASE_KEY="sb_publishable_MLyLNla9gaM3r8EUM00hYg_Gyejrvbd";
 const STUDENT_SITE=new URL("./",location.href).toString();
 /* The switchable parts of the students' website. Keep in sync with index.html (qlPlans). */
 const FEATURES=[
- ["Left menu & tabs",[["nav_random","Random Quiz"],["nav_inbox","Shared with me"],["nav_favorites","Favorites"],["nav_recent","Recent"],["nav_shared_links","Shared Links"],["nav_trash","Trash"],["nav_install","Install app"]]],
+ ["Left menu & tabs",[["nav_dashboard","Dashboard"],["nav_random","Random Quiz"],["nav_inbox","Shared with me"],["nav_favorites","Favorites"],["nav_recent","Recent"],["nav_shared_links","Shared Links"],["nav_trash","Trash"],["nav_install","Install app"]]],
  ["+ New menu",[["new_folder","Create Folder"],["new_link","Add Quiz Link"],["new_pdf","Upload PDF"],["new_quiz","Create Quiz"]]],
- ["⋮ menu on items",[["item_share_in","Share internally"],["item_share_ex","Share externally (link + QR)"],["item_duplicate","Duplicate"],["item_move","Move"],["item_edit","Edit"],["item_trash","Move to trash"]]],
+ ["⋮ menu on items",[["item_share_in","Share internally"],["item_share_ex","Share externally (link + QR)"],["item_duplicate","Duplicate"],["item_move","Move"],["item_edit","Edit"],["item_trash","Move to trash"],["item_share_dash","Post to Dashboard"]]],
+ ["Dashboard",[["dash_save","Save to my library (full access)"]]],
  ["Select many (bar at the top)",[["sel_share_in","Share internally"],["sel_share_ex","Share externally"],["sel_copy","Copy Link"],["sel_duplicate","Duplicate"],["sel_move","Move"],["sel_trash","Trash"]]],
  ["Taking a quiz",[["quiz_autoadv","Auto-advance"],["quiz_shuffle","Shuffle"],["quiz_bookmark","Bookmark & Flag"],["quiz_summary","Quiz Summary"],["quiz_results","Quiz Results"]]],
  ["Quiz editor",[["ed_addnew","Add New Questions"],["ed_images","Image Manager"],["ed_move","Move Questions"],["ed_sections","Sections"],["ed_find","Find & check problems"]]],
@@ -285,13 +287,14 @@ $$(".nav").forEach(n=>n.onclick=()=>go(n.dataset.v));
 async function loadCommon(){
   const [p,cfg]=await Promise.all([rpc("ql_admin_plans").catch(()=>[]),sb.from("ql_site_settings").select("key,value")]);
   plans=p||[];settings={};(cfg.data||[]).forEach(r=>settings[r.key]=r.value||{});
+  rpc("ql_admin_dash",{p_status:"pending"}).then(r=>{const n=(r||[]).length;const pill=$("#boardPill");pill.textContent=n;pill.classList.toggle("hidden",!n)}).catch(()=>{});
   rpc("ql_admin_payments",{p_status:"waiting"}).then(r=>{const n=(r||[]).length;const pill=$("#payPill");pill.textContent=n;pill.classList.toggle("hidden",!n)}).catch(()=>{});
 }
 const planById=id=>plans.find(p=>p.id===id)||{id,name:id||"—",color:"#94a3b8"};
 const planTag=(id,extra="")=>{const p=planById(id);return `<span class="tag" style="background:${p.color}22;color:${p.color}">${h(p.name)}${extra}</span>`};
 function go(v){
-  const views={dash,users,plansView,pay,ctl,news,settingsView};
-  const map={dash:"dash",users:"users",plans:"plansView",pay:"pay",ctl:"ctl",news:"news",settings:"settingsView"};
+  const views={dash,users,plansView,pay,ctl,news,settingsView,board};
+  const map={dash:"dash",users:"users",plans:"plansView",pay:"pay",ctl:"ctl",news:"news",settings:"settingsView",board:"board"};
   if(!map[v])v="dash";const same=v===cur&&$("#view").children.length&&!$("#view .loading");const y=window.scrollY;cur=v;if(location.hash.slice(1)!==v)location.hash=v;
   $$(".nav").forEach(n=>n.classList.toggle("on",n.dataset.v===v));
   /* same page refreshing itself (filters, tabs, after saving): keep it on screen and keep the scroll position */
@@ -572,6 +575,30 @@ async function news(){
   $("#aText").oninput=prev;$$("#aLvl [data-l]").forEach(b=>b.onclick=()=>{lvl=b.dataset.l;$$("#aLvl [data-l]").forEach(x=>x.classList.toggle("on",x===b));prev()});
   $("#aSw").onclick=()=>{on=!on;$("#aSw").classList.toggle("on",on);$("#aState").textContent=on?"Showing to students":"Not showing"};
   $("#aSave").onclick=()=>saveSetting("announcement",{active:on&&!!$("#aText").value.trim(),text:$("#aText").value.trim(),level:lvl,id:Date.now()});
+}
+
+/* ---------------- student dashboard (posts) ---------------- */
+let boardStatus="pending";
+const KIND={quiz:["Quiz","#8b5cf6"],pdf:["PDF","#f43f5e"],link:["Link","#10b981"],folder:["Folder","#f59e0b"]};
+async function board(){
+  let rows;try{rows=await rpc("ql_admin_dash",{p_status:boardStatus})}catch(e){if(/ql_admin_dash|PGRST202|42883|does not exist/.test(errMsg(e))){$("#view").innerHTML=head("Student Dashboard","Posts students share with everyone")+`<div class="card"><div class="note" style="margin:0">Run <b>dashboard.sql</b> in Supabase → SQL Editor first.</div></div>`;return}throw e}
+  $("#view").innerHTML=head("Student Dashboard","Students post quizzes, PDFs, links and folders — you approve them before everyone sees them")+`
+  <div class="filters">${[["pending","Waiting"],["approved","On the Dashboard"],["rejected","Not approved"],["removed","Removed"]].map(([k,l])=>`<button class="btn ${boardStatus===k?"on":""}" data-bs="${k}">${l}</button>`).join("")}</div>
+  <div class="card"><div class="tbl"><table><tr><th>Post</th><th>By</th><th>Inside</th><th>Sent</th><th>Opened</th><th></th></tr>
+  ${rows.length?rows.map(r=>{const k=KIND[r.kind]||["Item","#64748b"],nodes=r.nodes||[];const inside=r.kind==="folder"?`${Math.max(0,nodes.length-1)} items`:r.kind==="quiz"?`${(nodes[0]||{}).questions??"?"} questions`:k[0];
+    return `<tr><td><span class="tag" style="background:${k[1]}22;color:${k[1]}">${k[0]}</span> <b>${h(r.title||k[0])}</b></td><td><div class="u"><div class="av" style="background:${avColor(r.email||"")}">${h((r.author_name||"?")[0].toUpperCase())}</div><div>${h(r.author_name||"")}<small>${h(r.email||"")}</small></div></div></td>
+     <td>${h(inside)}</td><td>${ago(r.created_at)}</td><td>${r.opens||0}</td>
+     <td class="inline"><button class="btn" data-bprev="${r.id}">Preview</button>${r.status==="pending"?`<button class="btn g" data-bok="${r.id}">Approve</button><button class="btn r" data-bno="${r.id}">Reject</button>`:r.status==="approved"?`<button class="btn r" data-brm="${r.id}">Remove</button>`:`<button class="btn g" data-bok="${r.id}">Put on Dashboard</button>`}${r.admin_note?`<div class="note" style="margin:4px 0 0">${h(r.admin_note)}</div>`:""}</td></tr>`}).join(""):`<tr><td colspan="6" class="empty">Nothing here</td></tr>`}</table></div>
+  <div class="note">On the Dashboard students can <b>take</b> quizzes and <b>open</b> PDFs, links and folders. "Save to my library" follows Website Control → Dashboard → Save to my library.</div></div>`;
+  $$("[data-bs]").forEach(b=>b.onclick=()=>{boardStatus=b.dataset.bs;go("board")});
+  const act=async(id,a)=>{let note="";if(a!=="approve"){note=prompt(a==="reject"?"Reason (the student sees this):":"Reason (optional):",a==="reject"?"Not suitable for the Dashboard":"")??null;if(note===null)return}
+    try{await rpc("ql_admin_dash_decide",{p_id:id,p_action:a,p_note:note});toast(a==="approve"?"Approved — everyone can see it now":a==="reject"?"Rejected":"Removed from the Dashboard");await loadCommon();go("board")}catch(e){alert(errMsg(e))}};
+  $$("[data-bok]").forEach(b=>b.onclick=()=>act(b.dataset.bok,"approve"));$$("[data-bno]").forEach(b=>b.onclick=()=>act(b.dataset.bno,"reject"));$$("[data-brm]").forEach(b=>b.onclick=()=>act(b.dataset.brm,"remove"));
+  $$("[data-bprev]").forEach(b=>b.onclick=()=>{const r=rows.find(x=>x.id===b.dataset.bprev),nodes=r.nodes||[];const root=nodes.find(n=>!n.parent_ref)||nodes[0];
+    const kids=ref=>nodes.filter(n=>n.parent_ref===ref);
+    const line=(n,d)=>{const k=KIND[n.kind]||["Item","#64748b"];const open=n.kind==="pdf"&&n.pdf_url?`<a href="${h(n.pdf_url)}" target="_blank" rel="noopener">View</a>`:n.kind==="link"&&n.url?`<a href="${h(n.url)}" target="_blank" rel="noopener">Open</a>`:n.kind==="quiz"&&n.quiz_link?`<a href="${h(n.quiz_link)}" target="_blank" rel="noopener">Try quiz</a>`:"";
+      return `<div style="display:flex;gap:8px;align-items:center;padding:7px 0;padding-left:${d*18}px;border-bottom:1px dashed var(--line)"><span class="tag" style="background:${k[1]}22;color:${k[1]}">${k[0]}</span><span style="flex:1">${h(n.title||k[0])}${n.questions!=null?` <small style="color:var(--muted)">· ${n.questions} questions</small>`:""}</span>${open}</div>`+kids(n.ref).map(c=>line(c,d+1)).join("")};
+    modal("Preview · "+h(r.title||""),root?line(root,0):`<div class="empty">Empty</div>`)});
 }
 
 /* ---------------- settings ---------------- */

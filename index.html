@@ -18013,9 +18013,10 @@ body.ql-neon #itemMenu.ql-im button.danger,body.ql-ocean #itemMenu.ql-im button.
     edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
     move:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M10 13h6M13.5 10.5 16 13l-2.5 2.5"/>',
     dup:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
-    trash:'<path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/>'
+    trash:'<path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/>',
+    dash:'<rect x="3.5" y="3.5" width="7" height="8" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.6"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.6"/><rect x="3.5" y="14.5" width="7" height="6" rx="1.6"/>'
   };
-  const C={open:"#38bdf8",fav:"#fbbf24",favOn:"#fbbf24",inShare:"#a78bfa",exShare:"#34d399",edit:"#f472b6",move:"#60a5fa",dup:"#2dd4bf",trash:"#f43f5e"};
+  const C={dash:"#f59e0b",open:"#38bdf8",fav:"#fbbf24",favOn:"#fbbf24",inShare:"#a78bfa",exShare:"#34d399",edit:"#f472b6",move:"#60a5fa",dup:"#2dd4bf",trash:"#f43f5e"};
   const ico=k=>`<span class="ql-mi" style="--mc:${C[k]}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[k]}</svg></span>`;
   const prev=openItemMenu;
   openItemMenu=function(x,anchor){
@@ -18035,6 +18036,7 @@ body.ql-neon #itemMenu.ql-im button.danger,body.ql-ocean #itemMenu.ql-im button.
     sep();
     add("inShare","Share internally",()=>window.qlShareInternally(x),{feat:"item_share_in"});
     add("exShare","Share externally",()=>window.qlShareExternally(x),{feat:"item_share_ex"});
+    add("dash","Post to Dashboard",()=>window.qlPostToDash(x),{feat:"item_share_dash"});
     if(canEdit){
       sep();
       add("edit","Edit",()=>openEditor(x),{feat:"item_edit"});
@@ -18078,6 +18080,38 @@ body.ql-skin .ql-is-person{background:color-mix(in srgb,var(--sk-accent) 12%,tra
 /* public link page */
 #qlItemViewer{position:fixed;inset:0;z-index:2147483000;overflow:auto;background:linear-gradient(160deg,#eef4ff,#fdf2f8 60%,#ecfeff);color:#0f172a;font-family:inherit;-webkit-overflow-scrolling:touch}
 .ql-iv-wrap{max-width:760px;margin:0 auto;padding:18px 16px 40px}
+/* ---------- Dashboard (in-app) ---------- */
+#qlDash{z-index:96}#qlItemViewer.ql-iv-inapp{z-index:97}
+.ql-iv-close{margin-left:auto;width:38px;height:38px;border-radius:50%;border:0;background:rgba(15,23,42,.08);font-size:22px;line-height:1;cursor:pointer;color:inherit}
+#qlDash{position:fixed;inset:0;overflow:auto;background:linear-gradient(160deg,#eef4ff,#fdf2f8 60%,#ecfeff);color:#0f172a;-webkit-overflow-scrolling:touch}
+#qlDash .qd-wrap{max-width:1100px;margin:0 auto;padding:18px 16px 60px}
+#qlDash .qd-top{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+#qlDash .qd-top h1{margin:0;font-size:26px}#qlDash .qd-top p{margin:2px 0 0;color:#64748b;font-size:13.5px}
+#qlDash .qd-tabs,#qlDash .qd-kinds{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 10px}
+#qlDash .qd-tabs button,#qlDash .qd-kinds button{border:1px solid rgba(148,163,184,.35);background:rgba(255,255,255,.7);border-radius:999px;padding:8px 14px;font:inherit;font-weight:700;font-size:13.5px;cursor:pointer;color:inherit}
+#qlDash .qd-tabs button.on,#qlDash .qd-kinds button.on{background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;border-color:transparent}
+#qlDash .qd-search{width:100%;box-sizing:border-box;padding:12px 16px;border-radius:14px;border:1px solid rgba(148,163,184,.4);background:rgba(255,255,255,.8);font:inherit;font-size:15px;color:inherit}
+#qlDash .qd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-top:14px}
+#qlDash .qd-card{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:20px;background:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.9);box-shadow:0 10px 30px rgba(30,41,90,.1)}
+#qlDash .qd-card .ql-is-ico{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;color:var(--kc);background:color-mix(in srgb,var(--kc) 14%,transparent)}
+#qlDash .qd-card .ql-is-ico svg{width:26px;height:26px}
+#qlDash .qd-card b{font-size:16px;word-break:break-word}#qlDash .qd-card small{color:#64748b;font-size:12.5px;line-height:1.4}
+#qlDash .qd-acts{display:flex;gap:8px;margin-top:auto}
+#qlDash .qd-acts button{flex:1;border:0;border-radius:12px;padding:10px;font:inherit;font-weight:800;font-size:13.5px;cursor:pointer}
+#qlDash .qd-go{background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff}
+#qlDash .qd-acts .ql-dash-save,.ql-iv-head .ql-dash-save{background:rgba(99,102,241,.12);color:#4338ca;border:0;border-radius:12px;padding:10px 14px;font:inherit;font-weight:800;cursor:pointer}
+#qlDash .qd-tag{display:inline-block;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;background:#fffbeb;color:#b45309}#qlDash .qd-tag.approved{background:#ecfdf5;color:#047857}#qlDash .qd-tag.rejected{background:#fef2f2;color:#b91c1c}
+#qlDash .qd-empty{padding:40px 10px;text-align:center;color:#64748b}
+.ql-dash-saverow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}.ql-dash-saverow select{flex:1;min-width:160px;padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,.5);font:inherit;background:#fff;color:#0f172a}
+body.ql-neon #qlDash,body.ql-ocean #qlDash,body.ql-neon #qlItemViewer.ql-iv-inapp,body.ql-ocean #qlItemViewer.ql-iv-inapp{background:var(--sk-canvas,#07070d);color:var(--sk-text)}
+body.ql-neon #qlDash .qd-card,body.ql-ocean #qlDash .qd-card,body.ql-neon .ql-iv-inapp .ql-iv-head,body.ql-ocean .ql-iv-inapp .ql-iv-head,body.ql-neon .ql-iv-inapp .ql-iv-row,body.ql-ocean .ql-iv-inapp .ql-iv-row{background:color-mix(in srgb,var(--sk-veil,#fff) 7%,transparent);border-color:color-mix(in srgb,var(--sk-accent) 30%,transparent);color:var(--sk-text)}
+body.ql-neon #qlDash .qd-tabs button,body.ql-ocean #qlDash .qd-tabs button,body.ql-neon #qlDash .qd-kinds button,body.ql-ocean #qlDash .qd-kinds button,body.ql-neon #qlDash .qd-search,body.ql-ocean #qlDash .qd-search{background:color-mix(in srgb,var(--sk-veil,#fff) 7%,transparent);color:var(--sk-text);border-color:color-mix(in srgb,var(--sk-accent) 30%,transparent)}
+body.ql-neon #qlDash .qd-tabs button.on,body.ql-neon #qlDash .qd-kinds button.on,body.ql-neon #qlDash .qd-go{background:linear-gradient(135deg,#00e5ff,#ff2e97);color:#0b0b17}
+body.ql-ocean #qlDash .qd-tabs button.on,body.ql-ocean #qlDash .qd-kinds button.on,body.ql-ocean #qlDash .qd-go{background:linear-gradient(135deg,#fdba74,#fb7185);color:#3b0d0c}
+body.ql-neon #qlDash small,body.ql-ocean #qlDash small,body.ql-neon #qlDash .qd-top p,body.ql-ocean #qlDash .qd-top p,body.ql-neon .ql-iv-inapp .ql-iv-head p,body.ql-ocean .ql-iv-inapp .ql-iv-head p{color:var(--sk-muted)}
+body.ql-neon .ql-iv-close,body.ql-ocean .ql-iv-close{background:rgba(255,255,255,.1)}
+body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in srgb,var(--sk-accent) 16%,transparent)!important;color:var(--sk-accent)!important}
+
 .ql-iv-top{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .ql-iv-top img{width:40px;height:40px;border-radius:11px}
 .ql-iv-brand{font-weight:800;letter-spacing:.04em;font-size:15px;background:linear-gradient(90deg,#3b82f6,#a855f7,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -18132,7 +18166,7 @@ body.ql-skin .ql-is-person{background:color-mix(in srgb,var(--sk-accent) 12%,tra
     const parts=[c.folder&&plural(c.folder,"folder"),c.quiz&&plural(c.quiz,"quiz").replace("quizs","quizzes"),c.pdf&&plural(c.pdf,"PDF"),c.link&&plural(c.link,"link")].filter(Boolean);
     return parts.length?parts.join(" · "):"Empty folder";
   }
-  async function buildPacket(root,{pdfSeconds,externalQuizzes,onStep}){
+  async function buildPacket(root,{pdfSeconds,externalQuizzes,both,onStep}){
     const nodes=treeOf(root),out=[];let i=0;
     for(const x of nodes){
       i++;onStep&&onStep(i,nodes.length,x);
@@ -18140,7 +18174,7 @@ body.ql-skin .ql-is-person{background:color-mix(in srgb,var(--sk-accent) 12%,tra
       if(x.kind==="pdf"&&x.storage_path){n.pdf_url=await service.signedUrl(x,pdfSeconds)}
       if(x.kind==="quiz"){
         if(externalQuizzes){n.quiz_link=await externalQuizLink(x)}
-        else{const qs=await service.getQuizQuestionsAdmin(x.id);n.quiz_settings={...(x.quiz_settings||{})};n.questions=(qs||[]).map(q=>{const c={...q};delete c.item_id;delete c.library_id;return c})}
+        if(!externalQuizzes||both){const qs=await service.getQuizQuestionsAdmin(x.id);n.quiz_settings={...(x.quiz_settings||{})};n.questions=(qs||[]).map(q=>{const c={...q};delete c.item_id;delete c.library_id;return c})}
       }
       out.push(n);
     }
@@ -18234,12 +18268,12 @@ body.ql-skin .ql-is-person{background:color-mix(in srgb,var(--sk-accent) 12%,tra
     const fs=state.items.filter(x=>x.kind==="folder"&&!x.is_trashed).map(x=>{let p=[];try{p=qlPathForFast(x.id).map(n=>n.title)}catch{p=[x.title]}return {id:x.id,label:p.join(" / ")||x.title}}).sort((a,b)=>a.label.localeCompare(b.label));
     return `<option value="">My Library (root)</option>`+fs.map(f=>`<option value="${h(f.id)}">${h(f.label)}</option>`).join("");
   }
-  async function saveShare(id,parentId,btn,status){
+  async function saveShare(id,parentId,btn,status,opt={}){
     btn.disabled=true;const created=[],files=[];
     const say=t=>{status.className="status";status.textContent=t};
     try{
       say("Opening…");
-      const {data:p,error}=await service.client.rpc("ql_get_received_item_share",{p_share_record_id:id});if(error)throw error;
+      let p;if(opt.load)p=await opt.load();else{const {data,error}=await service.client.rpc("ql_get_received_item_share",{p_share_record_id:id});if(error)throw error;p=data}
       if(!p||!Array.isArray(p.nodes)||!p.nodes.length)throw new Error("This shared copy is no longer available.");
       const map=new Map();let n=0,failed=0;
       const order=[];const byParent=new Map();p.nodes.forEach(x=>{const k=x.parent_ref||"__root";if(!byParent.has(k))byParent.set(k,[]);byParent.get(k).push(x)});
@@ -18259,11 +18293,12 @@ body.ql-skin .ql-is-person{background:color-mix(in srgb,var(--sk-accent) 12%,tra
           }catch(e){failed++;continue}
         }
         if(x.kind==="quiz")base.quiz_settings={...(x.quiz_settings||{})};
+        if(opt.mark)Object.assign(base,opt.mark);
         const row=await service.insertItem(base);created.push(newId);replaceLocal(row);map.set(x.ref,newId);
         if(x.kind==="quiz"){const qs=(x.questions||[]).map((q,i)=>({...q,id:uid(),question_position:i}));await service.saveQuizQuestions(newId,qs,base.quiz_settings)}
       }
-      await service.client.rpc("ql_finish_item_share",{p_share_record_id:id,p_saved:true});
-      await loadAll();closeModal();refreshCount();
+      if(opt.load){if(opt.finish)await opt.finish()}else await service.client.rpc("ql_finish_item_share",{p_share_record_id:id,p_saved:true});
+      await loadAll();closeModal();document.getElementById("qlItemViewer")?.remove();refreshCount();
       toast(failed?`Saved — ${plural(failed,"PDF")} could not be copied`:"Saved to your library");
       navigate("documents",parentId||null);
     }catch(e){
@@ -18311,33 +18346,37 @@ body.ql-skin .ql-is-person{background:color-mix(in srgb,var(--sk-accent) 12%,tra
   setTimeout(refreshCount,4000);
 
   /* ---------- public link page ---------- */
-  async function openViewer(token){
+  async function openViewer(token,opt={}){
+    if(!opt.inApp){
     document.getElementById("setupScreen")?.classList.remove("show");
     const gate=document.getElementById("studentAccessGate");if(gate){gate.classList.remove("show");gate.setAttribute("aria-hidden","true")}
+    }
     let v=document.getElementById("qlItemViewer");if(!v){v=document.createElement("div");v.id="qlItemViewer";document.body.appendChild(v)}
+    v.classList.toggle("ql-iv-inapp",!!opt.inApp);
     const logo=document.querySelector('link[rel="apple-touch-icon"]')?.href||"";
-    const frame=inner=>`<div class="ql-iv-wrap"><div class="ql-iv-top">${logo?`<img src="${logo}" alt="">`:""}<span class="ql-iv-brand">QUIZ LIBRARY</span></div>${inner}</div>`;
-    v.innerHTML=frame(`<div class="ql-iv-msg">Loading…</div>`);
+    const frame=inner=>`<div class="ql-iv-wrap"><div class="ql-iv-top">${logo?`<img src="${logo}" alt="">`:""}<span class="ql-iv-brand">${opt.inApp?"DASHBOARD":"QUIZ LIBRARY"}</span>${opt.inApp?`<button type="button" class="ql-iv-close" aria-label="Close">×</button>`:""}</div>${inner}</div>`;
+    const wire=()=>{const c=v.querySelector(".ql-iv-close");if(c)c.onclick=()=>v.remove()};
+    v.innerHTML=frame(`<div class="ql-iv-msg">Loading…</div>`);wire();
     let share;
-    try{const {data,error}=await service.client.rpc("ql_get_external_item_share",{p_token:String(token)});if(error)throw error;if(!data)throw new Error("This shared link is invalid or no longer available.");share=data}
-    catch(e){v.innerHTML=frame(`<div class="ql-iv-msg err">${h(friendlyError(e))}</div>`);return}
+    try{if(opt.load)share=await opt.load();else{const {data,error}=await service.client.rpc("ql_get_external_item_share",{p_token:String(token)});if(error)throw error;if(!data)throw new Error("This shared link is invalid or no longer available.");share=data}}
+    catch(e){v.innerHTML=frame(`<div class="ql-iv-msg err">${h(friendlyError(e))}</div>`);wire();return}
     const p=share.payload||{},nodes=Array.isArray(p.nodes)?p.nodes:[];
     const root=nodes.find(x=>x.ref===p.root_ref)||nodes[0];
     if(!root){v.innerHTML=frame(`<div class="ql-iv-msg err">This shared link is empty.</div>`);return}
     const kids=ref=>nodes.filter(x=>x.parent_ref===ref).sort((a,b)=>(a.kind==="folder"?0:1)-(b.kind==="folder"?0:1)||String(a.title).localeCompare(String(b.title)));
     const countIn=ref=>{let c=0;const w=r=>kids(r).forEach(x=>{c++;if(x.kind==="folder")w(x.ref)});w(ref);return c};
-    const open=x=>{if(x.kind==="link"&&x.url)window.open(x.url,"_blank","noopener");else if(x.kind==="pdf"&&x.pdf_url)window.open(x.pdf_url,"_blank","noopener");else if(x.kind==="quiz"&&x.quiz_link)location.href=x.quiz_link;else alert("This item can't be opened.")};
+    const open=x=>{if(x.kind==="link"&&x.url)window.open(x.url,"_blank","noopener");else if(x.kind==="pdf"&&x.pdf_url)window.open(x.pdf_url,"_blank","noopener");else if(x.kind==="quiz"&&x.quiz_link){if(opt.inApp)window.open(x.quiz_link,"_blank","noopener");else location.href=x.quiz_link}else alert("This item can't be opened.")};
     const sub=x=>x.kind==="folder"?plural(kids(x.ref).length,"item"):x.kind==="pdf"?(x.file_size?fmtBytes(x.file_size)+" · PDF":"PDF"):x.kind==="quiz"?"Quiz":String(x.url||"Link").replace(/^https?:\/\//,"").slice(0,48);
     const go={folder:"Open",pdf:"View",link:"Open",quiz:"Start"};
     const rowHtml=x=>`<button type="button" class="ql-iv-row" data-ref="${h(x.ref)}">${kIco(x.kind)}<span><b>${h(x.title||KN[x.kind])}</b><small>${h(sub(x))}</small></span><span class="ql-iv-go">${go[x.kind]}</span></button>`;
     const show=ref=>{
       const cur=nodes.find(x=>x.ref===ref)||root;
       const path=[];let c=cur;while(c){path.unshift(c);c=c.parent_ref?nodes.find(x=>x.ref===c.parent_ref):null}
-      const head=`<div class="ql-iv-head"><h1>${h(root.title||KN[root.kind])}</h1><p>${root.kind==="folder"?`Shared folder · ${plural(countIn(root.ref),"item")}`:`Shared ${KN[root.kind]}`}</p></div>`;
+      const head=`<div class="ql-iv-head"><h1>${h(root.title||KN[root.kind])}</h1><p>${opt.sub?h(opt.sub)+" · ":""}${root.kind==="folder"?`Shared folder · ${plural(countIn(root.ref),"item")}`:`Shared ${KN[root.kind]}`}</p>${opt.extra||""}</div>`;
       let body;
       if(root.kind!=="folder")body=`<div class="ql-iv-list" style="margin-top:14px">${rowHtml(root)}</div>`;
       else{const list=kids(cur.ref);body=`<div class="ql-iv-crumbs">${path.map((x,i)=>i<path.length-1?`<button type="button" data-crumb="${h(x.ref)}">${h(x.title)}</button><span>›</span>`:`<span>${h(x.title)}</span>`).join("")}</div>`+(list.length?`<div class="ql-iv-list">${list.map(rowHtml).join("")}</div>`:`<div class="ql-iv-empty">This folder is empty.</div>`)}
-      v.innerHTML=frame(head+body);v.scrollTop=0;
+      v.innerHTML=frame(head+body);v.scrollTop=0;wire();if(opt.onShow)opt.onShow(v);
       v.querySelectorAll("[data-crumb]").forEach(b=>b.onclick=()=>show(b.dataset.crumb));
       v.querySelectorAll("[data-ref]").forEach(b=>b.onclick=()=>{const x=nodes.find(n=>n.ref===b.dataset.ref);if(!x)return;if(x.kind==="folder"&&x!==root)show(x.ref);else if(x.kind!=="folder")open(x)});
     };
@@ -18345,6 +18384,81 @@ body.ql-skin .ql-is-person{background:color-mix(in srgb,var(--sk-accent) 12%,tra
   }
   window.qlOpenItemShareViewer=openViewer;
   window.addEventListener("DOMContentLoaded",()=>{try{const t=new URLSearchParams(location.search).get("item_share");if(t)setTimeout(()=>openViewer(t),150)}catch{}});
+
+
+  /* ---------- Dashboard: posts every student can see (admin approves first) ---------- */
+  const dashIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="8" rx="1.6"></rect><rect x="13.5" y="3.5" width="7" height="5" rx="1.6"></rect><rect x="13.5" y="11.5" width="7" height="9" rx="1.6"></rect><rect x="3.5" y="14.5" width="7" height="6" rx="1.6"></rect></svg>';
+  const fromDash=x=>{try{return treeOf(x).some(n=>n&&n.ql_from_dash)}catch{return !!(x&&x.ql_from_dash)}};
+  async function postToDash(item){
+    const nodes=treeOf(item);
+    const line=item.kind==="folder"?`${summary(nodes)} — everything inside is posted`:item.kind==="quiz"?"Others can take this quiz — they can't see the answers or edit it":"Others can open it (view only)";
+    openModal("Post to Dashboard",`<div class="ql-is-shell">${shareCard(item,line)}
+      <div class="ql-is-note"><b>Every student can see it</b> after the admin approves it. Quizzes can be taken; PDFs, links and folders can be opened. You can take it down any time in Dashboard → My posts.</div>
+      <div id="qlIsStatus" class="status hidden"></div>
+      <div class="form-actions"><button id="qlIsCancel" class="btn" type="button">Cancel</button><button id="qlDashGo" class="btn primary" type="button">Post for approval</button></div></div>`);
+    $("#qlIsCancel").onclick=closeModal;const st=$("#qlIsStatus"),go=$("#qlDashGo");
+    const say=(t,c)=>{st.className="status"+(c?" "+c:"");st.innerHTML=t};
+    go.onclick=async()=>{go.disabled=true;
+      try{say("Preparing…");
+        const packet=await buildPacket(item,{pdfSeconds:60*60*24*365,externalQuizzes:true,both:true,onStep:(i,n)=>{if(n>1)say(`Preparing… ${i} / ${n}`)}});
+        const {error}=await service.client.rpc("ql_dash_post",{p_kind:item.kind,p_title:item.title||"",p_item_count:packet.nodes.length,p_payload:packet});
+        if(error)throw error;closeModal();toast("Posted — waiting for admin approval");
+      }catch(e){go.disabled=false;st.className="status";st.innerHTML=/ql_dash_post|PGRST202|42883/.test(String(e&&e.message))?`<div class="status error"><b>One Supabase step first:</b> run <b>dashboard.sql</b> in Supabase → SQL Editor.</div>`:errHtml(e)}};
+  }
+  let dashTab="all",dashKind="",dashQ="";
+  async function openDash(){
+    let d=document.getElementById("qlDash");if(!d){d=document.createElement("div");d.id="qlDash";document.body.appendChild(d)}
+    d.innerHTML=`<div class="qd-wrap"><div class="qd-empty">Loading…</div></div>`;
+    let data;try{const r=await service.client.rpc("ql_dash_list");if(r.error)throw r.error;data=r.data||{}}
+    catch(e){d.innerHTML=`<div class="qd-wrap"><div class="qd-top"><div><h1>Dashboard</h1></div><button type="button" class="ql-iv-close" data-qd-close>×</button></div><div class="qd-empty">${/ql_dash_list|PGRST202|42883/.test(String(e&&e.message))?"Dashboard is not set up yet (admin: run dashboard.sql).":h(friendlyError(e))}</div></div>`;d.querySelector("[data-qd-close]").onclick=()=>d.remove();return}
+    const draw=()=>{
+      const mine=dashTab==="mine",list=(mine?data.mine:data.posts)||[];
+      const q=dashQ.trim().toLowerCase();
+      const rows=list.filter(r=>(!dashKind||r.kind===dashKind)&&(!q||String(r.title).toLowerCase().includes(q)||String(r.author_name||"").toLowerCase().includes(q)));
+      const sub=r=>r.kind==="folder"?(r.item_count>1?plural(r.item_count-1,"item")+" inside":"Folder"):KN[r.kind];
+      const card=r=>`<div class="qd-card" data-post="${h(r.id)}">${kIco(r.kind)}<div><b>${h(r.title||KN[r.kind])}</b><br><small>${h(sub(r))}${mine?"":` · by ${h(r.author_name||"a student")}`} · ${new Date(r.created_at).toLocaleDateString([], {day:"numeric",month:"short"})}</small></div>
+        ${mine?`<div><span class="qd-tag ${h(r.status)}">${r.status==="pending"?"Waiting for approval":r.status==="approved"?"On the Dashboard":"Not approved"}</span>${r.admin_note?`<small style="display:block;margin-top:4px">${h(r.admin_note)}</small>`:""}</div><div class="qd-acts"><button type="button" class="qd-del" style="background:rgba(239,68,68,.12);color:#dc2626">Take down</button></div>`
+          :`<div class="qd-acts"><button type="button" class="qd-go">${r.kind==="quiz"?"Take quiz":"Open"}</button><button type="button" class="ql-dash-save" data-dash-save="${h(r.id)}">Save</button></div>`}</div>`;
+      d.innerHTML=`<div class="qd-wrap"><div class="qd-top"><span class="nav-icon" style="width:40px;height:40px">${dashIcon}</span><div><h1>Dashboard</h1><p>Quizzes, PDFs, links and folders shared by students</p></div><button type="button" class="ql-iv-close" data-qd-close aria-label="Close">×</button></div>
+        <div class="qd-tabs"><button type="button" data-qd-tab="all" class="${mine?"":"on"}">All posts</button><button type="button" data-qd-tab="mine" class="${mine?"on":""}">My posts (${(data.mine||[]).length})</button></div>
+        <input class="qd-search" placeholder="Search title or name…" value="${h(dashQ)}">
+        <div class="qd-kinds">${[["","All"],["quiz","Quizzes"],["pdf","PDFs"],["link","Links"],["folder","Folders"]].map(([k,l])=>`<button type="button" data-qd-kind="${k}" class="${dashKind===k?"on":""}">${l}</button>`).join("")}</div>
+        ${rows.length?`<div class="qd-grid">${rows.map(card).join("")}</div>`:`<div class="qd-empty">${mine?"You haven't posted anything yet. Use ⋮ → Post to Dashboard on any quiz, PDF, link or folder.":"Nothing here yet."}</div>`}</div>`;
+      d.querySelector("[data-qd-close]").onclick=()=>d.remove();
+      d.querySelectorAll("[data-qd-tab]").forEach(b=>b.onclick=()=>{dashTab=b.dataset.qdTab;draw()});
+      d.querySelectorAll("[data-qd-kind]").forEach(b=>b.onclick=()=>{dashKind=b.dataset.qdKind;draw()});
+      const si=d.querySelector(".qd-search");si.oninput=()=>{dashQ=si.value;clearTimeout(si.t);si.t=setTimeout(()=>{const pos=si.selectionStart;draw();const n=d.querySelector(".qd-search");n.focus();try{n.setSelectionRange(pos,pos)}catch{}},250)};
+      d.querySelectorAll("[data-post]").forEach(c=>{const id=c.dataset.post,r=list.find(x=>x.id===id);
+        c.querySelector(".qd-go")&&(c.querySelector(".qd-go").onclick=()=>openPost(r,data.can_save));
+        c.querySelector("[data-dash-save]")&&(c.querySelector("[data-dash-save]").onclick=()=>openPost(r,data.can_save,true));
+        c.querySelector(".qd-del")&&(c.querySelector(".qd-del").onclick=async()=>{if(!confirm("Take this post down from the Dashboard?"))return;try{const {error}=await service.client.rpc("ql_dash_delete_mine",{p_id:id});if(error)throw error;data.mine=data.mine.filter(x=>x.id!==id);data.posts=data.posts.filter(x=>x.id!==id);draw();toast("Post taken down")}catch(e){alert(friendlyError(e))}});
+      });
+    };
+    draw();
+  }
+  async function openPost(r,canSave,saveNow){
+    let opened=null;
+    const load=async()=>{const {data,error}=await service.client.rpc("ql_dash_open",{p_id:r.id});if(error)throw error;opened=data;return {payload:data.payload}};
+    if(r.kind==="quiz"&&!saveNow){
+      try{const x=await load();const n=(x.payload.nodes||[])[0];if(n&&n.quiz_link){window.open(n.quiz_link,"_blank","noopener");return}}catch(e){return alert(friendlyError(e))}
+    }
+    await openViewer(null,{inApp:true,load,sub:`by ${r.author_name||"a student"}`,
+      extra:`<div class="ql-dash-saverow"><select aria-label="Save to folder">${folderOptions()}</select><button type="button" class="ql-dash-save" data-dash-save-now>Save to my library</button></div><div class="status hidden" id="qlDashSaveSt" style="margin-top:8px"></div>`,
+      onShow:v=>{const b=v.querySelector("[data-dash-save-now]");if(!b)return;
+        b.onclick=()=>{if(b.classList.contains("ql-locked"))return;const st=v.querySelector("#qlDashSaveSt");
+          saveShare(r.id,v.querySelector(".ql-dash-saverow select").value,b,st,{mark:{ql_from_dash:true},load:async()=>{const {data,error}=await service.client.rpc("ql_dash_full",{p_id:r.id});if(error)throw error;return data}})}}});
+  }
+  window.qlPostToDash=postToDash;window.qlOpenDash=openDash;
+  function placeDashNav(){
+    const nav=document.querySelector(".sidebar .nav");if(!nav||document.getElementById("qlDashNav"))return;
+    if(typeof qlIsStudentWorkspace==="function"&&!qlIsStudentWorkspace())return;
+    const b=document.createElement("button");b.id="qlDashNav";b.type="button";b.className="student-workspace-allowed";
+    b.innerHTML=`<span class="nav-icon">${dashIcon}</span><span>Dashboard</span>`;
+    b.onclick=e=>{e.preventDefault();e.stopPropagation();const sb=document.getElementById("sidebar");if(sb&&sb.classList.contains("open")){try{closeSidebar()}catch{}}openDash()};
+    nav.insertBefore(b,nav.firstElementChild&&nav.firstElementChild.nextElementSibling);
+  }
+  if(typeof render==="function"){const prevR=render;render=function(){const r=prevR.apply(this,arguments);try{placeDashNav()}catch{}return r}}
+  setTimeout(placeDashNav,800);
 
   window.qlShareInternally=x=>x&&x.kind==="quiz"?shareOne(x):shareInternally(x);
   /* select-many bar: several items go as ONE share, wrapped in a folder ("Shared items (3)") */
@@ -18360,7 +18474,7 @@ body.ql-skin .ql-is-person{background:color-mix(in srgb,var(--sk-accent) 12%,tra
     const x=selectedBundle();if(!x)return toast("Select something first");
     if(b.id==="selShareInBtn")window.qlShareInternally(x);else window.qlShareExternally(x);
   });
-  window.qlShareExternally=x=>x&&x.kind==="quiz"?window.__quizTest.openExternalQuizShare(x):shareExternally(x);
+  window.qlShareExternally=x=>{if(x&&fromDash(x))return toast("Items saved from the Dashboard can't be shared externally.");return x&&x.kind==="quiz"?window.__quizTest.openExternalQuizShare(x):shareExternally(x)};
 })();
 </script>
 <style id="qlPlansStyle">
@@ -18495,6 +18609,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     new_pdf:['#newMenu [data-new="pdf"]','#adminQuickActions [data-quick="pdf"]'],new_quiz:['#newMenu [data-quiz-new]','#adminQuickActions [data-quiz-quick]'],
     item_share_in:['#itemMenu [data-ql-feat="item_share_in"]'],item_share_ex:['#itemMenu [data-ql-feat="item_share_ex"]'],item_duplicate:['#itemMenu [data-ql-feat="item_duplicate"]'],
     item_move:['#itemMenu [data-ql-feat="item_move"]'],item_edit:['#itemMenu [data-ql-feat="item_edit"]'],item_trash:['#itemMenu [data-ql-feat="item_trash"]'],
+    nav_dashboard:['#qlDashNav'],item_share_dash:['#itemMenu [data-ql-feat="item_share_dash"]'],dash_save:['.ql-dash-save'],
     sel_share_in:['#selShareInBtn'],sel_share_ex:['#selShareExBtn'],sel_copy:['#copySelectedBtn'],sel_duplicate:['#duplicateSelectedBtn'],sel_move:['#moveSelectedBtn'],sel_trash:['#trashSelectedBtn'],
     quiz_autoadv:['#qzToolsAutoAdv','#qzBtnAutoAdvance'],quiz_shuffle:['#qzToolsShuffle','#qzBtnShuffle'],quiz_bookmark:['#qzBookmarkBtn','#qzFlagBtn'],quiz_summary:['#qzSummaryBtn'],quiz_results:['#qzBtnResults'],
     ed_addnew:['#qzBtnAddNew'],ed_images:['#qzBtnImageManager'],ed_move:['#qzBtnMoveQuestions'],ed_sections:['#qzBtnSessions'],ed_find:['#qzFindBar'],
@@ -18688,7 +18803,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     const names={nav_random:"Random Quiz",nav_inbox:"Shared with me",nav_favorites:"Favorites",nav_recent:"Recent",nav_shared_links:"Shared Links",nav_trash:"Trash",nav_install:"Install app",
       new_folder:"Create Folder",new_link:"Add Quiz Link",new_pdf:"Upload PDF",new_quiz:"Create Quiz",
       item_share_in:"Share internally",item_share_ex:"Share externally + QR",item_duplicate:"Duplicate",item_move:"Move",item_edit:"Edit",item_trash:"Move to trash",
-      sel_share_in:"Share many internally",sel_share_ex:"Share many externally",sel_copy:"Copy links of many",sel_duplicate:"Duplicate many",sel_move:"Move many",sel_trash:"Trash many",
+      nav_dashboard:"Dashboard",item_share_dash:"Post to Dashboard",dash_save:"Save from Dashboard to my library",sel_share_in:"Share many internally",sel_share_ex:"Share many externally",sel_copy:"Copy links of many",sel_duplicate:"Duplicate many",sel_move:"Move many",sel_trash:"Trash many",
       quiz_autoadv:"Auto-advance",quiz_shuffle:"Shuffle",quiz_bookmark:"Bookmark & Flag",quiz_summary:"Quiz Summary",quiz_results:"Quiz Results",
       ed_addnew:"Add New Questions",ed_images:"Image Manager",ed_move:"Move Questions",ed_sections:"Sections",ed_find:"Find & check problems",
       pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list"};
