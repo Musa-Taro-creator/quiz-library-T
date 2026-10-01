@@ -383,6 +383,10 @@ function manageUser(r){
     <span class="dcust"><input id="gN" class="in small" type="number" min="1" placeholder="Custom"><select id="gU" class="in small"><option value="1">days</option><option value="30">months</option><option value="365">years</option></select></span></div>
    <div class="inline" style="margin-top:8px"><input id="gMsg" class="in" style="flex:1;min-width:180px" placeholder="Message (optional), e.g. Thanks for joining!" maxlength="300"><button class="btn p" id="gSend">Send gift</button></div>
    <div id="gList" style="margin-top:8px"></div>
+   <div class="sec-t">👋 Personal greeting</div>
+   <div class="note" style="margin:0 0 8px">Only for this person — replaces the normal greeting. Use {name} for their name. Leave both empty to use the normal greeting.</div>
+   <div class="two"><div class="fld"><label>Greeting</label><input id="pgT" class="in" maxlength="80" placeholder="e.g. Hi {name}, happy birthday! 🎂"></div><div class="fld"><label>Extra line</label><input id="pgN" class="in" maxlength="160" placeholder="optional"></div></div>
+   <div class="inline"><label class="chk" style="margin:0"><input type="checkbox" id="pgOff">No greeting for this person</label><span style="flex:1"></span><button class="btn p" id="pgSave">Save greeting</button></div>
    <div class="sec-t">Extra storage on top of the plan</div><div class="inline"><input id="mExtra" class="in small" type="number" min="0" value="${Number(r.extra_storage_mb||0)}"> MB <button class="btn" id="mExtraSave">Save</button></div>
    <div class="sec-t">Account</div><div class="inline"><button class="btn" id="mOut">Sign out all devices</button>${r.status==="suspended"?`<button class="btn g" id="mSus">Unsuspend account</button>`:`<button class="btn r" id="mSus">Suspend account</button>`}</div>
    <div class="note">Suspended accounts are signed out and see a message until you unsuspend them. Nothing is deleted.</div>
@@ -392,6 +396,8 @@ function manageUser(r){
   const act=async(a,args,msg)=>{try{await rpc("ql_admin_update_user",{p_user:r.user_id,p_action:a,p_plan:null,p_days:null,p_value:null,...args});toast(msg);o.remove();go("users")}catch(e){alert(errMsg(e))}};
   o.querySelector("#mSet").onclick=()=>{const d=o.querySelector("#mLen").value;act("set_plan",{p_plan:o.querySelector("#mPlan").value,p_days:d?Number(d):null},"Plan changed")};
   o.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>act("add_days",{p_plan:r.plan_id,p_days:Number(b.dataset.add)},"Time added"));
+  rpc("ql_admin_get_greeting",{p_user:r.user_id}).then(g=>{if(!g)return;o.querySelector("#pgT").value=g.greeting||"";o.querySelector("#pgN").value=g.note||"";o.querySelector("#pgOff").checked=!!g.off}).catch(()=>{});
+  o.querySelector("#pgSave").onclick=async()=>{try{await rpc("ql_admin_set_greeting",{p_user:r.user_id,p_greeting:o.querySelector("#pgT").value.trim(),p_note:o.querySelector("#pgN").value.trim(),p_off:o.querySelector("#pgOff").checked});toast("Personal greeting saved")}catch(e){alert(/ql_admin_set_greeting|PGRST202|42883|does not exist/.test(errMsg(e))?"Run user_greetings.sql in Supabase first.":errMsg(e))}};
   let gDays=30;
   o.querySelectorAll("[data-gl]").forEach(b=>b.onclick=()=>{gDays=b.dataset.gl===""?null:Number(b.dataset.gl);o.querySelector("#gN").value="";o.querySelectorAll("[data-gl]").forEach(x=>x.classList.toggle("on",x===b))});
   const gCustom=()=>{const n=Number(o.querySelector("#gN").value);if(n>0){gDays=n*Number(o.querySelector("#gU").value);o.querySelectorAll("[data-gl]").forEach(x=>x.classList.remove("on"))}};

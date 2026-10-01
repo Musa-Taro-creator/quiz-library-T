@@ -18651,7 +18651,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   const money=v=>v==null||v===""?"":"$"+Number(v).toFixed(Number(v)%1?2:0);
   const cli=()=>typeof service!=="undefined"&&service.client;
   const signedIn=()=>typeof state!=="undefined"&&state.user&&!state.user.__mock&&!state.isAdmin;
-  let cfg=null,mine=null,ready=false,skew=0,timer=null,gifts=[];
+  let cfg=null,mine=null,ready=false,skew=0,timer=null,gifts=[],myGreet=null,myGreetLoaded=false;
   window.qlPlansState=()=>({cfg,mine});
   const plans=()=>(cfg&&cfg.plans)||[];
   const defPlan=()=>plans().find(p=>p.is_default)||plans()[0]||null;
@@ -18676,6 +18676,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       else if(seen===null){try{localStorage.setItem(key,(p&&p.id)+"|"+(s&&s.ends_at))}catch{}}
     }catch{return}
     try{const g=await c.rpc("ql_my_gifts");gifts=g.error?[]:(g.data||[])}catch{gifts=[]}
+    try{const g=await c.rpc("ql_my_greeting");myGreet=g.error?null:g.data}catch{myGreet=null}myGreetLoaded=true;
     checkAccount();applyAll();storageAlert();
   }
   function storageAlert(){
@@ -18736,9 +18737,12 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   /* ---------- greeting after sign-in (admin → Announcements → Greeting) ---------- */
   const greetFix=(tries=0)=>{
     const el=document.getElementById("studentWelcomeFloat");if(!el||el.dataset.qlGreet)return;
-    if(!ready){if(tries<20)setTimeout(()=>greetFix(tries+1),150);return}
+    if(!ready||(signedIn()&&!myGreetLoaded)){if(tries<25)setTimeout(()=>greetFix(tries+1),150);return}
     el.dataset.qlGreet="1";
-    const g=cfg&&cfg.settings&&cfg.settings.site&&cfg.settings.site.greet;if(!g)return;
+    const g0=(cfg&&cfg.settings&&cfg.settings.site&&cfg.settings.site.greet)||{};
+    const p=myGreet||{};if(p.off){el.remove();return}
+    const g={...g0};if(p.greeting){g.first=p.greeting;g.back=p.greeting}if(p.note)g.note=p.note;
+    if(!g0.first&&!g0.back&&!g0.note&&g0.on==null&&!p.greeting&&!p.note)return;
     if(g.on===false){el.remove();return}
     const name=(state.user&&state.user.user_metadata&&(state.user.user_metadata.full_name||state.user.user_metadata.name))||(state.user&&String(state.user.email||"").split("@")[0])||"Student";
     const t=el.querySelector(".student-welcome-title"),back=/back/i.test(t?t.textContent:"");
