@@ -18007,7 +18007,7 @@ body.ql-neon #itemMenu.ql-im button.danger,body.ql-ocean #itemMenu.ql-im button.
     const canEdit=qlCanMutate()||(typeof qlIsStudentWorkspace==="function"&&qlIsStudentWorkspace());
     const isQuiz=x.kind==="quiz";
     m.innerHTML="";m.classList.add("ql-im");
-    const add=(k,label,fn,opt={})=>{const b=document.createElement("button");b.type="button";b.className=(opt.cls||"")+(opt.off?" ql-im-off":"");
+    const add=(k,label,fn,opt={})=>{const b=document.createElement("button");b.type="button";b.className=(opt.cls||"")+(opt.off?" ql-im-off":"");if(opt.feat)b.dataset.qlFeat=opt.feat;
       b.innerHTML=`${ico(k)}<span class="ql-mi-label">${label}</span>${opt.note?`<span class="ql-im-note">${opt.note}</span>`:""}`;
       b.onclick=ev=>{ev.stopPropagation();if(opt.off){toast(opt.offMsg||"Not available");return}closeMenus();try{fn()}catch(e){alert(friendlyError(e))}};m.append(b)};
     const sep=()=>{const d=document.createElement("div");d.className="ql-im-sep";m.append(d)};
@@ -18015,15 +18015,15 @@ body.ql-neon #itemMenu.ql-im button.danger,body.ql-ocean #itemMenu.ql-im button.
     add("open","Open",()=>openItem(x));
     add(fav?"favOn":"fav",fav?"Remove favorite":"Add favorite",()=>toggleFavorite(x));
     sep();
-    add("inShare","Share internally",()=>window.qlShareInternally(x));
-    add("exShare","Share externally",()=>window.qlShareExternally(x));
+    add("inShare","Share internally",()=>window.qlShareInternally(x),{feat:"item_share_in"});
+    add("exShare","Share externally",()=>window.qlShareExternally(x),{feat:"item_share_ex"});
     if(canEdit){
       sep();
-      add("edit","Edit",()=>openEditor(x));
-      add("move","Move",()=>openMove([x.id]));
-      add("dup","Duplicate",()=>duplicateItems([x.id]));
+      add("edit","Edit",()=>openEditor(x),{feat:"item_edit"});
+      add("move","Move",()=>openMove([x.id]),{feat:"item_move"});
+      add("dup","Duplicate",()=>duplicateItems([x.id]),{feat:"item_duplicate"});
       sep();
-      add("trash","Move to trash",()=>trashItems([x.id]),{cls:"danger"});
+      add("trash","Move to trash",()=>trashItems([x.id]),{cls:"danger",feat:"item_trash"});
     }
   };
 })();
@@ -18329,6 +18329,375 @@ body.ql-skin .ql-is-person{background:color-mix(in srgb,var(--sk-accent) 12%,tra
 
   window.qlShareInternally=x=>x&&x.kind==="quiz"?shareOne(x):shareInternally(x);
   window.qlShareExternally=x=>x&&x.kind==="quiz"?window.__quizTest.openExternalQuizShare(x):shareExternally(x);
+})();
+</script>
+<style id="qlPlansStyle">
+/* plan card (My Profile) */
+.qs-wrap{display:block!important;margin-bottom:18px}
+.qs-card{position:relative;overflow:hidden;border-radius:22px;padding:20px 22px;color:#fff;background:linear-gradient(120deg,#4f46e5,#7c3aed 55%,#db2777);box-shadow:0 18px 40px rgba(79,70,229,.3)}
+.qs-card::after{content:"";position:absolute;right:-60px;top:-60px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.28),transparent 70%);pointer-events:none}
+.qs-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap;position:relative;z-index:1}
+.qs-plan small{display:block;font-size:12px;letter-spacing:.12em;font-weight:800;opacity:.85}
+.qs-plan b{display:flex;align-items:center;gap:8px;font-size:28px;font-weight:800;line-height:1.15}
+.qs-plan b i{font-style:normal;font-size:12px;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.22)}
+.qs-plan span{display:block;font-size:13px;opacity:.9;margin-top:2px}
+.qs-cd{display:flex;gap:8px;margin-left:auto}
+.qs-cd div{min-width:66px;text-align:center;padding:10px 8px;border-radius:14px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:inherit}
+.qs-cd b{display:block;font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1;color:inherit!important}
+.qs-cd small{font-size:10.5px;letter-spacing:.1em;font-weight:700;opacity:.85;color:inherit!important}
+.qs-bar{position:relative;z-index:1;margin-top:16px;height:8px;border-radius:9px;background:rgba(255,255,255,.22);overflow:hidden}.qs-bar i{display:block;height:100%;background:#fff;border-radius:9px}
+.qs-meta{position:relative;z-index:1;display:flex;justify-content:space-between;gap:10px;font-size:12px;opacity:.9;margin-top:6px}
+.qs-use{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.qs-use div{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.13)}
+.qs-use small{display:block;font-size:11.5px;opacity:.85}.qs-use b{font-size:15px}
+.qs-use em{display:block;height:5px;border-radius:9px;background:rgba(255,255,255,.25);margin-top:6px;overflow:hidden}.qs-use em i{display:block;height:100%;background:#fff}
+.qs-use div.full em i{background:#fca5a5!important}
+.qs-acts{position:relative;z-index:1;display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.qs-acts button{padding:10px 18px;border-radius:999px;font-weight:800;font-size:14px;background:#fff;color:#4f46e5;border:0;cursor:pointer;font-family:inherit}
+.qs-acts button.g{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.4)}
+.qs-wait{position:relative;z-index:1;margin-top:12px;padding:9px 12px;border-radius:12px;background:rgba(255,255,255,.16);font-size:13px;font-weight:600}
+body.ql-white .qs-card{color:#1e1b4b;background:linear-gradient(135deg,rgba(255,255,255,.85),rgba(238,242,255,.75) 50%,rgba(253,242,248,.8));border:1px solid rgba(255,255,255,.95);box-shadow:0 18px 40px rgba(99,102,241,.16);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+body.ql-white .qs-card::after{background:radial-gradient(circle,rgba(168,85,247,.18),transparent 70%)}
+body.ql-white .qs-plan b{background:linear-gradient(90deg,#4f46e5,#a855f7,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
+body.ql-white .qs-plan b i{color:#047857;background:#d1fae5;-webkit-text-fill-color:#047857}
+body.ql-white .qs-plan small{color:#6366f1}
+body.ql-white .qs-cd div{background:rgba(255,255,255,.9);border-color:#e0e7ff;color:#4338ca;box-shadow:0 6px 16px rgba(99,102,241,.12)}
+body.ql-white .qs-bar{background:#e0e7ff}body.ql-white .qs-bar i{background:linear-gradient(90deg,#6366f1,#ec4899)}
+body.ql-white .qs-use div{background:rgba(255,255,255,.75);border:1px solid #eef2ff}body.ql-white .qs-use em{background:#e0e7ff}body.ql-white .qs-use em i{background:linear-gradient(90deg,#6366f1,#a855f7)}
+body.ql-white .qs-acts button{background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff}
+body.ql-white .qs-acts button.g{background:#fff;color:#4338ca;border:1px solid #c7d2fe}
+body.ql-white .qs-wait{background:#eef2ff;color:#3730a3}
+body.ql-neon .qs-card{color:#e6faff;background:linear-gradient(135deg,rgba(8,12,24,.92),rgba(15,10,35,.92));border:1px solid rgba(0,229,255,.45);box-shadow:0 0 24px rgba(0,229,255,.25),inset 0 0 30px rgba(255,46,151,.08)}
+body.ql-neon .qs-card::after{background:radial-gradient(circle,rgba(255,46,151,.25),transparent 70%)}
+body.ql-neon .qs-plan b{color:#00e5ff;text-shadow:0 0 14px rgba(0,229,255,.7)}
+body.ql-neon .qs-plan b i{color:#39ff88;background:rgba(57,255,136,.12);border:1px solid rgba(57,255,136,.5);text-shadow:none}
+body.ql-neon .qs-plan small{color:#ff2e97}
+body.ql-neon .qs-cd div{background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.55);box-shadow:0 0 12px rgba(0,229,255,.25)}
+body.ql-neon .qs-cd b{color:#00e5ff!important;text-shadow:0 0 10px rgba(0,229,255,.8)}
+body.ql-neon .qs-bar{background:rgba(255,255,255,.08)}body.ql-neon .qs-bar i{background:linear-gradient(90deg,#00e5ff,#ff2e97);box-shadow:0 0 12px rgba(0,229,255,.7)}
+body.ql-neon .qs-use div{background:rgba(255,255,255,.04);border:1px solid rgba(255,46,151,.35)}body.ql-neon .qs-use em{background:rgba(255,255,255,.08)}body.ql-neon .qs-use em i{background:#ff2e97;box-shadow:0 0 8px #ff2e97}
+body.ql-neon .qs-acts button{background:linear-gradient(135deg,#00e5ff,#ff2e97);color:#0b0b17}
+body.ql-neon .qs-acts button.g{background:transparent;color:#00e5ff;border:1px solid rgba(0,229,255,.6)}
+body.ql-ocean .qs-card{color:#ecfeff;background:linear-gradient(120deg,#0b3954,#0e6377 55%,#f08a4b);border:1px solid rgba(255,255,255,.25);box-shadow:0 18px 40px rgba(8,47,73,.45)}
+body.ql-ocean .qs-card::after{background:radial-gradient(circle,rgba(255,200,120,.45),transparent 70%)}
+body.ql-ocean .qs-plan small{color:#ffd7a8}
+body.ql-ocean .qs-cd div{background:rgba(255,255,255,.12);border-color:rgba(255,215,168,.5)}
+body.ql-ocean .qs-cd b{color:#fff7ed!important}
+body.ql-ocean .qs-bar i{background:linear-gradient(90deg,#5eead4,#fdba74)}
+body.ql-ocean .qs-use em i{background:#fdba74}
+body.ql-ocean .qs-acts button{background:linear-gradient(135deg,#fdba74,#fb7185);color:#3b0d0c}
+body.ql-ocean .qs-acts button.g{background:rgba(255,255,255,.1);color:#fff7ed;border:1px solid rgba(255,215,168,.6)}
+@media(max-width:760px){.qs-cd{margin-left:0;width:100%}.qs-cd div{flex:1;min-width:0}.qs-use{grid-template-columns:1fr}}
+/* upgrade / pay / done windows */
+.qu-top{text-align:center}
+.qu-toggle{display:inline-flex;padding:4px;border-radius:999px;background:#eef2ff;margin:0 auto 14px;gap:4px}
+.qu-toggle button{padding:7px 16px;border-radius:999px;font-weight:800;font-size:13px;color:#4338ca;border:0;background:none;cursor:pointer;font-family:inherit}.qu-toggle button.on{background:#4f46e5;color:#fff}
+.qu-toggle em{font-style:normal;font-size:11px;background:#10b981;color:#fff;border-radius:999px;padding:1px 6px;margin-left:4px}
+.qu-plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.qu-p{position:relative;border-radius:18px;padding:16px;border:1px solid #e5e7eb;background:#fff;display:flex;flex-direction:column}
+.qu-p.cur{background:#f8fafc}.qu-p.hl{border:2px solid var(--pc,#6366f1);box-shadow:0 12px 30px rgba(99,102,241,.2)}
+.qu-p .bd{position:absolute;top:-10px;right:12px;font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:999px;color:#fff;background:var(--pc,#6366f1)}
+.qu-p h4{margin:0;font-size:17px}.qu-p .tl{font-size:12.5px;color:#64748b}.qu-p .pr{font-size:26px;font-weight:800;margin:6px 0 2px}.qu-p .pr small{font-size:12px;color:#64748b;font-weight:600}
+.qu-p ul{list-style:none;padding:0;margin:10px 0 14px;display:grid;gap:7px;font-size:13px;color:#334155;flex:1}
+.qu-p li::before{content:"✓ ";color:#10b981;font-weight:800}.qu-p li.no{color:#94a3b8}.qu-p li.no::before{content:"✕ ";color:#cbd5e1}
+.qu-p .b{display:block;width:100%;text-align:center;padding:10px;border-radius:12px;font-weight:800;font-size:14px;background:#eef2ff;color:#4338ca;border:0;cursor:pointer;font-family:inherit}
+.qu-p.hl .b{background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff}.qu-p .b:disabled{background:#e2e8f0;color:#64748b;cursor:default}
+.qu-code{display:flex;gap:8px;align-items:center;margin-top:14px;padding:12px;border-radius:14px;background:#f8fafc;border:1px dashed #c7d2fe;font-size:13px;flex-wrap:wrap}
+.qu-code b{white-space:nowrap}.qu-code input{flex:1;min-width:160px;padding:9px 12px;border-radius:10px;border:1px solid #e5e7eb;background:#fff;font-family:ui-monospace,Menlo,monospace;letter-spacing:.08em;text-transform:uppercase}
+.qu-code button{padding:9px 14px;border-radius:10px;background:#111827;color:#fff;font-weight:800;border:0;cursor:pointer;font-family:inherit}
+.qpay{display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:start}
+.qpay .qr{width:200px;height:200px;border-radius:16px;background:#fff;border:1px solid #e5e7eb;display:grid;place-items:center;padding:8px;overflow:hidden}.qpay .qr img{max-width:100%;max-height:100%}
+.qpay .sum{padding:12px 14px;border-radius:14px;background:#eef2ff;margin-bottom:10px;font-size:13.5px;color:#1e1b4b}.qpay .sum b{font-size:18px}
+.qpay ol{margin:0;padding-left:18px;font-size:13.5px;line-height:1.7}
+.qpay .up{display:block;margin-top:10px;padding:14px;border-radius:14px;border:2px dashed #c7d2fe;text-align:center;color:#4f46e5;font-weight:800;font-size:13.5px;cursor:pointer}
+.qpay .up img{max-height:120px;border-radius:10px;display:block;margin:0 auto 6px}
+.qok{text-align:center;padding:6px 0}.qok .big{width:70px;height:70px;border-radius:50%;margin:0 auto 10px;display:grid;place-items:center;font-size:34px;color:#fff;background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 12px 30px rgba(16,185,129,.35)}
+.qok .qs-cd{justify-content:center;margin:0}.qok .qs-cd div{background:#4f46e5;color:#fff;border-color:#4f46e5}
+.qh-row{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(148,163,184,.2);font-size:13.5px}.qh-row>span{flex:1}
+.qh-tag{font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:999px}.qh-tag.waiting{background:#fffbeb;color:#b45309}.qh-tag.approved{background:#ecfdf5;color:#047857}.qh-tag.rejected{background:#fef2f2;color:#b91c1c}
+@media(max-width:640px){.qpay{grid-template-columns:1fr}.qpay .qr{margin:0 auto}}
+body.ql-neon .qu-p,body.ql-ocean .qu-p{background:color-mix(in srgb,var(--sk-veil) 6%,transparent);border-color:color-mix(in srgb,var(--sk-accent) 30%,transparent);color:var(--sk-text)}
+body.ql-neon .qu-p ul,body.ql-ocean .qu-p ul{color:var(--sk-text)}body.ql-neon .qu-p .pr small,body.ql-ocean .qu-p .pr small,body.ql-neon .qu-p .tl,body.ql-ocean .qu-p .tl{color:var(--sk-muted)}
+body.ql-neon .qu-p.hl{border:2px solid #00e5ff;box-shadow:0 0 22px rgba(0,229,255,.35)}
+body.ql-neon .qu-p.hl .b,body.ql-neon .qu-p .bd,body.ql-neon .qu-toggle button.on{background:linear-gradient(135deg,#00e5ff,#ff2e97);color:#0b0b17}
+body.ql-neon .qu-p .b,body.ql-ocean .qu-p .b{background:color-mix(in srgb,var(--sk-accent) 14%,transparent);color:var(--sk-accent)}
+body.ql-neon .qu-p .b:disabled,body.ql-ocean .qu-p .b:disabled{background:color-mix(in srgb,var(--sk-veil) 8%,transparent);color:var(--sk-muted)}
+body.ql-ocean .qu-p.hl{border:2px solid #fdba74;box-shadow:0 12px 30px rgba(253,186,116,.25)}
+body.ql-ocean .qu-p.hl .b,body.ql-ocean .qu-p .bd,body.ql-ocean .qu-toggle button.on{background:linear-gradient(135deg,#fdba74,#fb7185);color:#3b0d0c}
+body.ql-neon .qu-toggle,body.ql-ocean .qu-toggle{background:color-mix(in srgb,var(--sk-veil) 8%,transparent)}body.ql-neon .qu-toggle button,body.ql-ocean .qu-toggle button{color:var(--sk-text)}
+body.ql-neon .qu-code,body.ql-ocean .qu-code{background:color-mix(in srgb,var(--sk-veil) 5%,transparent);border-color:color-mix(in srgb,var(--sk-accent) 35%,transparent);color:var(--sk-text)}
+body.ql-neon .qu-code input,body.ql-ocean .qu-code input{background:transparent;color:var(--sk-text);border-color:color-mix(in srgb,var(--sk-accent) 30%,transparent)}
+body.ql-neon .qu-code button{background:#00e5ff;color:#0b0b17}body.ql-ocean .qu-code button{background:#fdba74;color:#3b0d0c}
+body.ql-neon .qpay .sum,body.ql-ocean .qpay .sum{background:color-mix(in srgb,var(--sk-accent) 12%,transparent);color:var(--sk-text)}
+body.ql-neon .qpay .up,body.ql-ocean .qpay .up{border-color:color-mix(in srgb,var(--sk-accent) 45%,transparent);color:var(--sk-accent)}
+body.ql-neon .qok .qs-cd div{background:transparent;border-color:#00e5ff;color:#00e5ff}body.ql-ocean .qok .qs-cd div{background:linear-gradient(135deg,#0e6377,#f08a4b);border-color:transparent}
+/* locked buttons, closed website, announcement */
+.ql-locked{position:relative;opacity:.6}
+.ql-locked::after{content:"🔒";position:absolute;top:2px;right:4px;font-size:11px;line-height:1;filter:grayscale(.2)}
+#itemMenu button.ql-locked::after,#newMenu button.ql-locked::after{position:static;margin-left:auto}
+.ql-closed{position:fixed;inset:0;z-index:2147483300;display:grid;place-items:center;padding:20px;background:linear-gradient(140deg,#0f172a,#312e81 60%,#6d28d9);color:#fff;text-align:center}
+.ql-closed .box{max-width:460px}.ql-closed img{width:72px;height:72px;border-radius:18px;margin-bottom:14px}
+.ql-closed h2{margin:0 0 8px;font-size:24px}.ql-closed p{margin:0;opacity:.85;line-height:1.5}
+.ql-closed button{margin-top:18px;padding:10px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12);color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.ql-ann{position:relative;z-index:30;display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:14px;font-weight:600}
+.ql-ann.info{background:#eef2ff;color:#3730a3}.ql-ann.success{background:#ecfdf5;color:#065f46}.ql-ann.warning{background:#fffbeb;color:#92400e}
+.ql-ann span{flex:1}.ql-ann button{border:0;background:none;color:inherit;font-size:18px;cursor:pointer;opacity:.7}
+body.ql-neon .ql-ann{background:rgba(0,229,255,.1);color:#bff8ff;border-bottom:1px solid rgba(0,229,255,.35)}
+body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bottom:1px solid rgba(253,186,116,.4)}
+.ql-admin-closed-note{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:2147483000;background:#dc2626;color:#fff;padding:6px 14px;border-radius:999px;font-size:12.5px;font-weight:800;box-shadow:0 8px 20px rgba(0,0,0,.25)}
+</style>
+<script id="qlPlans">
+/* Kuza: sell Quiz Library with plans (Free / Pro / Max, set in admin.html).
+   Reads website settings + the student's plan (supabase/plans_admin.sql):
+   plan card with countdown in My Profile, Upgrade / Pay / Enter code,
+   plan limits, buttons switched on/off by admin, closed-website screen,
+   announcements, suspended accounts. Until the SQL is installed this
+   script does nothing and the app works as before. */
+(function(){
+  /* feature key -> where it is in the students' website (keep in sync with admin.html) */
+  const SEL={
+    nav_random:['#randomQuizNavBtn','[data-tab="random"]'],nav_inbox:['#studentSharedQuizInbox','[data-tab="inbox"]'],
+    nav_favorites:['.sidebar [data-section="favorites"]'],nav_recent:['.sidebar [data-section="recent"]','[data-tab="recent"]'],
+    nav_shared_links:['.sidebar [data-section="shared"]'],nav_trash:['.sidebar [data-section="trash"]'],nav_install:['#qlInstallNav','.ql-install-row'],
+    new_folder:['#newMenu [data-new="folder"]','#adminQuickActions [data-quick="folder"]'],new_link:['#newMenu [data-new="link"]','#adminQuickActions [data-quick="link"]'],
+    new_pdf:['#newMenu [data-new="pdf"]','#adminQuickActions [data-quick="pdf"]'],new_quiz:['#newMenu [data-quiz-new]','#adminQuickActions [data-quiz-quick]'],
+    item_share_in:['#itemMenu [data-ql-feat="item_share_in"]'],item_share_ex:['#itemMenu [data-ql-feat="item_share_ex"]'],item_duplicate:['#itemMenu [data-ql-feat="item_duplicate"]'],
+    item_move:['#itemMenu [data-ql-feat="item_move"]'],item_edit:['#itemMenu [data-ql-feat="item_edit"]'],item_trash:['#itemMenu [data-ql-feat="item_trash"]'],
+    quiz_autoadv:['#qzToolsAutoAdv','#qzBtnAutoAdvance'],quiz_shuffle:['#qzToolsShuffle','#qzBtnShuffle'],quiz_bookmark:['#qzBookmarkBtn','#qzFlagBtn'],quiz_summary:['#qzSummaryBtn'],quiz_results:['#qzBtnResults'],
+    ed_addnew:['#qzBtnAddNew'],ed_images:['#qzBtnImageManager'],ed_move:['#qzBtnMoveQuestions'],ed_sections:['#qzBtnSessions'],ed_find:['#qzFindBar'],
+    pf_edit:['#profileEditBtn'],pf_avatar:['#profileChangeAvatarBtn'],pf_themes:['.ql-theme-switch .ql-theme-opt:not([data-skin="white"])'],pf_devices:['.ql-dev-wrap'],
+    signup:['.ql-auth-footer:has(#focusStudentRegister)','#studentRegisterForm']
+  };
+  const LIMIT_LABEL={quizzes:"quizzes",pdfs:"PDFs",storage:"storage"};
+  const h=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const money=v=>v==null||v===""?"":"$"+Number(v).toFixed(Number(v)%1?2:0);
+  const cli=()=>typeof service!=="undefined"&&service.client;
+  const signedIn=()=>typeof state!=="undefined"&&state.user&&!state.user.__mock&&!state.isAdmin;
+  let cfg=null,mine=null,ready=false,skew=0,timer=null;
+  window.qlPlansState=()=>({cfg,mine});
+  const plans=()=>(cfg&&cfg.plans)||[];
+  const defPlan=()=>plans().find(p=>p.is_default)||plans()[0]||null;
+  const curPlan=()=>(mine&&mine.plan)||defPlan();
+  const sub=()=>mine&&mine.subscription;
+  const now=()=>Date.now()+skew;
+  const featMode=k=>((cfg&&cfg.settings&&cfg.settings.features)||{})[k]||"on";
+  function allowed(k){const m=featMode(k);if(m==="off")return "off";if(m==="plan"){if(k==="signup")return "on";const p=curPlan();return p&&p.features&&p.features[k]?"on":"locked"}return "on"}
+
+  /* ---------- load ---------- */
+  async function loadCfg(){
+    const c=cli();if(!c)return;
+    try{const {data,error}=await c.rpc("ql_public_config");if(error)return;cfg=data;if(data&&data.server_time)skew=new Date(data.server_time)-Date.now();ready=true}catch{return}
+    applyAll();
+  }
+  async function loadMine(){
+    const c=cli();if(!c||!signedIn()){mine=null;return applyAll()}
+    try{const {data,error}=await c.rpc("ql_my_plan");if(error)return;const before=mine&&mine.plan&&mine.plan.id;mine=data;
+      const key="ql_plan_seen_"+state.user.id,seen=(()=>{try{return localStorage.getItem(key)}catch{return null}})();
+      const p=mine.plan,s=mine.subscription;
+      if(p&&!p.is_default&&s&&seen!==p.id+"|"+s.ends_at){try{localStorage.setItem(key,p.id+"|"+s.ends_at)}catch{}if(seen!==null||before)showActivated()}
+      else if(seen===null){try{localStorage.setItem(key,(p&&p.id)+"|"+(s&&s.ends_at))}catch{}}
+    }catch{return}
+    checkAccount();applyAll();
+  }
+  function subscribe(){
+    const c=cli();if(!c||subscribe.done)return;subscribe.done=true;
+    try{c.channel("ql-plans-public").on("postgres_changes",{event:"*",schema:"public",table:"ql_site_settings"},()=>loadCfg()).on("postgres_changes",{event:"*",schema:"public",table:"ql_plans"},()=>{loadCfg();loadMine()}).subscribe()}catch{}
+  }
+  let subUser=null;
+  function subscribeMine(){
+    const c=cli();if(!c||!signedIn()||subUser===state.user.id)return;subUser=state.user.id;
+    try{c.channel("ql-plan-"+subUser).on("postgres_changes",{event:"*",schema:"public",table:"ql_subscriptions",filter:"user_id=eq."+subUser},()=>loadMine()).subscribe()}catch{}
+  }
+
+  /* ---------- account checks ---------- */
+  function checkAccount(){
+    const s=sub();if(!s||!signedIn())return;
+    if(s.status==="suspended")return blockScreen("Account suspended","This account has been suspended. Please contact Quiz Library.",true);
+    const last=state.user.last_sign_in_at;
+    if(s.force_logout_at&&last&&new Date(s.force_logout_at)>new Date(last))return blockScreen("Signed out","You were signed out of this account. Please sign in again.",true);
+  }
+  async function blockScreen(title,msg,signOut){
+    if(document.querySelector(".ql-closed[data-acct]"))return;
+    if(signOut){try{await cli().auth.signOut({scope:"local"})}catch{}}
+    const d=document.createElement("div");d.className="ql-closed";d.dataset.acct="1";
+    d.innerHTML=`<div class="box"><img src="${document.querySelector('link[rel="apple-touch-icon"]')?.href||""}" alt=""><h2>${h(title)}</h2><p>${h(msg)}</p><button type="button">OK</button></div>`;
+    d.querySelector("button").onclick=()=>location.reload();document.body.appendChild(d);
+  }
+  function siteClosed(){const s=cfg&&cfg.settings&&cfg.settings.site;if(!s)return false;if(s.open===false)return true;return !!(s.close_at&&new Date(s.close_at).getTime()<=now())}
+  function applyClosed(){
+    const closed=siteClosed(),isAdmin=!!(mine&&mine.is_admin);
+    let d=document.getElementById("qlClosed");
+    if(closed&&!isAdmin){
+      if(!d){d=document.createElement("div");d.id="qlClosed";d.className="ql-closed";document.body.appendChild(d)}
+      d.innerHTML=`<div class="box"><img src="${document.querySelector('link[rel="apple-touch-icon"]')?.href||""}" alt=""><h2>We'll be right back</h2><p>${h(cfg.settings.site.message||"Quiz Library is under maintenance. Back soon!")}</p><button type="button" id="qlClosedRetry">Try again</button></div>`;
+      d.querySelector("#qlClosedRetry").onclick=()=>loadCfg();
+    }else if(d)d.remove();
+    let n=document.getElementById("qlAdminClosedNote");
+    if(closed&&isAdmin){if(!n){n=document.createElement("div");n.id="qlAdminClosedNote";n.className="ql-admin-closed-note";n.textContent="Website is CLOSED for students (you can still use it as admin)";document.body.appendChild(n)}}else if(n)n.remove();
+  }
+  function applyAnnouncement(){
+    const a=cfg&&cfg.settings&&cfg.settings.announcement;let el=document.getElementById("qlAnn");
+    const key="ql_ann_closed",id=String(a&&(a.id||a.text)||"");let closed=null;try{closed=localStorage.getItem(key)}catch{}
+    if(!a||!a.active||!a.text||closed===id){if(el)el.remove();return}
+    if(!el){el=document.createElement("div");el.id="qlAnn";const app=document.querySelector(".app")||document.body;app.parentNode.insertBefore(el,app)}
+    el.className="ql-ann "+(a.level||"info");el.innerHTML=`📢 <span>${h(a.text)}</span><button type="button" aria-label="Close">×</button>`;
+    el.querySelector("button").onclick=()=>{try{localStorage.setItem(key,id)}catch{}el.remove()};
+  }
+
+  /* ---------- buttons on/off ---------- */
+  function applyFeatures(){
+    if(!ready)return;
+    const hide=[],lock=[];
+    for(const k in SEL){const a=allowed(k);if(a==="off")hide.push(...SEL[k]);else if(a==="locked")lock.push(...SEL[k].map(s=>[s,k]))}
+    let st=document.getElementById("qlFeatHide");if(!st){st=document.createElement("style");st.id="qlFeatHide";document.head.appendChild(st)}
+    const css=hide.length?hide.map(x=>"html body:not(.ql-feat-none) "+x).join(",")+"{display:none!important}":"";if(st.textContent!==css)st.textContent=css;
+    document.querySelectorAll(".ql-locked").forEach(e=>{e.classList.remove("ql-locked");delete e.dataset.qlLock});
+    lock.forEach(([s,k])=>{try{document.querySelectorAll(s).forEach(e=>{e.classList.add("ql-locked");e.dataset.qlLock=k})}catch{}});
+    if(allowed("pf_themes")==="locked"&&typeof qlGetSkin==="function"&&qlGetSkin()!=="white"){try{qlSetSkin("white")}catch{}}
+  }
+  document.addEventListener("click",e=>{
+    const el=e.target.closest&&e.target.closest(".ql-locked");if(!el)return;
+    e.preventDefault();e.stopImmediatePropagation();try{closeMenus()}catch{}
+    openUpgrade("This is available on a higher plan.");
+  },true);
+  /* new quiz / PDF: check the limit before the form opens */
+  document.addEventListener("click",e=>{
+    if(!ready||!mine)return;
+    const t=e.target.closest&&e.target.closest('#newMenu [data-quiz-new],#adminQuickActions [data-quiz-quick],#newMenu [data-new="pdf"],#adminQuickActions [data-quick="pdf"]');if(!t)return;
+    const kind=t.matches('[data-quiz-new],[data-quiz-quick]')?"quizzes":"pdfs",lim=(curPlan().limits||{})[kind],used=Number((mine.usage||{})[kind]||0);
+    if(lim!=null&&used>=lim){e.preventDefault();e.stopImmediatePropagation();try{closeMenus()}catch{}openUpgrade(`You've used all ${lim} ${LIMIT_LABEL[kind]} in the ${curPlan().name} plan.`)}
+  },true);
+  /* database refusals (plan_limit:...) become a friendly message + Upgrade */
+  if(typeof friendlyError==="function"){
+    const prev=friendlyError;
+    friendlyError=function(err){const m=String(err&&(err.message||err)||"");const k=(m.match(/plan_limit:(\w+)/)||[])[1];
+      if(k){setTimeout(()=>{loadMine();openUpgrade(k==="suspended"?"This account is suspended.":`You've reached the ${LIMIT_LABEL[k]||k} limit of the ${curPlan()?curPlan().name:"current"} plan.`)},50);
+        return k==="storage"?"Not enough storage left in your plan.":k==="suspended"?"This account is suspended.":`You've reached your plan's ${LIMIT_LABEL[k]||k} limit.`}
+      return prev.apply(this,arguments)};
+  }
+
+  /* ---------- plan card in My Profile ---------- */
+  const fmtSize=b=>{b=Number(b||0);if(b<1048576)return Math.round(b/1024)+" KB";if(b<1073741824)return(b/1048576).toFixed(b<10485760?1:0)+" MB";return(b/1073741824).toFixed(1)+" GB"};
+  const capText=v=>v==null?"Unlimited":v;
+  function cdParts(ms){ms=Math.max(0,ms);const d=Math.floor(ms/864e5),hh=Math.floor(ms%864e5/36e5),m=Math.floor(ms%36e5/6e4),s=Math.floor(ms%6e4/1e3);return [d,hh,m,s]}
+  const cdHtml=ms=>{const [d,hh,m,s]=cdParts(ms),p=n=>String(n).padStart(2,"0");return `<div><b>${d}</b><small>DAYS</small></div><div><b>${p(hh)}</b><small>HOURS</small></div><div><b>${p(m)}</b><small>MIN</small></div><div><b>${p(s)}</b><small>SEC</small></div>`};
+  function cardHtml(){
+    const p=curPlan();if(!p)return "";const s=sub(),u=(mine&&mine.usage)||{},L=p.limits||{};
+    const paid=!p.is_default&&s&&s.status==="active";const end=paid&&s.ends_at?new Date(s.ends_at).getTime():null;
+    const start=paid&&s.starts_at?new Date(s.starts_at).getTime():null;
+    const cap=L.storage_mb==null?null:(L.storage_mb+Number((s&&s.extra_storage_mb)||0))*1048576;
+    const pct=(a,b)=>b==null||!b?6:Math.min(100,a/b*100);
+    const useBox=(label,val,a,b)=>`<div class="${b!=null&&a>=b?"full":""}"><small>${label}</small><b>${val}</b><em><i style="width:${pct(a,b)}%"></i></em></div>`;
+    const endTxt=end?new Date(end).toLocaleString([], {day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"}):"";
+    const left=end&&start?Math.max(0,Math.min(100,(end-now())/(end-start)*100)):null;
+    return `<div class="qs-card"><div class="qs-row">
+      <div class="qs-plan"><small>YOUR PLAN</small><b>${h(p.name)} <i>${paid?"Active":"Free"}</i></b><span>${end?`Ends on ${h(endTxt)}`:paid?"No end date":h(p.tagline||"Upgrade any time for more space and features")}</span></div>
+      ${end?`<div class="qs-cd" data-end="${end}">${cdHtml(end-now())}</div>`:""}</div>
+      ${end&&left!=null?`<div class="qs-bar"><i style="width:${left}%"></i></div><div class="qs-meta"><span>Started ${new Date(start).toLocaleDateString([], {day:"numeric",month:"short",year:"numeric"})}</span><span>${Math.round(left)}% of your plan time left</span></div>`:""}
+      <div class="qs-use">${useBox("Storage",`${fmtSize(u.storage_bytes)} / ${cap==null?"Unlimited":fmtSize(cap)}`,Number(u.storage_bytes||0),cap)}${useBox("Quizzes",`${u.quizzes||0} / ${capText(L.quizzes)}`,Number(u.quizzes||0),L.quizzes)}${useBox("PDFs",`${u.pdfs||0} / ${capText(L.pdfs)}`,Number(u.pdfs||0),L.pdfs)}</div>
+      <div class="qs-wait hidden" id="qsWait"></div>
+      <div class="qs-acts"><button type="button" data-qs="up">${paid?"Renew / Upgrade":"Upgrade"}</button><button type="button" class="g" data-qs="code">Enter activation code</button><button type="button" class="g" data-qs="hist">Payment history</button></div></div>`;
+  }
+  async function placeCard(){
+    if(!ready||!signedIn()||!mine)return;
+    const grid=document.querySelector(".profile-content .profile-grid-v2");if(!grid)return;
+    let w=document.querySelector(".qs-wrap");
+    const html=cardHtml(),sig=JSON.stringify([mine.plan&&mine.plan.id,sub(),mine.usage,document.body.className.match(/ql-(white|neon|ocean)/)?.[1]]);
+    if(w&&w.dataset.sig===sig)return;
+    if(!w){w=document.createElement("section");w.className="profile-grid qs-wrap";grid.parentNode.insertBefore(w,grid)}
+    w.dataset.sig=sig;w.innerHTML=html;
+    w.querySelector('[data-qs="up"]').onclick=()=>openUpgrade();w.querySelector('[data-qs="code"]').onclick=()=>openUpgrade(null,true);w.querySelector('[data-qs="hist"]').onclick=openHistory;
+    try{const {data}=await cli().rpc("ql_my_payments");const wait=(data||[]).filter(r=>r.status==="waiting");const el=w.querySelector("#qsWait");if(el&&wait.length){el.classList.remove("hidden");el.textContent=`⏳ ${wait.length} payment${wait.length>1?"s":""} waiting for approval — your plan switches on as soon as it's approved.`}}catch{}
+  }
+  setInterval(()=>{document.querySelectorAll(".qs-cd[data-end]").forEach(c=>{const ms=Number(c.dataset.end)-now();c.innerHTML=cdHtml(ms);if(ms<=0&&!c.dataset.done){c.dataset.done=1;loadMine()}})},1000);
+
+  /* ---------- upgrade / pay / code ---------- */
+  let period="month";
+  const periodOf=p=>period==="year"&&p.price_year!=null?"year":period==="lifetime"&&p.price_lifetime!=null?"lifetime":p.price_month!=null?"month":p.price_year!=null?"year":"lifetime";
+  const priceOf=(p,per)=>per==="year"?p.price_year:per==="lifetime"?p.price_lifetime:p.price_month;
+  function featureLines(p){
+    const L=p.limits||{},out=[];
+    out.push([`${L.storage_mb==null?"Unlimited":L.storage_mb>=1024?(L.storage_mb/1024).toFixed(L.storage_mb%1024?1:0)+" GB":L.storage_mb+" MB"} storage`,true]);
+    out.push([`${L.quizzes==null?"Unlimited":L.quizzes} quizzes`,true]);out.push([`${L.pdfs==null?"Unlimited":L.pdfs} PDFs`,true]);
+    const names={item_share_ex:"Share externally + QR",pf_themes:"All 3 themes",ed_images:"Image Manager",nav_random:"Random Quiz",item_share_in:"Share internally"};
+    for(const k in names){if(featMode(k)==="plan")out.push([names[k],!!(p.features&&p.features[k])])}
+    return out;
+  }
+  function openUpgrade(reason,focusCode){
+    if(!signedIn())return;
+    const ps=plans().filter(p=>p.visibility==="public");if(!ps.length)return;
+    const cur=curPlan(),hasYear=ps.some(p=>p.price_year!=null&&!p.is_default),hasLife=ps.some(p=>p.price_lifetime!=null&&!p.is_default);
+    const save=(()=>{const p=ps.find(x=>x.price_month&&x.price_year);return p?Math.round((1-p.price_year/(p.price_month*12))*100):0})();
+    const receipts=!(cfg.payment&&cfg.payment.receipts===false);
+    const render=()=>{
+      const body=`${reason?`<div class="status" style="margin-bottom:12px">${h(reason)}</div>`:""}
+        <div class="qu-top">${hasYear||hasLife?`<div class="qu-toggle"><button type="button" data-per="month" class="${period==="month"?"on":""}">Monthly</button>${hasYear?`<button type="button" data-per="year" class="${period==="year"?"on":""}">Yearly${save>0?` <em>Save ${save}%</em>`:""}</button>`:""}${hasLife?`<button type="button" data-per="lifetime" class="${period==="lifetime"?"on":""}">Lifetime</button>`:""}</div>`:""}</div>
+        <div class="qu-plans">${ps.map(p=>{const per=periodOf(p),pr=priceOf(p,per),isCur=cur&&cur.id===p.id;
+          return `<div class="qu-p ${isCur?"cur":""} ${p.badge?"hl":""}" style="--pc:${h(p.color)}">${p.badge?`<span class="bd">${h(p.badge)}</span>`:""}<h4>${h(p.name)}</h4><div class="tl">${h(p.tagline||"")}</div>
+          <div class="pr">${p.is_default?"$0":money(pr)} ${p.is_default?"":`<small>/ ${per==="lifetime"?"once":per}</small>`}</div>
+          <ul>${featureLines(p).map(([t,ok])=>`<li class="${ok?"":"no"}">${h(t)}</li>`).join("")}</ul>
+          ${p.is_default?`<button class="b" type="button" disabled>${isCur?"Your plan":"Free"}</button>`:receipts?`<button class="b" type="button" data-buy="${h(p.id)}" data-per="${per}">${isCur?"Renew "+h(p.name):"Choose "+h(p.name)}</button>`:`<button class="b" type="button" disabled>Ask for a code</button>`}</div>`}).join("")}</div>
+        <div class="qu-code"><b>Have a code?</b><input id="quCode" placeholder="QLP-XXXX-XXXX" autocomplete="off" spellcheck="false"><button type="button" id="quCodeGo">Activate</button></div><div id="quCodeSt" class="status hidden" style="margin-top:8px"></div>`;
+      openModal("Choose your plan",body);
+      const m=document.querySelector(".modal");if(m)m.style.width="min(880px,96vw)";
+      document.querySelectorAll("[data-per].qu-toggle button,.qu-toggle [data-per]").forEach(b=>b.onclick=()=>{period=b.dataset.per;render()});
+      document.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>openPay(ps.find(p=>p.id===b.dataset.buy),b.dataset.per));
+      const go=document.getElementById("quCodeGo"),inp=document.getElementById("quCode"),st=document.getElementById("quCodeSt");
+      const redeem=async()=>{const code=inp.value.trim();if(!code)return inp.focus();go.disabled=true;st.className="status";st.textContent="Checking code…";
+        try{const {data,error}=await cli().rpc("ql_redeem_code",{p_code:code});if(error)throw error;closeModal();await loadMine();showActivated(true)}
+        catch(e){st.className="status error";st.textContent=String(e.message||e).replace(/^.*?:\s*/,"")}finally{go.disabled=false}};
+      go.onclick=redeem;inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();redeem()}};
+      if(focusCode)setTimeout(()=>inp.focus(),50);
+    };
+    render();
+  }
+  function shrink(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1200/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.72))};im.onerror=()=>rej(new Error("That file is not a photo."));im.src=r.result};r.onerror=rej;r.readAsDataURL(file)})}
+  function openPay(p,per){
+    const pay=(cfg&&cfg.payment)||{},amount=priceOf(p,per);let receipt=null;
+    const len=per==="year"?"1 year":per==="lifetime"?"lifetime":"1 month";
+    openModal(`Pay for ${h(p.name)} · ${len}`,`<div class="qpay"><div class="qr">${pay.qr_image?`<img src="${h(pay.qr_image)}" alt="Payment QR">`:`<span style="color:#94a3b8;font-size:12px;text-align:center">QR not set up yet</span>`}</div><div>
+      <div class="sum">Amount <b>${money(amount)}</b> · ${h(p.name)} · ${len}${pay.bank||pay.account_number?`<br><span style="opacity:.75;font-size:12px">Pay to: ${h([pay.account_name,pay.bank,pay.account_number].filter(Boolean).join(" · "))}</span>`:""}</div>
+      <ol><li>Scan the QR with your bank app and pay <b>${money(amount)}</b></li><li>Take a screenshot of the receipt</li><li>Upload it here — your plan starts as soon as it's approved</li></ol>
+      ${pay.note?`<div class="status" style="margin-top:8px">${h(pay.note)}</div>`:""}
+      <label class="up" id="qpUp">⬆ Upload receipt screenshot<input type="file" accept="image/*" hidden id="qpFile"></label><div id="qpSt" class="status hidden" style="margin-top:8px"></div></div></div>
+      <div class="form-actions"><button class="btn" type="button" id="qpBack">Back</button><button class="btn primary" type="button" id="qpSend" disabled>Send for approval</button></div>`);
+    const m=document.querySelector(".modal");if(m)m.style.width="min(720px,96vw)";
+    const st=document.getElementById("qpSt"),send=document.getElementById("qpSend");
+    document.getElementById("qpBack").onclick=()=>openUpgrade();
+    document.getElementById("qpFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{receipt=await shrink(f);document.getElementById("qpUp").innerHTML=`<img src="${receipt}" alt="">Change photo<input type="file" accept="image/*" hidden id="qpFile2">`;document.getElementById("qpFile2").onchange=document.getElementById("qpFile")?.onchange||e.target.onchange;send.disabled=false}catch(x){st.className="status error";st.textContent=x.message}};
+    send.onclick=async()=>{if(!receipt)return;send.disabled=true;st.className="status";st.textContent="Sending…";
+      try{const {error}=await cli().rpc("ql_submit_payment",{p_plan:p.id,p_period:per,p_receipt:receipt});if(error)throw error;
+        openModal("Payment sent",`<div class="qok"><div class="big" style="background:linear-gradient(135deg,#6366f1,#a855f7)">⏳</div><h3 style="margin:0 0 6px">Thank you!</h3><p style="margin:0;opacity:.75">Your receipt was sent. ${h(p.name)} switches on as soon as it's approved — you'll see it here automatically.</p></div><div class="form-actions"><button class="btn primary" type="button" onclick="closeModal()">OK</button></div>`);
+        document.querySelector(".qs-wrap")&&(document.querySelector(".qs-wrap").dataset.sig="");placeCard()}
+      catch(e){send.disabled=false;st.className="status error";st.textContent=String(e.message||e)}};
+  }
+  async function openHistory(){
+    openModal("Payment history",`<div id="qhBody"><div class="status">Loading…</div></div>`);
+    try{const {data,error}=await cli().rpc("ql_my_payments");if(error)throw error;const b=document.getElementById("qhBody");
+      b.innerHTML=(data||[]).length?(data||[]).map(r=>{const p=plans().find(x=>x.id===r.plan_id);return `<div class="qh-row"><span><b>${h(p?p.name:r.plan_id)}</b> · ${r.period==="year"?"1 year":r.period==="lifetime"?"lifetime":"1 month"} · ${money(r.amount)}<br><small style="opacity:.7">${new Date(r.created_at).toLocaleString()}${r.admin_note?" · "+h(r.admin_note):""}</small></span><span class="qh-tag ${r.status}">${r.status==="waiting"?"Waiting":r.status==="approved"?"Approved":"Rejected"}</span></div>`}).join(""):`<div class="status">No payments yet.</div>`}
+    catch(e){document.getElementById("qhBody").innerHTML=`<div class="status error">${h(String(e.message||e))}</div>`}
+  }
+  function showActivated(){
+    const p=curPlan(),s=sub();if(!p||p.is_default)return;const end=s&&s.ends_at?new Date(s.ends_at).getTime():null;
+    openModal("",`<div class="qok"><div class="big">✓</div><h3 style="margin:0 0 4px">${h(p.name)} is active!</h3><p style="margin:0 0 14px;opacity:.7">${end?"Your plan ends in":"Your plan has no end date"}</p>
+      ${end?`<div class="qs-cd" data-end="${end}">${cdHtml(end-now())}</div><p style="opacity:.7;font-size:13px;margin:14px 0 0">Until ${new Date(end).toLocaleDateString([], {day:"numeric",month:"short",year:"numeric"})} · see it any time in My Profile</p>`:""}</div>
+      <div class="form-actions"><button class="btn primary" type="button" onclick="closeModal()">Start using ${h(p.name)}</button></div>`);
+  }
+  window.qlOpenUpgrade=openUpgrade;
+
+  /* ---------- glue ---------- */
+  function applyAll(){if(!ready)return;applyClosed();applyAnnouncement();applyFeatures();placeCard()}
+  let lastUser=null;
+  if(typeof render==="function"){const prev=render;render=function(){const r=prev.apply(this,arguments);try{if(ready){applyFeatures();placeCard()}}catch{}return r}}
+  let mo=null;const watch=()=>{if(mo)return;mo=new MutationObserver(()=>{clearTimeout(watch.t);watch.t=setTimeout(()=>{try{applyFeatures();placeCard()}catch{}},120)});mo.observe(document.body,{childList:true,subtree:true})};
+  function tick(){
+    const u=signedIn()?state.user.id:null;
+    if(u!==lastUser){lastUser=u;loadMine();subscribeMine()}
+    if(cfg&&cfg.settings&&cfg.settings.site&&cfg.settings.site.close_at)applyClosed();
+  }
+  async function start(){await loadCfg();subscribe();watch();setInterval(tick,1500);setInterval(()=>{if(document.visibilityState==="visible"){loadCfg();if(signedIn())loadMine()}},120000);
+    document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){loadCfg();if(signedIn())loadMine()}})}
+  if(document.readyState==="loading")window.addEventListener("DOMContentLoaded",()=>setTimeout(start,300));else setTimeout(start,300);
 })();
 </script>
 </body></html>
