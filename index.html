@@ -16392,6 +16392,15 @@ function openProfilePasswordEditor(hasPassword=profileHasPassword()){
           if(checkError)throw new Error("Current password is incorrect.");
           try{await verifier.auth.signOut({scope:"local"})}catch{}
         }
+        /* the saved login on this device can be gone (e.g. signed out from somewhere else) while the page still
+           looks signed in. With the current password we can sign in again quietly; otherwise ask to sign in again. */
+        let sess=null;try{sess=(await service.client.auth.getSession()).data.session}catch{}
+        if(sess){try{const r=await service.client.auth.getUser();if(r.error||!r.data?.user)sess=null}catch{sess=null}}
+        if(!sess){
+          if(!hasPassword)throw new Error("Your sign-in has expired. Please sign out and sign in again, then try once more.");
+          const {error:reErr}=await service.client.auth.signInWithPassword({email:accountIdentifier(),password:current});
+          if(reErr)throw new Error("Your sign-in has expired. Please sign out and sign in again, then try once more.");
+        }
         const metadata={...(state.user?.user_metadata||{}),ql_password_enabled:true};
         const {data,error}=await service.client.auth.updateUser({password,data:metadata});
         if(error)throw error;
