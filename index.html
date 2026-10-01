@@ -18661,6 +18661,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       ed_addnew:"Add New Questions",ed_images:"Image Manager",ed_move:"Move Questions",ed_sections:"Sections",ed_find:"Find & check problems",
       pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list"};
     for(const k in names){if(!["new_quiz","new_pdf","new_link","new_folder"].includes(k)&&has(k))out.push([names[k],true])}
+    if(p.features&&Array.isArray(p.features._others))p.features._others.forEach(t=>{if(String(t).trim())out.push([String(t),true])});
     return out;
   }
   function openUpgrade(reason,focusCode){

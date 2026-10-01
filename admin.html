@@ -434,6 +434,9 @@ function editPlan(p){
     <div class="sec-t">Features in this plan</div>
     <div class="note" style="margin:0 0 6px">Ticks count for features set to "By plan" in Website Control.</div>
     ${FEATURES.flatMap(g=>g[1]).filter(f=>f[0]!=="signup").map(([k,l])=>`<label class="chk"><input type="checkbox" data-feat="${k}" ${F[k]?"checked":""}>${l}<span class="tag" style="margin-left:auto">${modeLabel((settings.features||{})[k])}</span></label>${FEAT_LIMITS[k]?`<div class="flim ${F[k]?"":"hidden"}" data-flim="${k}">${FEAT_LIMITS[k].map(([lk,ll])=>limRow(lk,ll)).join("")}</div>`:""}`).join("")}
+    <div class="sec-t">Others</div>
+    <div class="note" style="margin:0 0 6px">Your own extra lines, shown at the bottom of this plan for students — one per line (e.g. Priority support, No ads).</div>
+    <textarea id="pOthers" class="in" rows="4" style="width:100%;resize:vertical;font-family:inherit" placeholder="Priority support&#10;Early access to new features">${h((Array.isArray(F._others)?F._others:[]).join("\n"))}</textarea>
    </div></div>`,{wide:true,foot:`${isNew||p.is_default?"":`<button class="btn r" id="pDel">Delete plan</button>`}<span class="sp"></span><button class="btn" id="pCancel">Cancel</button><button class="btn p" id="pSave">Save plan</button>`});
   let color=p.color,badge=p.badge,vis=p.visibility;
   o.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{color=b.dataset.c;o.querySelectorAll("[data-c]").forEach(x=>x.classList.toggle("on",x===b))});
@@ -447,6 +450,7 @@ function editPlan(p){
   o.querySelector("#pSave").onclick=async()=>{
     const limits={};o.querySelectorAll("[data-lim]").forEach(i=>limits[i.dataset.lim]=i.disabled||i.value===""?null:Number(i.value));
     const features={};o.querySelectorAll("[data-feat]").forEach(i=>{if(i.checked)features[i.dataset.feat]=true});
+    const others=o.querySelector("#pOthers").value.split("\n").map(x=>x.trim()).filter(Boolean).slice(0,12).map(x=>x.slice(0,80));if(others.length)features._others=others;
     const body={id:isNew?"":p.id,name:o.querySelector("#pName").value.trim(),tagline:o.querySelector("#pTag").value.trim(),color,badge,visibility:vis,sort:p.sort??(plans.length+1)*10,limits,features};
     ["price_month","price_year","price_lifetime"].forEach(k=>{const i=o.querySelector(`[data-price="${k}"]`);body[k]=p.is_default?(k==="price_lifetime"?"":"0"):(i&&!i.disabled&&i.value!==""?i.value:"")});
     if(!body.name)return alert("Give the plan a name");
