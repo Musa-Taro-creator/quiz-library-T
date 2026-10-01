@@ -18605,7 +18605,6 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       ${end?`<div class="qs-cd" data-end="${end}">${cdHtml(end-now())}</div>`:""}</div>
       ${end&&left!=null?`<div class="qs-bar"><i style="width:${left}%"></i></div><div class="qs-meta"><span>Started ${new Date(start).toLocaleDateString([], {day:"numeric",month:"short",year:"numeric"})}</span><span>${Math.round(left)}% of your plan time left</span></div>`:""}
       ${cap&&Number(u.storage_bytes||0)/cap>=.9?`<div class="qs-wait">⚠️ Your storage is almost full (${Math.min(100,Math.round(Number(u.storage_bytes||0)/cap*100))}%). Upgrade to keep adding PDFs.</div>`:""}
-      <div class="qs-use">${useBox("Quizzes",`${u.quizzes||0} / ${capText(L.quizzes)}`,Number(u.quizzes||0),L.quizzes)}${useBox("PDFs",`${u.pdfs||0} / ${capText(L.pdfs)}`,Number(u.pdfs||0),L.pdfs)}</div>
       <div class="qs-wait hidden" id="qsWait"></div>
       <div class="qs-acts"><button type="button" data-qs="up">${paid?"Renew / Upgrade":"Upgrade"}</button><button type="button" class="g" data-qs="code">Enter activation code</button><button type="button" class="g" data-qs="hist">Payment history</button></div></div>`;
   }
