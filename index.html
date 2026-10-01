@@ -16385,10 +16385,12 @@ function openProfilePasswordEditor(hasPassword=profileHasPassword()){
         state.user={...(state.user||{}),user_metadata:{...(state.user?.user_metadata||{}),ql_password_enabled:true}}
       }else{
         if(hasPassword){
-          const verifier=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+          /* separate, throw-away client just to check the current password. Its own storage key, and only a LOCAL sign-out:
+             a normal (global) sign-out would end every session of this account, including the one we are using. */
+          const verifier=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:"ql-password-check"}});
           const {error:checkError}=await verifier.auth.signInWithPassword({email:accountIdentifier(),password:current});
           if(checkError)throw new Error("Current password is incorrect.");
-          try{await verifier.auth.signOut()}catch{}
+          try{await verifier.auth.signOut({scope:"local"})}catch{}
         }
         const metadata={...(state.user?.user_metadata||{}),ql_password_enabled:true};
         const {data,error}=await service.client.auth.updateUser({password,data:metadata});
