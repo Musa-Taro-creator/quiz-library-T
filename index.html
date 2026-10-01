@@ -17526,6 +17526,10 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     }
 
     search.onclick=runSearch;
+    /* a full Quiz ID (QL-XXXXXXXX) searches by itself, so Share Quiz turns on without tapping Search */
+    let autoT=null,autoLast="";
+    input.oninput=()=>{const v=String(input.value||"").trim().toUpperCase().replace(/\s+/g,"");clearTimeout(autoT);
+      if(/^QL-?[A-Z0-9]{8}$/.test(v)&&v!==autoLast){autoT=setTimeout(()=>{autoLast=v;runSearch()},350)}else if(!shareSearchResult){send.disabled=true}};
     input.onkeydown=(event)=>{
       if(event.key==="Enter"){
         event.preventDefault();
@@ -18221,6 +18225,7 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
       catch(e){say(h(friendlyError(e)),"error")}
     };
     $("#qlIsFind").onclick=find;inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();find()}};
+    let autoT=null,autoLast="";inp.oninput=()=>{const v=String(inp.value||"").trim().toUpperCase().replace(/\s+/g,"");clearTimeout(autoT);if(/^QL-[A-Z0-9]{8}$/.test(v)&&v!==autoLast)autoT=setTimeout(()=>{autoLast=v;find()},350)};
     send.onclick=async()=>{
       if(!who)return;send.disabled=true;
       try{
