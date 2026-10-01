@@ -18733,6 +18733,23 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     el.querySelector("button").onclick=()=>{try{localStorage.setItem(key,id)}catch{}el.remove()};
   }
 
+  /* ---------- greeting after sign-in (admin → Announcements → Greeting) ---------- */
+  const greetFix=(tries=0)=>{
+    const el=document.getElementById("studentWelcomeFloat");if(!el||el.dataset.qlGreet)return;
+    if(!ready){if(tries<20)setTimeout(()=>greetFix(tries+1),150);return}
+    el.dataset.qlGreet="1";
+    const g=cfg&&cfg.settings&&cfg.settings.site&&cfg.settings.site.greet;if(!g)return;
+    if(g.on===false){el.remove();return}
+    const name=(state.user&&state.user.user_metadata&&(state.user.user_metadata.full_name||state.user.user_metadata.name))||(state.user&&String(state.user.email||"").split("@")[0])||"Student";
+    const t=el.querySelector(".student-welcome-title"),back=/back/i.test(t?t.textContent:"");
+    const tpl=(back?g.back:g.first)||(back?"Welcome back, {name}! 👋":"Welcome, {name}! 👋");
+    if(t)t.textContent=tpl.replace(/\{name\}/gi,name);
+    let n=el.querySelector(".student-welcome-note");
+    if(g.note){if(!n){n=document.createElement("div");n.className="student-welcome-note";el.appendChild(n)}n.textContent=g.note.replace(/\{name\}/gi,name)}else if(n)n.remove();
+    const sec=Number(g.seconds||0);if(sec>0)setTimeout(()=>{el.classList.remove("show");setTimeout(()=>el.remove(),400)},sec*1000);
+  };
+  new MutationObserver(()=>greetFix()).observe(document.body,{childList:true});
+
   /* ---------- buttons on/off ---------- */
   function applyFeatures(){
     if(!ready)return;
