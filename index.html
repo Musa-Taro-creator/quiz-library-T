@@ -17966,4 +17966,9 @@ document.addEventListener("click",e=>{
   if(sb&&sb.classList.contains("open")){try{closeSidebar()}catch(err){}}
 },true);
 </script>
+<style id="qlStarLeft">
+/* Kuza: favorite star on the top-left of each card, ⋮ stays top-right */
+.content.grid .item-card .card-actions{left:6px!important;right:6px!important;justify-content:space-between!important;pointer-events:none}
+.content.grid .item-card .card-actions>*{pointer-events:auto}
+</style>
 </body></html>
