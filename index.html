@@ -174,6 +174,8 @@ button:disabled{cursor:not-allowed;opacity:.58}
 .viewer-fallback.show{display:grid}
 .toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,130%);opacity:0;background:#172033;color:white;padding:12px 18px;border-radius:999px;z-index:150;transition:.22s}
 .toast.show{transform:translate(-50%,0);opacity:1}
+.toast:not(.show){pointer-events:none;visibility:hidden}
+#studentHeaderSearchInput::-webkit-search-cancel-button,#studentHeaderSearchInput::-webkit-search-decoration{-webkit-appearance:none;appearance:none;display:none}
 .undo{display:none;position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#172033;color:white;padding:10px 12px 10px 16px;border-radius:16px;z-index:151;align-items:center;gap:8px}
 .undo.show{display:flex}
 .undo button{border:0;border-radius:10px;padding:8px 10px}
@@ -16420,7 +16422,7 @@ let QL_PROFILE_RETURN_ROUTE=null;const QL_PROFILE_RAW_NAVIGATE=navigate;function
   }
   return event.target&&event.target.closest?event.target.closest(selector):false;
 }
-document.addEventListener("click",event=>{if(state.section!=="profile"||document.querySelector("#modalOverlay.show"))return;if(qlEventPathHitsExcluded(event,".profile-shell,#studentProfileNav,#studentAccountChip,.sidebar,#modalOverlay"))return;setTimeout(()=>{if(state.section==="profile")closeProfileSection(true)},0)});document.addEventListener("keydown",event=>{if(state.section!=="profile"||document.querySelector("#modalOverlay.show"))return;if(qlEventPathHitsExcluded(event,".profile-shell,#modalOverlay"))return;if(event.key!=="Escape"&&event.key.length===1)closeProfileSection(true)});
+document.addEventListener("click",event=>{if(state.section!=="profile"||document.querySelector("#modalOverlay.show"))return;if(qlEventPathHitsExcluded(event,".profile-shell,#studentProfileNav,#studentAccountChip,.sidebar,#modalOverlay,#qlTabbar,.ql-inst-veil,.ql-kick-ov"))return;setTimeout(()=>{if(state.section==="profile")closeProfileSection(true)},0)});document.addEventListener("keydown",event=>{if(state.section!=="profile"||document.querySelector("#modalOverlay.show"))return;if(qlEventPathHitsExcluded(event,".profile-shell,#modalOverlay"))return;if(event.key!=="Escape"&&event.key.length===1)closeProfileSection(true)});
 const QL_PROFILE_RAW_APPLY_ROUTE=applyRoute;applyRoute=function(){const p=new URLSearchParams(location.hash.slice(1));if(p.get("section")==="profile"&&isStudentProfileUser()){state.section="profile";state.folderId=null;history.replaceState(currentRoute(),"",routeHash());return}return QL_PROFILE_RAW_APPLY_ROUTE()};
 ensureStudentHeaderSearch();
 window.addEventListener("popstate",()=>setTimeout(syncProfileUi,0));q("modalClose")?.addEventListener("click",()=>document.querySelector(".modal")?.classList.remove("profile-avatar-modal"));syncProfileUi();setTimeout(syncProfileUi,450);window.__studentProfile={openAvatarPicker,openProfileEditor,readProfile,profileAvatarSrc};
@@ -16961,6 +16963,7 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
     bar.onclick=ev=>{const b=ev.target.closest("[data-tab]");if(!b)return;const k=b.dataset.tab;
       try{if(k==="random"){(document.getElementById("randomQuizNavBtn")||{}).click?.();return}
         if(k==="inbox"){(document.getElementById("studentSharedQuizInbox")||{}).click?.();return}
+        if(k==="profile"&&state.section==="profile")return;
         navigate(k)}catch(e){}sync()};
     sync();
   }
@@ -17942,5 +17945,14 @@ body.ql-neon .ql-dev-ico,body.ql-ocean .ql-dev-ico{color:#93c5fd}
   }
   if(typeof render==="function"){const prev=render;render=function(){const r=prev.apply(this,arguments);try{place()}catch(e){}return r}}
 })();
+</script>
+<script id="qlSideCloseFirst">
+/* Phone: side-menu buttons that open a window (Random Quiz, Shared with me,
+   Install app) close the side menu first, so it isn't left open behind. */
+document.addEventListener("click",e=>{
+  const b=e.target.closest&&e.target.closest("#randomQuizNavBtn,#studentSharedQuizInbox,#qlInstallNav");
+  if(!b)return;const sb=document.getElementById("sidebar");
+  if(sb&&sb.classList.contains("open")){try{closeSidebar()}catch(err){}}
+},true);
 </script>
 </body></html>
