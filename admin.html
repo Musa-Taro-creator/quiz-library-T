@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>Quiz Library Admin</title>
-<link rel="icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/admin-192.png">
+<link rel="apple-touch-icon" href="icons/admin-apple-touch-icon.png">
+<link rel="manifest" href="admin.webmanifest">
+<meta name="apple-mobile-web-app-title" content="QL Admin">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f172a">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--bg:#f4f6fb;--panel:#fff;--line:#e6e9f2;--text:#111827;--muted:#6b7280;--acc:#6366f1;--acc2:#a855f7;--ok:#10b981;--bad:#ef4444}
@@ -114,12 +119,78 @@ td{padding:10px;border-bottom:1px solid #f1f3f8;vertical-align:middle;white-spac
  .brand2,.side .foot{display:none}.nav{width:auto;flex:none;padding:8px 11px;font-size:13px}
  .main{padding:16px}.grid4{grid-template-columns:repeat(2,1fr)}.row2,.codegen,.two{grid-template-columns:1fr}
 }
+
+/* ===== admin themes (same three as the students' app) ===== */
+.thsw{display:flex;gap:6px;margin-top:10px}.side .foot .thsw button{flex:1;height:30px;border-radius:9px;border:2px solid rgba(255,255,255,.25);cursor:pointer;padding:0;margin:0}
+.side .foot .thsw button.on{border-color:#fff;box-shadow:0 0 0 2px rgba(99,102,241,.6)}
+.side .foot .thsw [data-th=white]{background:linear-gradient(135deg,#dbeafe,#fce7f3)}.side .foot .thsw [data-th=neon]{background:repeating-linear-gradient(60deg,#0b1220 0 6px,#00e5ff55 6px 7px,#0b1220 7px 12px,#ff2e9755 12px 13px)}.side .foot .thsw [data-th=ocean]{background:linear-gradient(120deg,#0b3954,#0e6377 55%,#f08a4b)}
+.thpick{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.thpick button{border-radius:14px;border:2px solid var(--line);background:var(--panel);padding:8px;cursor:pointer;color:inherit;font-weight:700;font-size:13px}
+.thpick button i{display:block;height:46px;border-radius:10px;margin-bottom:6px}.thpick button.on{border-color:var(--acc)}
+.selplan{outline:none}
+/* white glass */
+body.t-white{background:linear-gradient(135deg,#eaf1ff,#fdf2f8 55%,#e6fbff) fixed}
+body.t-white .side{background:rgba(255,255,255,.72);color:#334155;border-right:1px solid rgba(255,255,255,.9);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+body.t-white .brand2 b{color:#1e1b4b}body.t-white .brand2 small{color:#6366f1}
+body.t-white .nav:hover{background:rgba(99,102,241,.08)}body.t-white .nav.on{background:linear-gradient(90deg,#6366f1,#a855f7);color:#fff;box-shadow:0 8px 20px rgba(99,102,241,.3)}
+body.t-white .side .foot{background:rgba(99,102,241,.08)}body.t-white .side .foot b{color:#1e1b4b!important}body.t-white .side .foot button{color:#4338ca;border-color:#c7d2fe}
+body.t-white .card,body.t-white .plan{background:rgba(255,255,255,.78);border-color:rgba(255,255,255,.95);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(99,102,241,.08)}
+body.t-white .top h1{background:linear-gradient(90deg,#4f46e5,#a855f7,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
+/* neon lines */
+body.t-neon{--bg:#05070f;--panel:rgba(10,14,28,.88);--line:rgba(0,229,255,.22);--text:#e6faff;--muted:#8fb3c6;--acc:#00e5ff;--acc2:#ff2e97;
+ background:#05070f url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cpath d='M0 120L60 0M60 120L120 0' stroke='%2300e5ff' stroke-opacity='.08'/%3E%3Cpath d='M0 0L60 120M60 0L120 120' stroke='%23ff2e97' stroke-opacity='.06'/%3E%3C/svg%3E") fixed;color:var(--text)}
+body.t-neon .side{background:#070b16;border-right:1px solid rgba(0,229,255,.25)}body.t-neon .brand2 small{color:#ff2e97}
+body.t-neon .nav.on{background:linear-gradient(90deg,rgba(0,229,255,.22),rgba(255,46,151,.18));box-shadow:inset 0 0 0 1px rgba(0,229,255,.4)}
+body.t-neon .top h1{color:#00e5ff;text-shadow:0 0 16px rgba(0,229,255,.5)}
+body.t-neon .kpi b{color:#00e5ff;text-shadow:0 0 10px rgba(0,229,255,.4)}
+/* ocean sunrise */
+body.t-ocean{--bg:#06263a;--panel:rgba(255,255,255,.08);--line:rgba(255,215,168,.22);--text:#ecfeff;--muted:#a7c7d1;--acc:#fdba74;--acc2:#fb7185;
+ background:linear-gradient(160deg,#051c2c,#0b4a5e 55%,#7c4a3b) fixed;color:var(--text)}
+body.t-ocean .side{background:rgba(3,22,36,.86);border-right:1px solid rgba(255,215,168,.2)}body.t-ocean .brand2 small{color:#fdba74}
+body.t-ocean .nav.on{background:linear-gradient(90deg,rgba(253,186,116,.35),rgba(251,113,133,.25))}
+body.t-ocean .top h1{color:#fff7ed}
+/* shared dark-theme fixes */
+body.t-neon .card,body.t-ocean .card,body.t-neon .plan,body.t-ocean .plan,body.t-neon .dlg,body.t-ocean .dlg{background:var(--panel);border-color:var(--line);color:var(--text);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+body.t-neon .dlg,body.t-ocean .dlg{background:#0b1324}body.t-ocean .dlg{background:#0a3044}
+body.t-neon .dlg-h,body.t-neon .dlg-f,body.t-ocean .dlg-h,body.t-ocean .dlg-f{background:inherit;border-color:var(--line)}
+body.t-neon .in,body.t-ocean .in,body.t-neon select.in,body.t-ocean select.in{background:rgba(255,255,255,.05);border-color:var(--line);color:var(--text)}
+body.t-neon .btn,body.t-ocean .btn,body.t-neon .seg button,body.t-ocean .seg button,body.t-neon .mode button,body.t-ocean .mode button,body.t-neon .dlg-h .x,body.t-ocean .dlg-h .x{background:rgba(255,255,255,.05);border-color:var(--line);color:var(--text)}
+body.t-neon .btn.p,body.t-neon .seg button.on{background:linear-gradient(135deg,#00e5ff,#ff2e97);color:#05070f;border:0}
+body.t-ocean .btn.p,body.t-ocean .seg button.on{background:linear-gradient(135deg,#fdba74,#fb7185);color:#3b0d0c;border:0}
+body.t-neon .btn.on,body.t-ocean .btn.on{background:var(--acc);color:#05070f;border-color:var(--acc)}
+body.t-neon .btn.r,body.t-ocean .btn.r{color:#fca5a5;border-color:rgba(248,113,113,.45)}
+body.t-neon th,body.t-ocean th{color:var(--muted);border-color:var(--line)}body.t-neon td,body.t-ocean td{border-color:rgba(255,255,255,.06)}body.t-ocean td{border-color:rgba(255,255,255,.08)}
+body.t-neon .tag,body.t-ocean .tag{background:rgba(255,255,255,.08);color:var(--text)}
+body.t-neon .tag.ok,body.t-ocean .tag.ok{background:rgba(16,185,129,.18);color:#6ee7b7}body.t-neon .tag.no,body.t-ocean .tag.no{background:rgba(239,68,68,.18);color:#fca5a5}
+body.t-neon .mode button.on[data-m=on],body.t-ocean .mode button.on[data-m=on]{background:rgba(16,185,129,.25);color:#6ee7b7}
+body.t-neon .mode button.on[data-m=plan],body.t-ocean .mode button.on[data-m=plan]{background:rgba(129,140,248,.3);color:#c7d2fe}
+body.t-neon .mode button.on[data-m=off],body.t-ocean .mode button.on[data-m=off]{background:rgba(239,68,68,.25);color:#fca5a5}
+body.t-neon .donut div,body.t-ocean .donut div{background:#0b1324}body.t-ocean .donut div{background:#0a3a50}
+body.t-neon .donut b,body.t-ocean .donut b,body.t-neon .kpi b{color:inherit}
+body.t-neon .bar,body.t-ocean .bar,body.t-neon .sbar,body.t-ocean .sbar{background:rgba(255,255,255,.1)}
+body.t-neon .addplan,body.t-ocean .addplan{background:rgba(255,255,255,.03);border-color:var(--line);color:var(--acc)}
+body.t-neon .codebox,body.t-ocean .codebox{background:rgba(255,255,255,.04);border-color:var(--line)}body.t-neon .codebox .c,body.t-ocean .codebox .c{color:var(--acc)}
+body.t-neon .lim,body.t-ocean .lim,body.t-neon .chk,body.t-ocean .chk,body.t-neon .tg,body.t-ocean .tg,body.t-neon .plan li,body.t-ocean .plan li{border-color:rgba(255,255,255,.08)}
+body.t-neon .sec-t,body.t-ocean .sec-t,body.t-neon .fld>label,body.t-ocean .fld>label{color:var(--muted)}
+body.t-neon .err,body.t-ocean .err{background:rgba(239,68,68,.15);color:#fecaca}
+body.t-neon .ann-prev.info,body.t-ocean .ann-prev.info{background:rgba(129,140,248,.2);color:#e0e7ff}
+body.t-neon .sw:not(.on),body.t-ocean .sw:not(.on){background:rgba(255,255,255,.18)}
+body.t-neon .qrprev,body.t-ocean .qrprev{background:#fff}
+body.t-neon a,body.t-ocean a{color:var(--acc)}
+body.t-neon .btn.g,body.t-ocean .btn.g{background:#10b981;color:#fff;border:0}
+body.t-neon .bars div em,body.t-ocean .bars div em{color:var(--acc)}
+body.t-neon .bars div,body.t-neon .sbar i{background:linear-gradient(180deg,#00e5ff,#ff2e97)}
+body.t-ocean .bars div{background:linear-gradient(180deg,#fdba74,#0e6377)}
+/* storage card */
+.sbar{height:8px;border-radius:9px;background:#eef0f6;overflow:hidden;margin:6px 0 2px}.sbar i{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,#10b981,#6366f1)}
+.sbar.warn i{background:linear-gradient(90deg,#f59e0b,#ef4444)}
+.srow{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:8px}.srow b{color:inherit;font-size:12px;display:inline}
+.danger-zone{margin-top:14px;padding:12px;border-radius:12px;border:1px solid rgba(239,68,68,.35);background:rgba(239,68,68,.05)}
 </style>
 </head>
-<body>
+<body class="t-white">
 <div id="login" class="login hidden">
   <div class="login-card">
-    <div class="brand"><img src="icons/apple-touch-icon.png" alt=""><div><h1>Quiz Library Admin</h1><p>Sign in with your admin account</p></div></div>
+    <div class="brand"><img src="icons/admin-apple-touch-icon.png" alt=""><div><h1>Quiz Library Admin</h1><p>Sign in with your admin account</p></div></div>
     <form id="loginForm">
       <div class="fld"><label>Email</label><input id="lEmail" class="in" type="email" autocomplete="username" required></div>
       <div class="fld"><label>Password</label><input id="lPass" class="in" type="password" autocomplete="current-password" required></div>
@@ -131,7 +202,7 @@ td{padding:10px;border-bottom:1px solid #f1f3f8;vertical-align:middle;white-spac
 
 <div id="app" class="app hidden">
   <aside class="side">
-    <div class="brand2"><img src="icons/apple-touch-icon.png" alt=""><div><b>QUIZ LIBRARY</b><small>ADMIN</small></div></div>
+    <div class="brand2"><img src="icons/admin-apple-touch-icon.png" alt=""><div><b>QUIZ LIBRARY</b><small>ADMIN</small></div></div>
     <button class="nav" data-v="dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</button>
     <button class="nav" data-v="users"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6 6 0 0 1 3.5 5.5"/></svg>Users</button>
     <button class="nav" data-v="plans"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z"/></svg>Plans &amp; Limits</button>
@@ -139,7 +210,7 @@ td{padding:10px;border-bottom:1px solid #f1f3f8;vertical-align:middle;white-spac
     <button class="nav" data-v="ctl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Website Control</button>
     <button class="nav" data-v="news"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>Announcements</button>
     <button class="nav" data-v="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Settings</button>
-    <div class="foot">Signed in as<br><b id="meEmail" style="color:#fff;word-break:break-all"></b><br><button id="signOut">Sign out</button></div>
+    <div class="foot">Signed in as<br><b id="meEmail" style="color:#fff;word-break:break-all"></b><br><button id="signOut">Sign out</button><div class="thsw" id="thsw"><button data-th="white" title="White Glass"></button><button data-th="neon" title="Neon Lines"></button><button data-th="ocean" title="Ocean Sunrise"></button></div></div>
   </aside>
   <main class="main" id="view"></main>
 </div>
@@ -181,6 +252,12 @@ function modal(title,body,{wide,foot}={}){
 async function copy(t){try{await navigator.clipboard.writeText(t)}catch{const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove()}toast("Copied")}
 function resizeImage(file,max=1200,q=.72){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height));const c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",q))};im.onerror=rej;im.src=r.result};r.onerror=rej;r.readAsDataURL(file)})}
 
+/* ---------------- theme ---------------- */
+function setTheme(t){if(!["white","neon","ocean"].includes(t))t="white";document.body.classList.remove("t-white","t-neon","t-ocean");document.body.classList.add("t-"+t);try{localStorage.setItem("ql_admin_theme",t)}catch{}
+  $$("[data-th]").forEach(b=>b.classList.toggle("on",b.dataset.th===t));const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==="white"?"#eef2ff":t==="neon"?"#05070f":"#06263a"}
+try{setTheme(localStorage.getItem("ql_admin_theme")||"white")}catch{setTheme("white")}
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-th]");if(b)setTheme(b.dataset.th)});
+
 /* ---------------- auth ---------------- */
 let me=null,plans=[],settings={},cur="dash";
 async function boot(){
@@ -217,7 +294,10 @@ const head=(t,s,r="")=>`<div class="top"><div><h1>${t}</h1><div class="sub">${s}
 
 /* ---------------- dashboard ---------------- */
 async function dash(){
-  const [s,waiting]=await Promise.all([rpc("ql_admin_stats"),rpc("ql_admin_payments",{p_status:"waiting"})]);
+  const [s,waiting,st]=await Promise.all([rpc("ql_admin_stats"),rpc("ql_admin_payments",{p_status:"waiting"}),rpc("ql_admin_storage").catch(()=>null)]);
+  const lim=(st&&st.limits)||{files_mb:1024,db_mb:500,warn_percent:90},warnAt=Number(lim.warn_percent||90);
+  const filesB=st?Number(st.files_bytes):Number(s.storage_bytes||0),filesCap=Number(lim.files_mb||1024)*1048576,dbB=st?Number(st.db_bytes):0,dbCap=Number(lim.db_mb||500)*1048576;
+  const fp=Math.min(100,filesB/filesCap*100),dp=Math.min(100,dbB/dbCap*100);
   const weeks=s.signups_weeks||[],max=Math.max(1,...weeks);
   const byPlan=s.by_plan||{},total=Object.values(byPlan).reduce((a,b)=>a+b,0)||1;
   let acc=0;const segs=plans.map(p=>{const n=byPlan[p.id]||0;const a=acc;acc+=n/total*100;return `${p.color} ${a}% ${acc}%`});
@@ -227,7 +307,9 @@ async function dash(){
    <div class="card kpi"><small>Total users</small><b>${s.users}</b><span class="d up">▲ ${s.users_month} this month</span></div>
    <div class="card kpi"><small>Paying users</small><b>${s.paying}</b><span class="d">on a paid plan now</span></div>
    <div class="card kpi"><small>Income this month</small><b>${money(inc)}</b><span class="d ${inc>=last?"up":""}">${last?(inc>=last?"▲ ":"▼ ")+Math.abs(Math.round((inc-last)/last*100))+"% vs last month":"approved payments"}</span></div>
-   <div class="card kpi"><small>Storage used</small><b>${bytes(s.storage_bytes)}</b><span class="d">all PDFs on Supabase</span></div>
+   <div class="card kpi"><small>Supabase storage</small><b>${fp<1?fp.toFixed(1):Math.round(fp)}%</b>
+    <div class="sbar ${fp>=warnAt?"warn":""}"><i style="width:${Math.max(1,fp)}%"></i></div><div class="srow"><span>Files ${bytes(filesB)}</span><span>of ${bytes(filesCap)}</span></div>
+    ${st?`<div class="sbar ${dp>=warnAt?"warn":""}"><i style="width:${Math.max(1,dp)}%"></i></div><div class="srow"><span>Database ${bytes(dbB)}</span><span>of ${bytes(dbCap)}</span></div>`:`<div class="srow"><span>Run admin_extras.sql for full numbers</span></div>`}</div>
   </div>
   <div class="row2">
    <div class="card"><h3>New sign-ups<span class="r" style="cursor:default;color:var(--muted)">Last 12 weeks</span></h3><div class="bars">${weeks.map((n,i)=>`<div style="height:${Math.max(2,n/max*100)}%"><em>${n||""}</em><i>${i===weeks.length-1?"Now":"W"+(i+1)}</i></div>`).join("")}</div></div>
@@ -240,6 +322,7 @@ async function dash(){
      <span>💳 ${s.waiting_payments} payment${s.waiting_payments==1?"":"s"} waiting<em><button class="btn" onclick="go('pay')">Open</button></em></span>
      <span>⏰ ${s.ending_7d} plan${s.ending_7d==1?"":"s"} end in the next 7 days<em><button class="btn" onclick="usersFilter='ending';go('users')">Open</button></em></span>
      <span>🔒 ${s.suspended} suspended account${s.suspended==1?"":"s"}<em><button class="btn" onclick="usersFilter='suspended';go('users')">Open</button></em></span>
+     ${fp>=warnAt||dp>=warnAt?`<span>⚠️ Supabase is ${Math.round(Math.max(fp,dp))}% full<em><button class="btn" onclick="go('settings')">Limits</button></em></span>`:""}
      <span>${settings.site&&settings.site.open===false?"🔴 Website is CLOSED":"🟢 Website is open"}<em><button class="btn" onclick="go('ctl')">Control</button></em></span></div></div>
   </div>`;
   $$("[data-appr]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{await rpc("ql_admin_decide_payment",{p_id:b.dataset.appr,p_approve:true,p_note:""});toast("Approved — plan is on");await loadCommon();go("dash")}catch(e){b.disabled=false;alert(errMsg(e))}});
@@ -273,21 +356,33 @@ function manageUser(r){
    <div class="sec-t">Add time to current plan</div><div class="inline"><button class="btn" data-add="7">+7 days</button><button class="btn" data-add="30">+1 month</button><button class="btn" data-add="365">+1 year</button></div>
    <div class="sec-t">Extra storage on top of the plan</div><div class="inline"><input id="mExtra" class="in small" type="number" min="0" value="${Number(r.extra_storage_mb||0)}"> MB <button class="btn" id="mExtraSave">Save</button></div>
    <div class="sec-t">Account</div><div class="inline"><button class="btn" id="mOut">Sign out all devices</button>${r.status==="suspended"?`<button class="btn g" id="mSus">Unsuspend account</button>`:`<button class="btn r" id="mSus">Suspend account</button>`}</div>
-   <div class="note">Suspended accounts are signed out and see a message until you unsuspend them. Nothing is deleted.</div>`);
+   <div class="note">Suspended accounts are signed out and see a message until you unsuspend them. Nothing is deleted.</div>
+   <div class="danger-zone"><div class="sec-t" style="margin-top:0;color:#dc2626">Delete account permanently</div>
+    <div class="note" style="margin:0 0 8px">Deletes the login, their quizzes, PDFs, folders, payments and devices from Supabase. This cannot be undone.</div>
+    <div class="inline"><input id="mDelEmail" class="in" style="flex:1;min-width:180px" placeholder="Type ${h(r.email)} to confirm" autocomplete="off"><button class="btn r" id="mDel">Delete forever</button></div></div>`);
   const act=async(a,args,msg)=>{try{await rpc("ql_admin_update_user",{p_user:r.user_id,p_action:a,p_plan:null,p_days:null,p_value:null,...args});toast(msg);o.remove();go("users")}catch(e){alert(errMsg(e))}};
   o.querySelector("#mSet").onclick=()=>{const d=o.querySelector("#mLen").value;act("set_plan",{p_plan:o.querySelector("#mPlan").value,p_days:d?Number(d):null},"Plan changed")};
   o.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>act("add_days",{p_plan:r.plan_id,p_days:Number(b.dataset.add)},"Time added"));
   o.querySelector("#mExtraSave").onclick=()=>act("extra_storage",{p_value:Number(o.querySelector("#mExtra").value||0)},"Extra storage saved");
   o.querySelector("#mOut").onclick=()=>{if(confirm("Sign this account out on every device?"))act("logout",{},"Signed out everywhere")};
+  o.querySelector("#mDel").onclick=async()=>{const typed=o.querySelector("#mDelEmail").value.trim();
+    if(typed.toLowerCase()!==String(r.email||"").toLowerCase())return alert("Type the account's email exactly to confirm.");
+    if(!confirm(`Delete ${r.email} permanently? This cannot be undone.`))return;
+    const b=o.querySelector("#mDel");b.disabled=true;b.textContent="Deleting…";
+    try{const res=await rpc("ql_admin_delete_user",{p_user:r.user_id,p_email:typed});o.remove();
+      if(res&&res.files_left>0)modal("Account deleted",`<div class="note" style="margin:0">${h(res.email)} was deleted. ${res.files_left} PDF file${res.files_left==1?"":"s"} could not be removed automatically — delete the folder <b>${h(res.folder)}</b> in Supabase → Storage → library-pdfs.</div>`);
+      else toast("Account deleted");go("users")}
+    catch(e){b.disabled=false;b.textContent="Delete forever";alert(errMsg(e))}};
   o.querySelector("#mSus").onclick=()=>{const s=r.status!=="suspended";if(!s||confirm("Suspend this account? They will be signed out."))act(s?"suspend":"unsuspend",{},s?"Account suspended":"Account active again")};
 }
 
 /* ---------------- plans ---------------- */
+let selPlan=null;
 async function plansView(){
   plans=await rpc("ql_admin_plans");
   const lim=(p,k)=>{const v=(p.limits||{})[k];return v==null?"Unlimited":k==="storage_mb"?mb(v):v};
   $("#view").innerHTML=head("Plans &amp; Limits","Change a plan and it applies to everyone on it",`<button class="btn p" id="addPlan">＋ Add new plan</button>`)+`
-  <div class="plans">${plans.map(p=>`<div class="plan" style="${p.badge?`border:2px solid ${p.color};box-shadow:0 12px 30px ${p.color}33`:""}">${p.badge?`<span class="badge" style="background:${p.color}">${h(p.badge)}</span>`:""}
+  <div class="plans">${plans.map(p=>`<div class="plan" data-pick="${h(p.id)}" style="cursor:pointer;${(selPlan||plans.find(x=>x.badge)?.id||plans[0]?.id)===p.id?`border:2px solid ${p.color};box-shadow:0 12px 30px ${p.color}40`:""}">${p.badge?`<span class="badge" style="background:${p.color}">${h(p.badge)}</span>`:""}
     <div class="nm"><span class="dot" style="background:${p.color}"></span>${h(p.name)}${p.visibility!=="public"?` <span class="tag">${p.visibility==="code"?"Code only":"Hidden"}</span>`:""}</div>
     <div class="note" style="margin:2px 0 0">${h(p.tagline||"")}</div>
     <div class="pr">${p.is_default?"$0 <small>forever</small>":`${money(p.price_month)} <small>/ month${p.price_year!=null?" · "+money(p.price_year)+" / year":""}${p.price_lifetime!=null?" · "+money(p.price_lifetime)+" once":""}</small>`}</div>
@@ -297,6 +392,7 @@ async function plansView(){
   <div class="card" style="margin-top:16px"><h3>Plan order on the Upgrade page</h3><div class="seg" id="order">${plans.map((p,i)=>`<span class="inline" style="gap:4px"><button class="btn" data-up="${i}" ${i?"":"disabled"}>‹</button><b style="font-size:13px">${h(p.name)}</b><button class="btn" data-down="${i}" ${i<plans.length-1?"":"disabled"}>›</button></span>`).join("")}</div>
   <div class="note">Hidden plans never show on the Upgrade page. "Code only" plans can be given with an activation code.</div></div>`;
   $("#addPlan").onclick=$("#addPlan2").onclick=()=>editPlan(null);
+  $$("[data-pick]").forEach(c=>c.onclick=e=>{if(e.target.closest("button"))return;selPlan=c.dataset.pick;$$("[data-pick]").forEach(x=>{const p=plans.find(q=>q.id===x.dataset.pick);const on=x===c;x.style.border=on?`2px solid ${p.color}`:"";x.style.boxShadow=on?`0 12px 30px ${p.color}40`:""})});
   $$("[data-edit]").forEach(b=>b.onclick=()=>editPlan(plans.find(p=>p.id===b.dataset.edit)));
   const move=async(i,d)=>{const ids=plans.map(p=>p.id);[ids[i],ids[i+d]]=[ids[i+d],ids[i]];await rpc("ql_admin_order_plans",{p_ids:ids});go("plans")};
   $$("[data-up]").forEach(b=>b.onclick=()=>move(+b.dataset.up,-1));$$("[data-down]").forEach(b=>b.onclick=()=>move(+b.dataset.down,1));
@@ -453,7 +549,16 @@ async function news(){
 /* ---------------- settings ---------------- */
 async function settingsView(){
   await loadCommon();const p={bank:"",account_name:"",account_number:"",qr_image:"",note:"",receipts:true,...(settings.payment||{})};
-  $("#view").innerHTML=head("Settings","How students pay you")+`
+  const sup={files_mb:1024,db_mb:500,warn_percent:90,...(settings.supabase||{})};
+  const curTheme=(document.body.className.match(/t-(\w+)/)||[])[1]||"white";
+  $("#view").innerHTML=head("Settings","How students pay you, your Supabase size and the admin look")+`
+  <div class="card" style="max-width:760px;margin-bottom:16px"><h3>Your Supabase plan size</h3>
+   <div class="note" style="margin:0 0 10px">The Dashboard compares what's used with these numbers. Change them when you upgrade Supabase.</div>
+   <div class="seg" style="margin-bottom:10px"><button type="button" data-sp="1024,500">Free (1 GB files · 500 MB database)</button><button type="button" data-sp="102400,8192">Pro (100 GB · 8 GB)</button></div>
+   <div class="two"><div class="fld"><label>File storage (MB)</label><input id="spFiles" class="in" type="number" min="1" value="${sup.files_mb}"></div><div class="fld"><label>Database (MB)</label><input id="spDb" class="in" type="number" min="1" value="${sup.db_mb}"></div></div>
+   <div class="fld"><label>Warn me when it's this full (%)</label><input id="spWarn" class="in small" type="number" min="50" max="100" value="${sup.warn_percent}"></div>
+   <button class="btn p" id="spSave">Save Supabase size</button></div>
+  <div class="card" style="max-width:760px;margin-bottom:16px"><h3>Admin look</h3><div class="thpick">${[["white","White Glass","linear-gradient(135deg,#dbeafe,#fce7f3)"],["neon","Neon Lines","repeating-linear-gradient(60deg,#0b1220 0 8px,#00e5ff66 8px 9px,#0b1220 9px 16px,#ff2e9766 16px 17px)"],["ocean","Ocean Sunrise","linear-gradient(120deg,#0b3954,#0e6377 55%,#f08a4b)"]].map(([k,l,g])=>`<button type="button" data-th="${k}" class="${curTheme===k?"on":""}"><i style="background:${g}"></i>${l}</button>`).join("")}</div></div>`+`
   <div class="card" style="max-width:760px"><h3>Payment details shown to students</h3><div class="two"><div>
    <div class="fld"><label>Bank / wallet</label><input id="sBank" class="in" value="${h(p.bank)}" placeholder="e.g. ABA Bank"></div>
    <div class="fld"><label>Account name</label><input id="sName" class="in" value="${h(p.account_name)}"></div>
@@ -465,6 +570,8 @@ async function settingsView(){
     <div class="note">Untick to allow activation codes only.</div></div></div>
    <button class="btn p" id="sSave" style="margin-top:12px">Save payment details</button></div>
   <div class="card" style="max-width:760px;margin-top:16px"><h3>Admin account</h3><div class="note" style="margin:0">Signed in as <b>${h(me.email)}</b>. To add another admin, add their email in plans_admin.sql (the ADMIN EMAIL line) and run it again.<br>Students' website: <a href="${STUDENT_SITE}" target="_blank" rel="noopener">${h(STUDENT_SITE)}</a></div></div>`;
+  $$("[data-sp]").forEach(b=>b.onclick=()=>{const [f,d]=b.dataset.sp.split(",");$("#spFiles").value=f;$("#spDb").value=d});
+  $("#spSave").onclick=()=>saveSetting("supabase",{files_mb:Number($("#spFiles").value||1024),db_mb:Number($("#spDb").value||500),warn_percent:Math.min(100,Math.max(50,Number($("#spWarn").value||90)))},"Supabase size saved");
   let qr=p.qr_image;
   $("#sQr").onchange=async e=>{const f=e.target.files[0];if(!f)return;qr=await resizeImage(f,700,.85);const i=$("#sQrImg");i.outerHTML=`<img class="qrprev" id="sQrImg" src="${qr}">`};
   $("#sQrDel")&&($("#sQrDel").onclick=()=>{qr="";$("#sQrImg").outerHTML=`<div class="qrprev" id="sQrImg" style="display:grid;place-items:center;color:var(--muted);font-size:12px">No QR</div>`});

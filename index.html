@@ -18347,7 +18347,7 @@ body.ql-skin .ql-is-person{background:color-mix(in srgb,var(--sk-accent) 12%,tra
 .qs-cd small{font-size:10.5px;letter-spacing:.1em;font-weight:700;opacity:.85;color:inherit!important}
 .qs-bar{position:relative;z-index:1;margin-top:16px;height:8px;border-radius:9px;background:rgba(255,255,255,.22);overflow:hidden}.qs-bar i{display:block;height:100%;background:#fff;border-radius:9px}
 .qs-meta{position:relative;z-index:1;display:flex;justify-content:space-between;gap:10px;font-size:12px;opacity:.9;margin-top:6px}
-.qs-use{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.qs-use{position:relative;z-index:1;display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}
 .qs-use div{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.13)}
 .qs-use small{display:block;font-size:11.5px;opacity:.85}.qs-use b{font-size:15px}
 .qs-use em{display:block;height:5px;border-radius:9px;background:rgba(255,255,255,.25);margin-top:6px;overflow:hidden}.qs-use em i{display:block;height:100%;background:#fff}
@@ -18497,7 +18497,17 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       if(p&&!p.is_default&&s&&seen!==p.id+"|"+s.ends_at){try{localStorage.setItem(key,p.id+"|"+s.ends_at)}catch{}if(seen!==null||before)showActivated()}
       else if(seen===null){try{localStorage.setItem(key,(p&&p.id)+"|"+(s&&s.ends_at))}catch{}}
     }catch{return}
-    checkAccount();applyAll();
+    checkAccount();applyAll();storageAlert();
+  }
+  function storageAlert(){
+    if(!mine||!signedIn())return;const p=curPlan(),L=(p&&p.limits)||{};if(L.storage_mb==null)return;
+    const cap=(L.storage_mb+Number((sub()&&sub().extra_storage_mb)||0))*1048576,used=Number((mine.usage||{}).storage_bytes||0),pct=used/cap*100;if(pct<90)return;
+    const key="ql_storage_alert_"+state.user.id,today=new Date().toDateString();try{if(localStorage.getItem(key)===today)return;localStorage.setItem(key,today)}catch{}
+    if(document.getElementById("qlStoreAlert"))return;
+    const d=document.createElement("div");d.id="qlStoreAlert";d.className="ql-ann warning";
+    d.innerHTML=`⚠️ <span>${pct>=100?"Your storage is full — you can't add more PDFs.":"Your storage is almost full ("+Math.round(pct)+"%)."} Upgrade for more space.</span><button type="button" data-up style="font-size:13px;font-weight:800;opacity:1;text-decoration:underline">Upgrade</button><button type="button" data-x aria-label="Close">×</button>`;
+    d.querySelector("[data-up]").onclick=()=>{d.remove();openUpgrade(pct>=100?"Your storage is full.":"Your storage is almost full.")};d.querySelector("[data-x]").onclick=()=>d.remove();
+    const app=document.querySelector(".app")||document.body;app.parentNode.insertBefore(d,app);
   }
   function subscribe(){
     const c=cli();if(!c||subscribe.done)return;subscribe.done=true;
@@ -18594,7 +18604,8 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       <div class="qs-plan"><small>YOUR PLAN</small><b>${h(p.name)} <i>${paid?"Active":"Free"}</i></b><span>${end?`Ends on ${h(endTxt)}`:paid?"No end date":h(p.tagline||"Upgrade any time for more space and features")}</span></div>
       ${end?`<div class="qs-cd" data-end="${end}">${cdHtml(end-now())}</div>`:""}</div>
       ${end&&left!=null?`<div class="qs-bar"><i style="width:${left}%"></i></div><div class="qs-meta"><span>Started ${new Date(start).toLocaleDateString([], {day:"numeric",month:"short",year:"numeric"})}</span><span>${Math.round(left)}% of your plan time left</span></div>`:""}
-      <div class="qs-use">${useBox("Storage",`${fmtSize(u.storage_bytes)} / ${cap==null?"Unlimited":fmtSize(cap)}`,Number(u.storage_bytes||0),cap)}${useBox("Quizzes",`${u.quizzes||0} / ${capText(L.quizzes)}`,Number(u.quizzes||0),L.quizzes)}${useBox("PDFs",`${u.pdfs||0} / ${capText(L.pdfs)}`,Number(u.pdfs||0),L.pdfs)}</div>
+      ${cap&&Number(u.storage_bytes||0)/cap>=.9?`<div class="qs-wait">⚠️ Your storage is almost full (${Math.min(100,Math.round(Number(u.storage_bytes||0)/cap*100))}%). Upgrade to keep adding PDFs.</div>`:""}
+      <div class="qs-use">${useBox("Quizzes",`${u.quizzes||0} / ${capText(L.quizzes)}`,Number(u.quizzes||0),L.quizzes)}${useBox("PDFs",`${u.pdfs||0} / ${capText(L.pdfs)}`,Number(u.pdfs||0),L.pdfs)}</div>
       <div class="qs-wait hidden" id="qsWait"></div>
       <div class="qs-acts"><button type="button" data-qs="up">${paid?"Renew / Upgrade":"Upgrade"}</button><button type="button" class="g" data-qs="code">Enter activation code</button><button type="button" class="g" data-qs="hist">Payment history</button></div></div>`;
   }
@@ -18617,7 +18628,6 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   const priceOf=(p,per)=>per==="year"?p.price_year:per==="lifetime"?p.price_lifetime:p.price_month;
   function featureLines(p){
     const L=p.limits||{},out=[];
-    out.push([`${L.storage_mb==null?"Unlimited":L.storage_mb>=1024?(L.storage_mb/1024).toFixed(L.storage_mb%1024?1:0)+" GB":L.storage_mb+" MB"} storage`,true]);
     out.push([`${L.quizzes==null?"Unlimited":L.quizzes} quizzes`,true]);out.push([`${L.pdfs==null?"Unlimited":L.pdfs} PDFs`,true]);
     const names={item_share_ex:"Share externally + QR",pf_themes:"All 3 themes",ed_images:"Image Manager",nav_random:"Random Quiz",item_share_in:"Share internally"};
     for(const k in names){if(featMode(k)==="plan")out.push([names[k],!!(p.features&&p.features[k])])}
