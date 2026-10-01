@@ -334,7 +334,15 @@ let usersFilter="all",usersSearch="",usersPage=0;
 async function users(){
   const rows=await rpc("ql_admin_users",{p_search:usersSearch,p_filter:usersFilter,p_limit:50,p_offset:usersPage*50});
   const total=rows[0]?Number(rows[0].total):0;
+  await loadCommon();const site={...(settings.site||{})},maxU=/^\d+$/.test(String(site.max_users??""))?Number(site.max_users):null;
+  let allUsers=total;if(usersFilter!=="all"||usersSearch){try{const a=await rpc("ql_admin_users",{p_search:"",p_filter:"all",p_limit:1,p_offset:0});allUsers=a[0]?Number(a[0].total):0}catch{}}
+  const full=maxU!=null&&allUsers>=maxU;
   $("#view").innerHTML=head("Users","Everyone who has a Quiz Library account",`<input id="uSearch" class="in" style="width:280px;max-width:100%" placeholder="Search name or email…" value="${h(usersSearch)}">`)+`
+  <div class="card" style="margin-bottom:14px"><div class="inline" style="gap:14px">
+    <div style="flex:1;min-width:220px"><b style="font-size:15px">Account limit</b><div class="note" style="margin:2px 0 0">${maxU==null?`${allUsers} accounts · no limit — anyone can sign up`:`${allUsers} of ${maxU} accounts${full?" · <b style='color:#dc2626'>FULL — new sign-ups are closed</b>":` · ${maxU-allUsers} place${maxU-allUsers==1?"":"s"} left`}`}</div>
+     ${maxU!=null?`<div class="sbar ${full?"warn":""}" style="max-width:420px"><i style="width:${Math.min(100,allUsers/Math.max(1,maxU)*100)}%"></i></div>`:""}</div>
+    <input id="uMax" class="in small" type="number" min="1" placeholder="No limit" value="${maxU??""}"><button class="btn p" id="uMaxSave">Save limit</button>${maxU!=null?`<button class="btn" id="uMaxOff">Remove limit</button>`:""}</div>
+   <div class="note">People who already have an account can always sign in. The limit only stops new accounts.</div></div>
   <div class="filters">${[["all","All"],...plans.map(p=>[p.id,p.name]),["ending","Ending soon"],["suspended","Suspended"]].map(([k,l])=>`<button class="btn ${usersFilter===k?"on":""}" data-f="${h(k)}">${h(l)}</button>`).join("")}</div>
   <div class="card"><div class="tbl"><table><tr><th>User</th><th>Plan</th><th>Ends</th><th>Storage</th><th>Quizzes · PDFs</th><th>Device</th><th>Last active</th><th></th></tr>
   ${rows.length?rows.map(r=>{const p=planById(r.plan_id),lim=(p.limits||{}).storage_mb,used=Number(r.usage?.storage_bytes||0),cap=lim==null?null:(lim+Number(r.extra_storage_mb||0))*1048576;
@@ -345,6 +353,9 @@ async function users(){
     <td><button class="btn" data-u="${r.user_id}">Manage</button></td></tr>`}).join(""):`<tr><td colspan="8" class="empty">No users found</td></tr>`}</table></div>
   <div class="inline" style="margin-top:10px;justify-content:space-between"><span class="note" style="margin:0">${total} user${total==1?"":"s"}</span><span class="inline">${usersPage?`<button class="btn" id="uPrev">‹ Prev</button>`:""}${(usersPage+1)*50<total?`<button class="btn" id="uNext">Next ›</button>`:""}</span></div>
   <div class="note">You see sizes and counts only — people's quizzes and PDFs stay private.</div></div>`;
+  const saveMax=async v=>{if(v!==""&&(!/^\d+$/.test(v)||Number(v)<1))return alert("Type a number, e.g. 500");if(v!==""&&Number(v)<allUsers&&!confirm(`There are already ${allUsers} accounts. Nobody new can sign up until some are deleted. Save anyway?`))return;
+    await saveSetting("site",{...site,max_users:v===""?null:Number(v)},v===""?"Limit removed — anyone can sign up":"Account limit saved");go("users")};
+  $("#uMaxSave").onclick=()=>saveMax($("#uMax").value.trim());$("#uMaxOff")&&($("#uMaxOff").onclick=()=>saveMax(""));
   let t;$("#uSearch").oninput=e=>{clearTimeout(t);t=setTimeout(()=>{usersSearch=e.target.value.trim();usersPage=0;go("users")},450)};
   $$("[data-f]").forEach(b=>b.onclick=()=>{usersFilter=b.dataset.f;usersPage=0;go("users")});
   $("#uPrev")&&($("#uPrev").onclick=()=>{usersPage--;go("users")});$("#uNext")&&($("#uNext").onclick=()=>{usersPage++;go("users")});

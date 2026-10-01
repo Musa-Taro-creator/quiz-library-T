@@ -18481,7 +18481,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   const sub=()=>mine&&mine.subscription;
   const now=()=>Date.now()+skew;
   const featMode=k=>((cfg&&cfg.settings&&cfg.settings.features)||{})[k]||"on";
-  function allowed(k){const m=featMode(k);if(m==="off")return "off";if(m==="lock")return k==="signup"?"on":"frozen";if(m==="plan"){if(k==="signup")return "on";const p=curPlan();return p&&p.features&&p.features[k]?"on":"locked"}return "on"}
+  function allowed(k){if(k==="signup"&&cfg&&cfg.signups_full)return "off";const m=featMode(k);if(m==="off")return "off";if(m==="lock")return k==="signup"?"on":"frozen";if(m==="plan"){if(k==="signup")return "on";const p=curPlan();return p&&p.features&&p.features[k]?"on":"locked"}return "on"}
 
   /* ---------- load ---------- */
   async function loadCfg(){
@@ -18557,6 +18557,9 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   /* ---------- buttons on/off ---------- */
   function applyFeatures(){
     if(!ready)return;
+    const reg=document.getElementById("studentRegisterForm");
+    if(reg&&allowed("signup")==="off"&&!document.getElementById("qlSignupClosed")){const n=document.createElement("div");n.id="qlSignupClosed";n.className="status error";n.textContent=cfg&&cfg.signups_full?"Quiz Library is full right now. New sign-ups are closed — please try again later.":"New sign-ups are closed right now.";reg.parentNode.insertBefore(n,reg)}
+    if(!reg||allowed("signup")!=="off")document.getElementById("qlSignupClosed")?.remove();
     const hide=[],lock=[];
     for(const k in SEL){const a=allowed(k);if(a==="off")hide.push(...SEL[k]);else if(a==="locked"||a==="frozen")lock.push(...SEL[k].map(s=>[s,k,a==="frozen"]))}
     let st=document.getElementById("qlFeatHide");if(!st){st=document.createElement("style");st.id="qlFeatHide";document.head.appendChild(st)}

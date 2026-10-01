@@ -93,4 +93,36 @@ $$;
 revoke all on function public.ql_admin_delete_user(uuid, text) from public, anon;
 grant execute on function public.ql_admin_delete_user(uuid, text) to authenticated;
 
+
+-- Limit how many accounts can exist (admin → Users → Account limit).
+-- Stored in ql_site_settings 'site' as max_users (empty = no limit).
+create or replace function public.ql__check_signup_cap()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_max int;
+begin
+  select case when (value->>'max_users') ~ '^[0-9]+$' then (value->>'max_users')::int end into v_max
+    from ql_site_settings where key = 'site';
+  if v_max is not null and (select count(*) from auth.users) >= v_max then
+    raise exception 'Quiz Library is full right now. New sign-ups are closed.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists ql_signup_cap on auth.users;
+create trigger ql_signup_cap before insert on auth.users for each row execute function public.ql__check_signup_cap();
+
+-- Students' website learns whether sign-ups are full (to hide Create account).
+create or replace function public.ql_public_config()
+returns jsonb language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'settings', coalesce((select jsonb_object_agg(key, value) from ql_site_settings where key in ('site','features','announcement')), '{}'::jsonb),
+    'payment', (select value - 'note' || jsonb_build_object('note', value->>'note') from ql_site_settings where key = 'payment'),
+    'plans', coalesce((select jsonb_agg(to_jsonb(p) order by p.sort) from ql_plans p where p.visibility <> 'hidden'), '[]'::jsonb),
+    'signups_full', coalesce((select case when (value->>'max_users') ~ '^[0-9]+$'
+                                          then (select count(*) from auth.users) >= (value->>'max_users')::int end
+                                from ql_site_settings where key = 'site'), false),
+    'server_time', now());
+$$;
+grant execute on function public.ql_public_config() to anon, authenticated;
+
 notify pgrst, 'reload schema';
