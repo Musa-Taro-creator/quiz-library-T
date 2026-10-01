@@ -18415,7 +18415,26 @@ body.ql-ocean .qs-acts button.g{background:rgba(255,255,255,.1);color:#fff7ed;bo
 .qok .qs-cd{justify-content:center;margin:0}.qok .qs-cd div{background:#4f46e5;color:#fff;border-color:#4f46e5}
 .qh-row{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(148,163,184,.2);font-size:13.5px}.qh-row>span{flex:1}
 .qh-tag{font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:999px}.qh-tag.waiting{background:#fffbeb;color:#b45309}.qh-tag.approved{background:#ecfdf5;color:#047857}.qh-tag.rejected{background:#fef2f2;color:#b91c1c}
-@media(max-width:640px){.qpay{grid-template-columns:1fr}.qpay .qr{margin:0 auto}}
+.qh-tag.failed,.qh-tag.expired{background:#f1f5f9;color:#475569}.qh-tag.aba{background:#e0f2fe;color:#0369a1;margin-right:4px}
+.qaba{display:grid;grid-template-columns:230px 1fr;gap:18px;align-items:start}
+.qaba .qr{position:relative;width:230px;min-height:230px;border-radius:18px;background:#fff;border:1px solid #e5e7eb;display:grid;place-items:center;padding:8px;overflow:hidden}
+.qaba .qr img{width:100%;display:block;border-radius:10px}.qaba .qr.dead img{filter:blur(6px) grayscale(1);opacity:.35}
+.qaba .qr .over{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:16px;font-weight:800;color:#0f172a;font-size:14px}
+.qaba .sum{padding:12px 14px;border-radius:14px;background:#eef2ff;margin-bottom:10px;font-size:13.5px;color:#1e1b4b}.qaba .sum b{font-size:20px}
+.qaba .wait{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;font-size:13.5px;font-weight:700}
+.qaba .wait.ok{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.qaba .wait.bad{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
+.qaba .spin{width:18px;height:18px;border-radius:50%;border:3px solid #c7d2fe;border-top-color:#4f46e5;animation:qabaSpin .8s linear infinite;flex:none}
+@keyframes qabaSpin{to{transform:rotate(360deg)}}
+.qaba .tm{font-variant-numeric:tabular-nums;margin-left:auto;font-weight:900}
+.qaba .hint{font-size:12.5px;opacity:.75;margin:10px 0 0;line-height:1.5}
+.qaba .abtn{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;padding:12px;border-radius:14px;background:#005d7f;color:#fff;font-weight:800;text-decoration:none;font-size:14px}
+.qaba .sbx{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:900;padding:2px 7px;border-radius:999px;background:#fef3c7;color:#92400e;vertical-align:middle}
+.qaba .alt{display:block;margin-top:12px;background:none;border:0;color:#4f46e5;font-weight:700;font-size:13px;cursor:pointer;padding:0;text-decoration:underline}
+body.ql-neon .qaba .sum,body.ql-ocean .qaba .sum{background:color-mix(in srgb,var(--sk-accent) 12%,transparent);color:var(--sk-text)}
+body.ql-neon .qaba .wait,body.ql-ocean .qaba .wait{background:color-mix(in srgb,var(--sk-accent) 8%,transparent);border-color:color-mix(in srgb,var(--sk-accent) 30%,transparent);color:var(--sk-text)}
+body.ql-neon .qaba .wait.ok,body.ql-ocean .qaba .wait.ok{color:#34d399}body.ql-neon .qaba .wait.bad,body.ql-ocean .qaba .wait.bad{color:#f87171}
+body.ql-neon .qaba .alt,body.ql-ocean .qaba .alt{color:var(--sk-accent)}body.ql-neon .qaba .spin{border-color:#00e5ff33;border-top-color:#00e5ff}
+@media(max-width:640px){.qpay{grid-template-columns:1fr}.qpay .qr{margin:0 auto}.qaba{grid-template-columns:1fr}.qaba .qr{margin:0 auto}}
 body.ql-neon .qu-p,body.ql-ocean .qu-p{background:color-mix(in srgb,var(--sk-veil) 6%,transparent);border-color:color-mix(in srgb,var(--sk-accent) 30%,transparent);color:var(--sk-text)}
 body.ql-neon .qu-p ul,body.ql-ocean .qu-p ul{color:var(--sk-text)}body.ql-neon .qu-p .pr small,body.ql-ocean .qu-p .pr small,body.ql-neon .qu-p .tl,body.ql-ocean .qu-p .tl{color:var(--sk-muted)}
 body.ql-neon .qu-p.hl{border:2px solid #00e5ff;box-shadow:0 0 22px rgba(0,229,255,.35)}
@@ -18497,7 +18516,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       if(p&&!p.is_default&&s&&seen!==p.id+"|"+s.ends_at){try{localStorage.setItem(key,p.id+"|"+s.ends_at)}catch{}if(seen!==null||before)showActivated()}
       else if(seen===null){try{localStorage.setItem(key,(p&&p.id)+"|"+(s&&s.ends_at))}catch{}}
     }catch{return}
-    checkAccount();applyAll();storageAlert();
+    checkAccount();applyAll();storageAlert();abaSync();
   }
   function storageAlert(){
     if(!mine||!signedIn())return;const p=curPlan(),L=(p&&p.limits)||{};if(L.storage_mb==null)return;
@@ -18641,7 +18660,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     const ps=plans().filter(p=>p.visibility==="public");if(!ps.length)return;
     const cur=curPlan(),hasYear=ps.some(p=>p.price_year!=null&&!p.is_default),hasLife=ps.some(p=>p.price_lifetime!=null&&!p.is_default);
     const save=(()=>{const p=ps.find(x=>x.price_month&&x.price_year);return p?Math.round((1-p.price_year/(p.price_month*12))*100):0})();
-    const receipts=!(cfg.payment&&cfg.payment.receipts===false);
+    const receipts=!(cfg.payment&&cfg.payment.receipts===false)||!!(cfg.payment&&cfg.payment.aba_enabled);
     const render=()=>{
       const body=`${reason?`<div class="status" style="margin-bottom:12px">${h(reason)}</div>`:""}
         <div class="qu-top">${hasYear||hasLife?`<div class="qu-toggle"><button type="button" data-per="month" class="${period==="month"?"on":""}">Monthly</button>${hasYear?`<button type="button" data-per="year" class="${period==="year"?"on":""}">Yearly${save>0?` <em>Save ${save}%</em>`:""}</button>`:""}${hasLife?`<button type="button" data-per="lifetime" class="${period==="lifetime"?"on":""}">Lifetime</button>`:""}</div>`:""}</div>
@@ -18654,7 +18673,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       openModal("Choose your plan",body);
       const m=document.querySelector(".modal");if(m)m.style.width="min(880px,96vw)";
       document.querySelectorAll("[data-per].qu-toggle button,.qu-toggle [data-per]").forEach(b=>b.onclick=()=>{period=b.dataset.per;render()});
-      document.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>openPay(ps.find(p=>p.id===b.dataset.buy),b.dataset.per));
+      document.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>{const p=ps.find(p=>p.id===b.dataset.buy);if(cfg.payment&&cfg.payment.aba_enabled)openAba(p,b.dataset.per);else openPay(p,b.dataset.per)});
       const go=document.getElementById("quCodeGo"),inp=document.getElementById("quCode"),st=document.getElementById("quCodeSt");
       const redeem=async()=>{const code=inp.value.trim();if(!code)return inp.focus();go.disabled=true;st.className="status";st.textContent="Checking code…";
         try{const {data,error}=await cli().rpc("ql_redeem_code",{p_code:code});if(error)throw error;closeModal();await loadMine();showActivated(true)}
@@ -18684,10 +18703,65 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
         document.querySelector(".qs-wrap")&&(document.querySelector(".qs-wrap").dataset.sig="");placeCard()}
       catch(e){send.disabled=false;st.className="status error";st.textContent=String(e.message||e)}};
   }
+  /* ---------- ABA PayWay: automatic KHQR ---------- */
+  async function payway(body){
+    const c=cli();if(!c||!c.functions)throw new Error("Payments are not available right now.");
+    const {data,error}=await c.functions.invoke("payway",{body});
+    if(error){let m="";try{const j=await error.context.json();m=j&&j.error}catch{}throw new Error(m||"Could not reach the payment server. Check your internet and try again.")}
+    if(data&&data.error)throw new Error(data.error);return data;
+  }
+  let abaRun=0;
+  function openAba(p,per){
+    const run=++abaRun,len=per==="year"?"1 year":per==="lifetime"?"lifetime":"1 month",receipts=!(cfg.payment&&cfg.payment.receipts===false);
+    const alive=()=>run===abaRun&&document.getElementById("qaBox");
+    const fmtAmt=(v,cur)=>cur==="KHR"?Number(v).toLocaleString()+" ៛":money(v);
+    openModal(`Pay for ${h(p.name)} · ${len}`,`<div id="qaBox"><div class="status">Making your ABA QR…</div></div><div class="form-actions"><button class="btn" type="button" id="qaBack">Back</button></div>`);
+    const m=document.querySelector(".modal");if(m)m.style.width="min(720px,96vw)";
+    const back=()=>{abaRun++;openUpgrade()};document.getElementById("qaBack").onclick=back;
+    const fail=msg=>{if(!alive())return;document.getElementById("qaBox").innerHTML=`<div class="status error">${h(msg)}</div><div class="inline" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" id="qaAgain">Try again</button>${receipts?`<button class="btn" type="button" id="qaRec">Pay another way (upload receipt)</button>`:""}</div>`;
+      document.getElementById("qaAgain").onclick=()=>openAba(p,per);document.getElementById("qaRec")&&(document.getElementById("qaRec").onclick=()=>{abaRun++;openPay(p,per)})};
+    payway({action:"create",plan:p.id,period:per}).then(q=>{
+      if(!alive())return;try{localStorage.setItem("ql_aba_open",String(Date.now()))}catch{}
+      const end=new Date(q.expires_at).getTime();
+      document.getElementById("qaBox").innerHTML=`<div class="qaba"><div class="qr" id="qaQr">${q.qr_image?`<img src="${h(q.qr_image)}" alt="ABA KHQR">`:`<span style="font-size:12px;color:#64748b">QR ready — open ABA</span>`}</div><div>
+        <div class="sum">Amount <b>${fmtAmt(q.amount,q.currency)}</b>${q.sandbox?`<span class="sbx">TEST MODE</span>`:""}<br>${h(p.name)} · ${len}</div>
+        <div class="wait" id="qaWait"><span class="spin"></span><span id="qaMsg">Waiting for payment…</span><span class="tm" id="qaTm"></span></div>
+        <p class="hint">Scan with ABA Mobile or any KHQR bank app. Your plan switches on by itself a few seconds after you pay — keep this window open.</p>
+        ${q.deeplink?`<a class="abtn" href="${h(q.deeplink)}">Open ABA Mobile to pay</a>`:""}
+        ${receipts?`<button type="button" class="alt" id="qaRec">Can't pay with QR? Upload a receipt instead</button>`:""}</div></div>`;
+      document.getElementById("qaRec")&&(document.getElementById("qaRec").onclick=()=>{abaRun++;openPay(p,per)});
+      const box=document.getElementById("qaWait"),msg=document.getElementById("qaMsg"),tm=document.getElementById("qaTm");
+      let done=false,expired=false,busy=false,lastCheck=0,fails=0;
+      const finish=(cls,text,again)=>{done=true;box.className="wait "+cls;box.innerHTML=`<span>${text}</span>`;box.parentNode.querySelectorAll(".hint,.abtn").forEach(e=>e.remove());
+        if(again){const b=document.createElement("button");b.type="button";b.className="btn primary";b.style.marginTop="10px";b.textContent="Make new QR";b.onclick=()=>openAba(p,per);box.after(b)}};
+      const check=async()=>{if(busy||done||!alive())return;busy=true;lastCheck=Date.now();
+        try{const r=await payway({action:"status",tran_id:q.tran_id});fails=0;if(!alive())return;
+          if(r.status==="approved"){finish("ok","✓ Paid! Switching on "+h(p.name)+"…");abaRun++;setTimeout(async()=>{try{closeModal()}catch{}await loadMine();showActivated()},900)}
+          else if(r.status==="failed"){finish("bad","The payment did not go through. No money was taken.",true)}
+          else if(r.status==="waiting"){finish("ok","Payment received ✓ — the admin is checking it. Your plan switches on soon.")}
+          else if(r.status==="rejected"){finish("bad",h(r.admin_note||"This payment was rejected."),true)}
+        }catch(e){if(++fails>=3&&alive())msg.textContent="Slow connection… still checking"}finally{busy=false}};
+      const loop=()=>{if(!alive()||done)return;const left=end-now();
+        if(left>0){const s=Math.ceil(left/1000);tm.textContent=Math.floor(s/60)+":"+String(s%60).padStart(2,"0");if(Date.now()-lastCheck>4000)check()}
+        else{if(!expired){expired=true;document.getElementById("qaQr").classList.add("dead");document.getElementById("qaQr").insertAdjacentHTML("beforeend",`<div class="over">QR expired</div>`);tm.textContent="";msg.textContent="Checking one last time…";check()}
+          if(Date.now()-lastCheck>8000)check();
+          if(left<-150000&&!done){finish("bad","This QR expired. If you already paid, don't worry — it switches on by itself when ABA confirms (or send your ABA receipt to the admin).",true)}}
+        setTimeout(loop,1000)};
+      loop();
+    }).catch(e=>fail(String(e.message||e)));
+  }
+  /* QR codes left open (app closed while paying): ask ABA again when the app opens */
+  let abaSynced=0;
+  async function abaSync(){
+    if(!signedIn()||!(cfg&&cfg.payment&&cfg.payment.aba_enabled)||Date.now()-abaSynced<60000)return;
+    let t=0;try{t=Number(localStorage.getItem("ql_aba_open")||0)}catch{}
+    if(!t||Date.now()-t>2*864e5)return;abaSynced=Date.now();
+    try{const r=await payway({action:"sync"});if(r&&r.approved)loadMine()}catch{}
+  }
   async function openHistory(){
     openModal("Payment history",`<div id="qhBody"><div class="status">Loading…</div></div>`);
     try{const {data,error}=await cli().rpc("ql_my_payments");if(error)throw error;const b=document.getElementById("qhBody");
-      b.innerHTML=(data||[]).length?(data||[]).map(r=>{const p=plans().find(x=>x.id===r.plan_id);return `<div class="qh-row"><span><b>${h(p?p.name:r.plan_id)}</b> · ${r.period==="year"?"1 year":r.period==="lifetime"?"lifetime":"1 month"} · ${money(r.amount)}<br><small style="opacity:.7">${new Date(r.created_at).toLocaleString()}${r.admin_note?" · "+h(r.admin_note):""}</small></span><span class="qh-tag ${r.status}">${r.status==="waiting"?"Waiting":r.status==="approved"?"Approved":"Rejected"}</span></div>`}).join(""):`<div class="status">No payments yet.</div>`}
+      b.innerHTML=(data||[]).length?(data||[]).map(r=>{const p=plans().find(x=>x.id===r.plan_id);return `<div class="qh-row"><span><b>${h(p?p.name:r.plan_id)}</b> · ${r.period==="year"?"1 year":r.period==="lifetime"?"lifetime":"1 month"} · ${money(r.amount)}<br><small style="opacity:.7">${new Date(r.created_at).toLocaleString()}${r.admin_note?" · "+h(r.admin_note):""}</small></span><em style="font-style:normal;white-space:nowrap">${r.method==="aba"?`<span class="qh-tag aba">ABA</span>`:""}<span class="qh-tag ${r.status}">${r.status==="waiting"?"Waiting":r.status==="approved"?(r.method==="aba"?"Paid":"Approved"):r.status==="failed"?"Not completed":r.status==="expired"?"Expired":"Rejected"}</span></em></div>`}).join(""):`<div class="status">No payments yet.</div>`}
     catch(e){document.getElementById("qhBody").innerHTML=`<div class="status error">${h(String(e.message||e))}</div>`}
   }
   function showActivated(){
