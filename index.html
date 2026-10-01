@@ -18416,6 +18416,8 @@ body.ql-ocean .qs-acts button.g{background:rgba(255,255,255,.1);color:#fff7ed;bo
 .qh-row{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(148,163,184,.2);font-size:13.5px}.qh-row>span{flex:1}
 .qh-tag{font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:999px}.qh-tag.waiting{background:#fffbeb;color:#b45309}.qh-tag.approved{background:#ecfdf5;color:#047857}.qh-tag.rejected{background:#fef2f2;color:#b91c1c}
 .qh-tag.failed,.qh-tag.expired{background:#f1f5f9;color:#475569}.qh-tag.aba{background:#e0f2fe;color:#0369a1;margin-right:4px}
+.qp-trx{display:block;margin-top:10px}.qp-trx span{display:block;font-size:12.5px;font-weight:800;margin-bottom:5px}.qp-trx input{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1.5px solid #c7d2fe;font-size:16px;letter-spacing:.5px;background:#fff;color:#0f172a}
+body.ql-neon .qp-trx input,body.ql-ocean .qp-trx input{background:rgba(255,255,255,.06);color:var(--sk-text);border-color:color-mix(in srgb,var(--sk-accent) 45%,transparent)}
 .qaba{display:grid;grid-template-columns:230px 1fr;gap:18px;align-items:start}
 .qaba .qr{position:relative;width:230px;min-height:230px;border-radius:18px;background:#fff;border:1px solid #e5e7eb;display:grid;place-items:center;padding:8px;overflow:hidden}
 .qaba .qr img{width:100%;display:block;border-radius:10px}.qaba .qr.dead img{filter:blur(6px) grayscale(1);opacity:.35}
@@ -18516,7 +18518,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       if(p&&!p.is_default&&s&&seen!==p.id+"|"+s.ends_at){try{localStorage.setItem(key,p.id+"|"+s.ends_at)}catch{}if(seen!==null||before)showActivated()}
       else if(seen===null){try{localStorage.setItem(key,(p&&p.id)+"|"+(s&&s.ends_at))}catch{}}
     }catch{return}
-    checkAccount();applyAll();storageAlert();abaSync();
+    checkAccount();applyAll();storageAlert();abaSync();tgSync();
   }
   function storageAlert(){
     if(!mine||!signedIn())return;const p=curPlan(),L=(p&&p.limits)||{};if(L.storage_mb==null)return;
@@ -18685,19 +18687,26 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   }
   function shrink(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1200/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.72))};im.onerror=()=>rej(new Error("That file is not a photo."));im.src=r.result};r.onerror=rej;r.readAsDataURL(file)})}
   function openPay(p,per){
-    const pay=(cfg&&cfg.payment)||{},amount=priceOf(p,per);let receipt=null;
+    const pay=(cfg&&cfg.payment)||{},amount=priceOf(p,per),tg=!!pay.tg_enabled;let receipt=null;
     const len=per==="year"?"1 year":per==="lifetime"?"lifetime":"1 month";
     openModal(`Pay for ${h(p.name)} · ${len}`,`<div class="qpay"><div class="qr">${pay.qr_image?`<img src="${h(pay.qr_image)}" alt="Payment QR">`:`<span style="color:#94a3b8;font-size:12px;text-align:center">QR not set up yet</span>`}</div><div>
       <div class="sum">Amount <b>${money(amount)}</b> · ${h(p.name)} · ${len}${pay.bank||pay.account_number?`<br><span style="opacity:.75;font-size:12px">Pay to: ${h([pay.account_name,pay.bank,pay.account_number].filter(Boolean).join(" · "))}</span>`:""}</div>
-      <ol><li>Scan the QR with your bank app and pay <b>${money(amount)}</b></li><li>Take a screenshot of the receipt</li><li>Upload it here — your plan starts as soon as it's approved</li></ol>
+      ${tg?`<ol><li>Scan the QR with ABA or any KHQR bank app and pay <b>${money(amount)}</b></li><li>Type the <b>transaction number</b> (លេខប្រតិបត្តិការ / Trx. ID) from your receipt</li><li>Your plan switches on by itself in a few seconds</li></ol>`
+        :`<ol><li>Scan the QR with your bank app and pay <b>${money(amount)}</b></li><li>Take a screenshot of the receipt</li><li>Upload it here — your plan starts as soon as it's approved</li></ol>`}
       ${pay.note?`<div class="status" style="margin-top:8px">${h(pay.note)}</div>`:""}
-      <label class="up" id="qpUp">⬆ Upload receipt screenshot<input type="file" accept="image/*" hidden id="qpFile"></label><div id="qpSt" class="status hidden" style="margin-top:8px"></div></div></div>
-      <div class="form-actions"><button class="btn" type="button" id="qpBack">Back</button><button class="btn primary" type="button" id="qpSend" disabled>Send for approval</button></div>`);
+      ${tg?`<label class="qp-trx"><span>Transaction number</span><input id="qpTrx" inputmode="numeric" autocomplete="off" placeholder="e.g. 177828808648912"></label>`:""}
+      <label class="up" id="qpUp">⬆ ${tg?"Add receipt screenshot (optional)":"Upload receipt screenshot"}<input type="file" accept="image/*" hidden id="qpFile"></label><div id="qpSt" class="status hidden" style="margin-top:8px"></div></div></div>
+      <div class="form-actions"><button class="btn" type="button" id="qpBack">Back</button><button class="btn primary" type="button" id="qpSend" disabled>${tg?"I paid — check now":"Send for approval"}</button></div>`);
     const m=document.querySelector(".modal");if(m)m.style.width="min(720px,96vw)";
     const st=document.getElementById("qpSt"),send=document.getElementById("qpSend");
     document.getElementById("qpBack").onclick=()=>openUpgrade();
-    document.getElementById("qpFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{receipt=await shrink(f);document.getElementById("qpUp").innerHTML=`<img src="${receipt}" alt="">Change photo<input type="file" accept="image/*" hidden id="qpFile2">`;document.getElementById("qpFile2").onchange=document.getElementById("qpFile")?.onchange||e.target.onchange;send.disabled=false}catch(x){st.className="status error";st.textContent=x.message}};
-    send.onclick=async()=>{if(!receipt)return;send.disabled=true;st.className="status";st.textContent="Sending…";
+    const trxIn=document.getElementById("qpTrx"),trxVal=()=>trxIn?trxIn.value.replace(/[០-៩]/g,d=>"០១២៣៤៥៦៧៨៩".indexOf(d)).replace(/\D/g,""):"";
+    if(trxIn)trxIn.oninput=()=>{send.disabled=trxVal().length<6};
+    document.getElementById("qpFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{receipt=await shrink(f);document.getElementById("qpUp").innerHTML=`<img src="${receipt}" alt="">Change photo<input type="file" accept="image/*" hidden id="qpFile2">`;document.getElementById("qpFile2").onchange=document.getElementById("qpFile")?.onchange||e.target.onchange;send.disabled=tg?trxVal().length<6:false}catch(x){st.className="status error";st.textContent=x.message}};
+    send.onclick=async()=>{if(tg){if(trxVal().length<6)return trxIn.focus();send.disabled=true;st.className="status";st.textContent="Sending…";
+        try{const {data:id,error}=await cli().rpc("ql_submit_payment_trx",{p_plan:p.id,p_period:per,p_trx:trxVal(),p_receipt:receipt});if(error)throw error;try{localStorage.setItem("ql_trx_open",String(Date.now()))}catch{}tgWait(p,id)}
+        catch(e){send.disabled=false;st.className="status error";st.textContent=String(e.message||e).replace(/^.*?:\s*(?=[A-Z])/,"")}return}
+      if(!receipt)return;send.disabled=true;st.className="status";st.textContent="Sending…";
       try{const {error}=await cli().rpc("ql_submit_payment",{p_plan:p.id,p_period:per,p_receipt:receipt});if(error)throw error;
         openModal("Payment sent",`<div class="qok"><div class="big" style="background:linear-gradient(135deg,#6366f1,#a855f7)">⏳</div><h3 style="margin:0 0 6px">Thank you!</h3><p style="margin:0;opacity:.75">Your receipt was sent. ${h(p.name)} switches on as soon as it's approved — you'll see it here automatically.</p></div><div class="form-actions"><button class="btn primary" type="button" onclick="closeModal()">OK</button></div>`);
         document.querySelector(".qs-wrap")&&(document.querySelector(".qs-wrap").dataset.sig="");placeCard()}
@@ -18750,6 +18759,34 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       loop();
     }).catch(e=>fail(String(e.message||e)));
   }
+  /* ---------- shop QR + transaction number, checked against ABA's Telegram messages ---------- */
+  async function abacheck(body){const c=cli();const {data,error}=await c.functions.invoke("abacheck",{body});if(error){let m="";try{const j=await error.context.json();m=j&&j.error}catch{}throw new Error(m||"Could not reach the payment checker.")}if(data&&data.error)throw new Error(data.error);return data}
+  let tgRun=0;
+  function tgWait(p,id){
+    const run=++tgRun,alive=()=>run===tgRun&&document.getElementById("qtBox");
+    openModal("Checking your payment",`<div id="qtBox" class="qaba" style="grid-template-columns:1fr"><div><div class="wait" id="qtWait"><span class="spin"></span><span id="qtMsg">Checking with ABA…</span></div><p class="hint">This usually takes a few seconds. You can close this window — your plan still switches on by itself when the payment is found.</p></div></div><div class="form-actions"><button class="btn" type="button" id="qtClose">Close</button></div>`);
+    document.getElementById("qtClose").onclick=()=>{tgRun++;closeModal();refreshCard()};
+    const box=document.getElementById("qtWait"),t0=Date.now();
+    const end=(cls,txt)=>{box.className="wait "+cls;box.innerHTML=`<span>${txt}</span>`;document.querySelector("#qtBox .hint")?.remove()};
+    const step=async()=>{if(!alive())return;let r=null;try{r=await abacheck({action:"verify",payment_id:id})}catch(e){}
+      if(!alive())return;const s=r&&r.status;
+      if(s==="approved"){end("ok","✓ Payment found! Switching on "+h(p.name)+"…");tgRun++;setTimeout(async()=>{try{closeModal()}catch{}await loadMine();showActivated()},900);return}
+      if(s==="low"){end("bad","ABA shows a smaller amount than the price. The admin will check it.");refreshCard();return}
+      if(s==="used"){end("bad","This transaction number was already used. The admin will check it.");refreshCard();return}
+      if(s==="handled"){end("bad","This payment was already handled.");return}
+      if(Date.now()-t0>150000){end("","⏳ ABA's message hasn't arrived yet. Your payment is saved — the plan switches on by itself as soon as it does (or the admin approves it).");refreshCard();return}
+      if(Date.now()-t0>20000)document.getElementById("qtMsg").textContent="Still waiting for ABA's message… (can take a minute)";
+      setTimeout(step,5000)};
+    step();
+  }
+  function refreshCard(){const w=document.querySelector(".qs-wrap");if(w)w.dataset.sig="";placeCard()}
+  let tgSynced=0;
+  async function tgSync(){
+    if(!signedIn()||!(cfg&&cfg.payment&&cfg.payment.tg_enabled)||Date.now()-tgSynced<60000)return;
+    let t=0;try{t=Number(localStorage.getItem("ql_trx_open")||0)}catch{}
+    if(!t||Date.now()-t>3*864e5)return;tgSynced=Date.now();
+    try{const r=await abacheck({action:"mine"});if(r&&r.approved)loadMine()}catch{}
+  }
   /* QR codes left open (app closed while paying): ask ABA again when the app opens */
   let abaSynced=0;
   async function abaSync(){
@@ -18761,7 +18798,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   async function openHistory(){
     openModal("Payment history",`<div id="qhBody"><div class="status">Loading…</div></div>`);
     try{const {data,error}=await cli().rpc("ql_my_payments");if(error)throw error;const b=document.getElementById("qhBody");
-      b.innerHTML=(data||[]).length?(data||[]).map(r=>{const p=plans().find(x=>x.id===r.plan_id);return `<div class="qh-row"><span><b>${h(p?p.name:r.plan_id)}</b> · ${r.period==="year"?"1 year":r.period==="lifetime"?"lifetime":"1 month"} · ${money(r.amount)}<br><small style="opacity:.7">${new Date(r.created_at).toLocaleString()}${r.admin_note?" · "+h(r.admin_note):""}</small></span><em style="font-style:normal;white-space:nowrap">${r.method==="aba"?`<span class="qh-tag aba">ABA</span>`:""}<span class="qh-tag ${r.status}">${r.status==="waiting"?"Waiting":r.status==="approved"?(r.method==="aba"?"Paid":"Approved"):r.status==="failed"?"Not completed":r.status==="expired"?"Expired":"Rejected"}</span></em></div>`}).join(""):`<div class="status">No payments yet.</div>`}
+      b.innerHTML=(data||[]).length?(data||[]).map(r=>{const p=plans().find(x=>x.id===r.plan_id);return `<div class="qh-row"><span><b>${h(p?p.name:r.plan_id)}</b> · ${r.period==="year"?"1 year":r.period==="lifetime"?"lifetime":"1 month"} · ${money(r.amount)}<br><small style="opacity:.7">${new Date(r.created_at).toLocaleString()}${r.trx_ref?" · Trx "+h(r.trx_ref):""}${r.admin_note?" · "+h(r.admin_note):""}</small></span><em style="font-style:normal;white-space:nowrap">${r.method==="aba"?`<span class="qh-tag aba">ABA</span>`:""}<span class="qh-tag ${r.status}">${r.status==="waiting"?"Waiting":r.status==="approved"?(r.method==="aba"?"Paid":"Approved"):r.status==="failed"?"Not completed":r.status==="expired"?"Expired":"Rejected"}</span></em></div>`}).join(""):`<div class="status">No payments yet.</div>`}
     catch(e){document.getElementById("qhBody").innerHTML=`<div class="status error">${h(String(e.message||e))}</div>`}
   }
   function showActivated(){

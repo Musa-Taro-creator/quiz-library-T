@@ -62,6 +62,8 @@ td{padding:10px;border-bottom:1px solid #f1f3f8;vertical-align:middle;white-spac
 .u{display:flex;align-items:center;gap:10px;min-width:170px}.av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;flex:none}
 .u small{display:block;color:var(--muted);font-size:12px;word-break:break-all}
 .tag{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:800;white-space:nowrap;background:#f1f5f9;color:#475569}
+.tgm{margin-top:5px;font-size:11px;line-height:1.35;padding:4px 7px;border-radius:8px;background:#ecfdf5;color:#047857;font-weight:700}.tgm.no{background:#f1f5f9;color:#64748b}
+body.t-neon .tgm,body.t-ocean .tgm{background:rgba(16,185,129,.18);color:#6ee7b7}body.t-neon .tgm.no,body.t-ocean .tgm.no{background:rgba(255,255,255,.06);color:var(--muted)}
 .tag.ok{background:#ecfdf5;color:#047857}.tag.wait{background:#fffbeb;color:#b45309}.tag.no{background:#fef2f2;color:#b91c1c}
 .bar{height:7px;border-radius:9px;background:#eef0f6;overflow:hidden;width:110px}.bar i{display:block;height:100%;background:linear-gradient(90deg,#6366f1,#a855f7)}
 .filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.filters .btn.on{background:#111827;color:#fff;border-color:#111827}
@@ -245,6 +247,7 @@ const avColor=s=>COLORS[[...String(s||"?")].reduce((a,c)=>a+c.charCodeAt(0),0)%C
 const errMsg=e=>{const m=String(e&&(e.message||e.error_description||e)||"Something went wrong");if(/function .* does not exist|schema cache|PGRST202|42883/i.test(m))return "Run plans_admin.sql in Supabase first, then reload.";return m};
 function toast(t){const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2400)}
 async function rpc(name,args){const {data,error}=await sb.rpc(name,args||{});if(error)throw error;return data}
+async function abacheck(body){const {data,error}=await sb.functions.invoke("abacheck",{body});if(error){let m="";try{const j=await error.context.json();m=j&&j.error}catch{}throw new Error(m||"The abacheck Edge Function is not deployed yet (or can't be reached).")}if(data&&data.error)throw new Error(data.error);return data}
 async function payway(body){const {data,error}=await sb.functions.invoke("payway",{body});if(error){let m="";try{const j=await error.context.json();m=j&&j.error}catch{}throw new Error(m||"The payway Edge Function is not deployed yet (or can't be reached).")}if(data&&data.error)throw new Error(data.error);return data}
 function modal(title,body,{wide,foot}={}){
   const o=document.createElement("div");o.className="ovl";
@@ -460,23 +463,37 @@ async function pay(){
   if(payTab==="receipts")return receipts(tabs);return codes(tabs);
 }
 async function receipts(tabs){
+  if(payStatus==="tg")return tgList(tabs);
   const rows=await rpc("ql_admin_payments",{p_status:payStatus});
   $("#view").innerHTML=head("Payments","Approve a receipt, or give an activation code")+tabs+`
-  <div class="filters">${[["waiting","Waiting"],["approved","Approved"],["rejected","Rejected"],["aba","ABA automatic"]].map(([k,l])=>`<button class="btn ${payStatus===k?"on":""}" data-s="${k}">${l}</button>`).join("")}${payStatus==="aba"?`<button class="btn" id="abaSync" style="margin-left:auto">↻ Check with ABA</button>`:""}</div>
+  <div class="filters">${[["waiting","Waiting"],["approved","Approved"],["rejected","Rejected"],["tg","ABA messages"],["aba","ABA automatic"]].map(([k,l])=>`<button class="btn ${payStatus===k?"on":""}" data-s="${k}">${l}</button>`).join("")}${payStatus==="aba"?`<button class="btn" id="abaSync" style="margin-left:auto">↻ Check with ABA</button>`:payStatus==="waiting"?`<button class="btn" id="tgSync" style="margin-left:auto">↻ Read ABA group now</button>`:""}</div>
   <div class="card"><div class="tbl"><table><tr><th>Receipt</th><th>User</th><th>Plan</th><th>Amount</th><th>Sent</th><th></th></tr>
   ${rows.length?rows.map(r=>`<tr><td>${r.receipt?`<img class="rec" src="${h(r.receipt)}" data-big="${r.id}" alt="receipt">`:r.method==="aba"?`<span class="tag" style="background:#e0f2fe;color:#0369a1">ABA</span><small style="display:block;color:var(--muted);font-size:10.5px;margin-top:3px">${h(r.tran_id||"")}</small>`:"—"}</td><td><div class="u"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div>${h(r.name)}<small>${h(r.email)}</small></div></div></td>
-   <td>${planTag(r.plan_id," · "+(r.period==="month"?"1 month":r.period==="year"?"1 year":"lifetime"))}</td><td><b>${money(r.amount)}</b></td><td>${ago(r.created_at)}</td>
+   <td>${planTag(r.plan_id," · "+(r.period==="month"?"1 month":r.period==="year"?"1 year":"lifetime"))}</td><td><b>${money(r.amount)}</b>${r.trx_ref?`<small style="display:block;color:var(--muted);font-size:11px">Trx ${h(r.trx_ref)}</small>`:""}${r.status==="waiting"&&r.trx_ref?(r.tg?`<div class="tgm">✓ ABA: ${h(tgAmt(r.tg))}${r.tg.payer?" · "+h(r.tg.payer):""}<br>${h(new Date(r.tg.paid_at).toLocaleString())}${r.tg.used_at?" · already used":""}</div>`:`<div class="tgm no">Not in ABA group yet</div>`):""}</td><td>${ago(r.created_at)}</td>
    <td>${r.status==="waiting"?`<span class="inline"><button class="btn g" data-ok="${r.id}">Approve</button><button class="btn r" data-no="${r.id}">Reject</button></span>${r.admin_note?`<div class="note" style="margin:4px 0 0">${h(r.admin_note)}</div>`:""}`
      :r.method==="aba"&&r.status!=="approved"&&r.status!=="rejected"?`<span class="tag ${r.status==="pending"?"wait":""}">${r.status==="pending"?"Waiting for payment":r.status==="expired"?"QR expired · not paid":"Not completed"}</span><div class="inline" style="margin-top:6px"><button class="btn" data-ok="${r.id}" title="Use only if the student shows you an ABA receipt">Switch on anyway</button></div>`
      :`<span class="tag ${r.status==="approved"?"ok":"no"}">${r.method==="aba"&&r.status==="approved"&&(r.admin_note||"").includes("automatically")?"Paid automatically":r.status}</span>${r.admin_note&&!(r.admin_note||"").includes("automatically")?`<div class="note" style="margin:4px 0 0">${h(r.admin_note)}</div>`:""}`}</td></tr>`).join(""):`<tr><td colspan="6" class="empty">No ${payStatus==="aba"?"ABA":payStatus} payments</td></tr>`}</table></div>
   <div class="note">Approve = their plan switches on right away (1 month = 30 days, 1 year = 365 days), added on top of any time they still have.</div></div>`;
   $$("[data-t]").forEach(b=>b.onclick=()=>{payTab=b.dataset.t;go("pay")});
   $$("[data-s]").forEach(b=>b.onclick=()=>{payStatus=b.dataset.s;go("pay")});
+  $("#tgSync")&&($("#tgSync").onclick=async e=>{const b=e.currentTarget;b.disabled=true;b.textContent="Reading…";try{const r=await abacheck({action:"sync"});toast(`${r.added} new ABA message${r.added===1?"":"s"}${r.approved?` · ${r.approved} plan${r.approved>1?"s":""} switched on`:""}`);await loadCommon();go("pay")}catch(x){b.disabled=false;b.textContent="↻ Read ABA group now";alert(errMsg(x))}});
   $("#abaSync")&&($("#abaSync").onclick=async e=>{const b=e.currentTarget;b.disabled=true;b.textContent="Checking…";try{const r=await payway({action:"admin_sync"});toast(r.approved?`${r.approved} payment${r.approved>1?"s":""} found paid — plans switched on`:`Checked ${r.checked} — nothing new`);await loadCommon();go("pay")}catch(x){b.disabled=false;b.textContent="↻ Check with ABA";alert(errMsg(x))}});
   $$("[data-big]").forEach(i=>i.onclick=()=>modal("Receipt",`<img src="${i.src}" style="width:100%;border-radius:12px">`));
   const decide=async(id,ok)=>{let note="";const row=rows.find(x=>x.id===id);if(ok&&row&&row.method==="aba"&&row.status!=="waiting"&&!confirm("ABA did not confirm this payment. Switch the plan on anyway?"))return;if(!ok){note=prompt("Reason (the student sees this):","Payment not found")??null;if(note===null)return}
     try{await rpc("ql_admin_decide_payment",{p_id:id,p_approve:ok,p_note:note});toast(ok?"Approved — plan is on":"Rejected");await loadCommon();go("pay")}catch(e){alert(errMsg(e))}};
   $$("[data-ok]").forEach(b=>b.onclick=()=>{b.disabled=true;decide(b.dataset.ok,true)});$$("[data-no]").forEach(b=>b.onclick=()=>decide(b.dataset.no,false));
+}
+const tgAmt=t=>t.currency==="KHR"?Number(t.amount).toLocaleString()+" ៛":"$"+Number(t.amount).toFixed(2);
+async function tgList(tabs){
+  const rows=await rpc("ql_admin_tg_payments",{p_limit:150});
+  $("#view").innerHTML=head("Payments","Approve a receipt, or give an activation code")+tabs+`
+  <div class="filters">${[["waiting","Waiting"],["approved","Approved"],["rejected","Rejected"],["tg","ABA messages"],["aba","ABA automatic"]].map(([k,l])=>`<button class="btn ${payStatus===k?"on":""}" data-s="${k}">${l}</button>`).join("")}<button class="btn" id="tgSync" style="margin-left:auto">↻ Read ABA group now</button></div>
+  <div class="card"><div class="tbl"><table><tr><th>Amount</th><th>Paid by</th><th>Transaction number</th><th>Time</th><th>Used for</th></tr>
+  ${rows.length?rows.map(t=>`<tr><td><b>${h(tgAmt(t))}</b></td><td>${h(t.payer||"—")}</td><td><code>${h(t.trx_id)}</code>${t.apv?`<small style="display:block;color:var(--muted)">APV ${h(t.apv)}</small>`:""}</td><td>${ago(t.paid_at)}</td><td>${t.used_email?`<span class="tag ok">${h(t.used_email)}</span>`:`<span class="tag">Not used</span>`}</td></tr>`).join(""):`<tr><td colspan="5" class="empty">No ABA messages read yet. Connect Telegram in Settings, then press “Read ABA group now”.</td></tr>`}</table></div>
+  <div class="note">These are the "PayWay by ABA" messages from your Telegram group. When a student types one of these transaction numbers, their plan switches on by itself (each number works once).</div></div>`;
+  $$("[data-t]").forEach(b=>b.onclick=()=>{payTab=b.dataset.t;go("pay")});
+  $$("[data-s]").forEach(b=>b.onclick=()=>{payStatus=b.dataset.s;go("pay")});
+  $("#tgSync").onclick=async e=>{const b=e.currentTarget;b.disabled=true;b.textContent="Reading…";try{const r=await abacheck({action:"sync"});toast(`${r.added} new ABA message${r.added===1?"":"s"}${r.approved?` · ${r.approved} plan${r.approved>1?"s":""} switched on`:""}`);await loadCommon();go("pay")}catch(x){b.disabled=false;b.textContent="↻ Read ABA group now";alert(errMsg(x))}};
 }
 let gen={plan:null,days:30,uses:1,valid:7,count:1};
 async function codes(tabs){
@@ -587,6 +604,19 @@ async function settingsView(){
     <label class="chk"><input type="checkbox" id="sRec" ${p.receipts!==false?"checked":""}>Students can pay and upload a receipt</label>
     <div class="note">Untick to allow activation codes only.</div></div></div>
    <button class="btn p" id="sSave" style="margin-top:12px">Save payment details</button></div>
+  <div class="card" style="max-width:760px;margin-top:16px" id="tgCard"><h3>ABA Telegram check — automatic payments</h3>
+   <div class="note" style="margin:0 0 10px">Students pay your normal ABA shop QR, then type the transaction number from their receipt. A spare Telegram account in your ABA group reads the "PayWay by ABA" messages — if the number and amount match, the plan switches on by itself.</div>
+   <label class="chk"><input type="checkbox" id="tgOn" ${p.tg_enabled?"checked":""}>Check transaction numbers automatically</label>
+   <div class="fld" style="margin-top:10px"><label>Riel per $1 (only used when someone pays in riel)</label><input id="tgRate" class="in small" type="number" min="1000" value="${h(p.khr_rate||4100)}"></div>
+   <button class="btn p" id="tgSave">Save</button>
+   <div id="tgConn" style="margin-top:14px"><div class="note">Loading Telegram status…</div></div>
+   <details style="margin-top:8px"><summary class="note" style="cursor:pointer;font-weight:800;margin:0">How to set it up (once)</summary><ol class="note" style="line-height:1.7;margin:8px 0 0">
+    <li>Use a <b>spare</b> Telegram account (not your main one) and add it to your ABA group.</li>
+    <li>Open <b>my.telegram.org</b> → log in with the spare account → <b>API development tools</b> → create an app (any name) → copy <b>api_id</b> and <b>api_hash</b>.</li>
+    <li>Supabase → Edge Functions → Secrets: add <b>TG_API_ID</b> and <b>TG_API_HASH</b>.</li>
+    <li>Run <b>telegram_check.sql</b> in Supabase → SQL Editor.</li>
+    <li>Supabase → Edge Functions → Deploy a new function → Via Editor → name it <b>abacheck</b> → paste <b>supabase/functions/abacheck/index.ts</b> → Deploy.</li>
+    <li>Here: type the spare account's phone → Send code → type the code Telegram sends → choose your ABA group → tick the box and Save.</li></ol></details></div>
   <div class="card" style="max-width:760px;margin-top:16px"><h3>ABA PayWay — automatic payments</h3>
    <div class="note" style="margin:0 0 10px">Students get a KHQR made for the exact price. When ABA confirms the payment, their plan switches on by itself — no approving needed. Your Merchant ID and API key are kept in Supabase (Edge Function secrets), never here.</div>
    <label class="chk"><input type="checkbox" id="abaOn" ${p.aba_enabled?"checked":""}>Students pay with ABA KHQR (automatic)</label>
@@ -601,6 +631,8 @@ async function settingsView(){
     <li>Ask ABA to whitelist your website <b>${h(new URL(STUDENT_SITE).origin)}</b> and to enable <b>KHQR (abapay_khqr)</b> for the QR API.</li>
     <li>Tick the box above, Save, press Test connection, then buy a plan as a student.</li></ol></details></div>
   <div class="card" style="max-width:760px;margin-top:16px"><h3>Admin account</h3><div class="note" style="margin:0">Signed in as <b>${h(me.email)}</b>. To add another admin, add their email in plans_admin.sql (the ADMIN EMAIL line) and run it again.<br>Students' website: <a href="${STUDENT_SITE}" target="_blank" rel="noopener">${h(STUDENT_SITE)}</a></div></div>`;
+  $("#tgSave").onclick=()=>saveSetting("payment",{...(settings.payment||{}),tg_enabled:$("#tgOn").checked,khr_rate:Math.max(1000,Number($("#tgRate").value||4100))},$("#tgOn").checked?"Transaction check is ON":"Transaction check is off");
+  tgConnUI();
   let abaCur=p.aba_currency||"USD";$$("#abaCur [data-cur]").forEach(b=>b.onclick=()=>{abaCur=b.dataset.cur;$$("#abaCur [data-cur]").forEach(x=>x.classList.toggle("on",x===b))});
   $("#abaSave").onclick=()=>saveSetting("payment",{...(settings.payment||{}),aba_enabled:$("#abaOn").checked,aba_currency:abaCur},$("#abaOn").checked?"ABA automatic payments are ON":"ABA payments are off");
   $("#abaTest").onclick=async e=>{const b=e.currentTarget,o=$("#abaRes");b.disabled=true;o.textContent="Asking ABA…";
@@ -612,6 +644,29 @@ async function settingsView(){
   $("#sQr").onchange=async e=>{const f=e.target.files[0];if(!f)return;qr=await resizeImage(f,700,.85);const i=$("#sQrImg");i.outerHTML=`<img class="qrprev" id="sQrImg" src="${qr}">`};
   $("#sQrDel")&&($("#sQrDel").onclick=()=>{qr="";$("#sQrImg").outerHTML=`<div class="qrprev" id="sQrImg" style="display:grid;place-items:center;color:var(--muted);font-size:12px">No QR</div>`});
   $("#sSave").onclick=()=>saveSetting("payment",{...(settings.payment||{}),bank:$("#sBank").value.trim(),account_name:$("#sName").value.trim(),account_number:$("#sNum").value.trim(),note:$("#sNote").value.trim(),qr_image:qr,receipts:$("#sRec").checked},"Payment details saved");
+}
+
+async function tgConnUI(){
+  const box=$("#tgConn");if(!box)return;let st=null;
+  try{st=await rpc("ql_admin_tg_status")}catch(e){box.innerHTML=`<div class="note">⚠️ Run telegram_check.sql first. (${h(errMsg(e))})</div>`;return}
+  const busy=(b,t)=>{b.disabled=true;b.dataset.t=b.textContent;b.textContent=t},free=b=>{b.disabled=false;b.textContent=b.dataset.t||b.textContent};
+  if(!st.connected&&!st.waiting_code){
+    box.innerHTML=`${st.last_error?`<div class="note" style="color:#b91c1c">⚠️ ${h(st.last_error)}</div>`:""}<div class="fld"><label>Spare Telegram account's phone</label><input id="tgPhone" class="in" inputmode="tel" placeholder="+855 12 345 678" value="${h(st.phone||"")}"></div><button class="btn p" id="tgSend">Send code</button>`;
+    $("#tgSend").onclick=async e=>{const b=e.currentTarget;busy(b,"Sending…");try{await abacheck({action:"login_start",phone:$("#tgPhone").value});toast("Code sent — check the spare account's Telegram");tgConnUI()}catch(x){free(b);alert(errMsg(x))}};return}
+  if(st.waiting_code){
+    box.innerHTML=`<div class="note" style="margin:0 0 8px">Telegram sent a login code to <b>${h(st.phone||"")}</b> (look in that account's Telegram app). Type it here — don't send it to anyone.</div>
+     <div class="two"><div class="fld"><label>Code</label><input id="tgCode" class="in" inputmode="numeric" autocomplete="one-time-code"></div><div class="fld"><label>Telegram password (only if 2-step verification is on)</label><input id="tgPw" class="in" type="password"></div></div>
+     <div class="inline"><button class="btn p" id="tgSignin">Connect</button><button class="btn" id="tgRestart">Start again</button></div>`;
+    $("#tgSignin").onclick=async e=>{const b=e.currentTarget;busy(b,"Connecting…");try{const r=await abacheck({action:"login_code",code:$("#tgCode").value,password:$("#tgPw").value});if(r.need_password){free(b);alert("This account has a Telegram password (2-step verification). Type it in the password box and press Connect again.");$("#tgPw").focus();return}toast("Connected as "+r.account);tgConnUI()}catch(x){free(b);alert(errMsg(x))}};
+    $("#tgRestart").onclick=async()=>{try{await abacheck({action:"logout"})}catch{}tgConnUI()};return}
+  box.innerHTML=`<div class="note" style="margin:0 0 8px">✅ Connected as <b>${h(st.account||"")}</b>${st.chat_title?` · reading <b>${h(st.chat_title)}</b>`:` · <b style="color:#b45309">choose your ABA group</b>`}${st.last_sync?` · last read ${ago(st.last_sync)}`:""} · ${st.messages} ABA message${st.messages===1?"":"s"} saved</div>
+   ${st.last_error?`<div class="note" style="color:#b91c1c">⚠️ ${h(st.last_error)}</div>`:""}
+   <div class="inline"><button class="btn ${st.chat_id?"":"p"}" id="tgChats">${st.chat_id?"Change group":"Choose ABA group"}</button>${st.chat_id?`<button class="btn p" id="tgRead">Read now</button>`:""}<button class="btn r" id="tgOut">Disconnect</button></div><div id="tgPick" style="margin-top:10px"></div>`;
+  $("#tgChats").onclick=async e=>{const b=e.currentTarget;busy(b,"Loading groups…");try{const r=await abacheck({action:"chats"});free(b);
+    $("#tgPick").innerHTML=r.chats.length?`<div class="note" style="margin:0 0 6px">Tap the group where "PayWay by ABA" posts your payments:</div><div class="seg">${r.chats.map(c=>`<button type="button" data-chat="${h(c.id)}" data-title="${h(c.title)}" class="${c.aba?"on":""}">${c.aba?"💰 ":""}${h(c.title)}</button>`).join("")}</div>`:`<div class="note">This account isn't in any group yet. Add it to your ABA group first.</div>`;
+    $$("[data-chat]").forEach(x=>x.onclick=async()=>{x.disabled=true;try{const r2=await abacheck({action:"set_chat",chat_id:x.dataset.chat,title:x.dataset.title});toast(`Reading ${x.dataset.title}: ${r2.read} ABA message${r2.read===1?"":"s"} found`);tgConnUI()}catch(y){x.disabled=false;alert(errMsg(y))}})}catch(x){free(b);alert(errMsg(x))}};
+  $("#tgRead")&&($("#tgRead").onclick=async e=>{const b=e.currentTarget;busy(b,"Reading…");try{const r=await abacheck({action:"sync"});toast(`${r.added} new · ${r.read} ABA messages read${r.approved?` · ${r.approved} plan${r.approved>1?"s":""} switched on`:""}`);tgConnUI()}catch(x){free(b);alert(errMsg(x));tgConnUI()}});
+  $("#tgOut").onclick=async()=>{if(!confirm("Disconnect the Telegram account? Transaction numbers won't be checked until you connect again."))return;try{await abacheck({action:"logout"})}catch{}tgConnUI()};
 }
 
 window.addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(v&&v!==cur&&!$("#app").classList.contains("hidden"))go(v)});
