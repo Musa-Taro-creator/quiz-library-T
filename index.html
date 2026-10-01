@@ -18394,7 +18394,7 @@ body.ql-ocean .qs-acts button.g{background:rgba(255,255,255,.1);color:#fff7ed;bo
 .qu-toggle button{padding:7px 16px;border-radius:999px;font-weight:800;font-size:13px;color:#4338ca;border:0;background:none;cursor:pointer;font-family:inherit}.qu-toggle button.on{background:#4f46e5;color:#fff}
 .qu-toggle em{font-style:normal;font-size:11px;background:#10b981;color:#fff;border-radius:999px;padding:1px 6px;margin-left:4px}
 .qu-plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
-.qu-p{position:relative;border-radius:18px;padding:16px;border:1px solid #e5e7eb;background:#fff;display:flex;flex-direction:column}
+.qu-p{position:relative;border-radius:18px;padding:16px;border:1px solid #e5e7eb;background:#fff;display:flex;flex-direction:column;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .2s}.qu-p.hl{transform:translateY(-2px);padding:15px}
 .qu-p.cur{background:#f8fafc}.qu-p.hl{border:2px solid var(--pc,#6366f1);box-shadow:0 12px 30px rgba(99,102,241,.2)}
 .qu-p .bd{position:absolute;top:-10px;right:12px;font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:999px;color:#fff;background:var(--pc,#6366f1)}
 .qu-p h4{margin:0;font-size:17px}.qu-p .tl{font-size:12.5px;color:#64748b}.qu-p .pr{font-size:26px;font-weight:800;margin:6px 0 2px}.qu-p .pr small{font-size:12px;color:#64748b;font-weight:600}
@@ -18626,7 +18626,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   setInterval(()=>{document.querySelectorAll(".qs-cd[data-end]").forEach(c=>{const ms=Number(c.dataset.end)-now();c.innerHTML=cdHtml(ms);if(ms<=0&&!c.dataset.done){c.dataset.done=1;loadMine()}})},1000);
 
   /* ---------- upgrade / pay / code ---------- */
-  let period="month";
+  let period="month",quSel=null;
   const periodOf=p=>period==="year"&&p.price_year!=null?"year":period==="lifetime"&&p.price_lifetime!=null?"lifetime":p.price_month!=null?"month":p.price_year!=null?"year":"lifetime";
   const priceOf=(p,per)=>per==="year"?p.price_year:per==="lifetime"?p.price_lifetime:p.price_month;
   function featureLines(p){
@@ -18642,11 +18642,12 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     const cur=curPlan(),hasYear=ps.some(p=>p.price_year!=null&&!p.is_default),hasLife=ps.some(p=>p.price_lifetime!=null&&!p.is_default);
     const save=(()=>{const p=ps.find(x=>x.price_month&&x.price_year);return p?Math.round((1-p.price_year/(p.price_month*12))*100):0})();
     const receipts=!(cfg.payment&&cfg.payment.receipts===false);
+    if(!ps.some(p=>p.id===quSel))quSel=(ps.find(p=>p.badge&&!p.is_default)||ps.find(p=>!p.is_default)||ps[0]).id;
     const render=()=>{
       const body=`${reason?`<div class="status" style="margin-bottom:12px">${h(reason)}</div>`:""}
         <div class="qu-top">${hasYear||hasLife?`<div class="qu-toggle"><button type="button" data-per="month" class="${period==="month"?"on":""}">Monthly</button>${hasYear?`<button type="button" data-per="year" class="${period==="year"?"on":""}">Yearly${save>0?` <em>Save ${save}%</em>`:""}</button>`:""}${hasLife?`<button type="button" data-per="lifetime" class="${period==="lifetime"?"on":""}">Lifetime</button>`:""}</div>`:""}</div>
         <div class="qu-plans">${ps.map(p=>{const per=periodOf(p),pr=priceOf(p,per),isCur=cur&&cur.id===p.id;
-          return `<div class="qu-p ${isCur?"cur":""} ${p.badge?"hl":""}" style="--pc:${h(p.color)}">${p.badge?`<span class="bd">${h(p.badge)}</span>`:""}<h4>${h(p.name)}</h4><div class="tl">${h(p.tagline||"")}</div>
+          return `<div class="qu-p ${isCur?"cur":""} ${quSel===p.id?"hl":""}" data-qusel="${h(p.id)}" style="--pc:${h(p.color)}">${p.badge?`<span class="bd">${h(p.badge)}</span>`:""}<h4>${h(p.name)}</h4><div class="tl">${h(p.tagline||"")}</div>
           <div class="pr">${p.is_default?"$0":money(pr)} ${p.is_default?"":`<small>/ ${per==="lifetime"?"once":per}</small>`}</div>
           <ul>${featureLines(p).map(([t,ok])=>`<li class="${ok?"":"no"}">${h(t)}</li>`).join("")}</ul>
           ${p.is_default?`<button class="b" type="button" disabled>${isCur?"Your plan":"Free"}</button>`:receipts?`<button class="b" type="button" data-buy="${h(p.id)}" data-per="${per}">${isCur?"Renew "+h(p.name):"Choose "+h(p.name)}</button>`:`<button class="b" type="button" disabled>Ask for a code</button>`}</div>`}).join("")}</div>
@@ -18654,6 +18655,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       openModal("Choose your plan",body);
       const m=document.querySelector(".modal");if(m)m.style.width="min(880px,96vw)";
       document.querySelectorAll("[data-per].qu-toggle button,.qu-toggle [data-per]").forEach(b=>b.onclick=()=>{period=b.dataset.per;render()});
+      document.querySelectorAll("[data-qusel]").forEach(c=>c.onclick=()=>{quSel=c.dataset.qusel;document.querySelectorAll("[data-qusel]").forEach(x=>x.classList.toggle("hl",x===c))});
       document.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>openPay(ps.find(p=>p.id===b.dataset.buy),b.dataset.per));
       const go=document.getElementById("quCodeGo"),inp=document.getElementById("quCode"),st=document.getElementById("quCodeSt");
       const redeem=async()=>{const code=inp.value.trim();if(!code)return inp.focus();go.disabled=true;st.className="status";st.textContent="Checking code…";
