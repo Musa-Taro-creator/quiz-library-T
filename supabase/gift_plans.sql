@@ -84,4 +84,16 @@ $$;
 revoke all on function public.ql_claim_gift(uuid) from public, anon;
 grant execute on function public.ql_claim_gift(uuid) to authenticated;
 
+-- Instant: the student's screen updates the moment a gift is sent or cancelled
+drop policy if exists "own gifts read" on public.ql_gifts;
+create policy "own gifts read" on public.ql_gifts for select to authenticated using (user_id = auth.uid());
+grant select on public.ql_gifts to authenticated;
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'ql_gifts') then
+    execute 'alter publication supabase_realtime add table public.ql_gifts';
+  end if;
+end $$;
+
 notify pgrst, 'reload schema';

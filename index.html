@@ -18696,7 +18696,8 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   let subUser=null;
   function subscribeMine(){
     const c=cli();if(!c||!signedIn()||subUser===state.user.id)return;subUser=state.user.id;
-    try{c.channel("ql-plan-"+subUser).on("postgres_changes",{event:"*",schema:"public",table:"ql_subscriptions",filter:"user_id=eq."+subUser},()=>loadMine()).subscribe()}catch{}
+    try{c.channel("ql-plan-"+subUser).on("postgres_changes",{event:"*",schema:"public",table:"ql_subscriptions",filter:"user_id=eq."+subUser},()=>loadMine())
+      .on("postgres_changes",{event:"*",schema:"public",table:"ql_gifts",filter:"user_id=eq."+subUser},()=>loadMine()).subscribe()}catch{}
   }
 
   /* ---------- account checks ---------- */
