@@ -1,6 +1,5 @@
 -- Quiz Library — automatic payments with ABA PayWay (KHQR).
--- Run once in Supabase → SQL Editor, AFTER plans_admin.sql and telegram_check.sql.
--- Safe to run again. (Only needed if ABA gives you a PayWay API key.)
+-- Run once in Supabase → SQL Editor, AFTER plans_admin.sql. Safe to run again.
 --
 -- How it works: the student taps "Choose Pro", the "payway" Edge Function asks
 -- ABA for a KHQR made for that exact payment, and keeps checking with ABA.
@@ -113,6 +112,54 @@ $$;
 revoke all on function public.ql__aba_is_admin(uuid) from public, anon, authenticated;
 grant execute on function public.ql__aba_is_admin(uuid) to service_role;
 
--- (Payment history, admin list and manual approve for ABA payments are in telegram_check.sql.)
+-- Students' payment history now also shows ABA payments.
+drop function if exists public.ql_my_payments();
+create or replace function public.ql_my_payments()
+returns table (id uuid, plan_id text, period text, amount numeric, status text, admin_note text,
+               created_at timestamptz, decided_at timestamptz, method text, tran_id text, currency text)
+language sql stable security definer set search_path = public as $$
+  select id, plan_id, period, amount, status, admin_note, created_at, decided_at, method, tran_id, currency
+    from ql_payment_requests
+   where user_id = auth.uid() and not (method = 'aba' and status in ('pending', 'expired'))
+   order by created_at desc limit 50;
+$$;
+revoke all on function public.ql_my_payments() from public, anon;
+grant execute on function public.ql_my_payments() to authenticated;
+
+-- Admin can also switch on a plan by hand for an ABA payment that was
+-- expired / failed / needs checking (e.g. the student shows you the ABA receipt).
+create or replace function public.ql_admin_decide_payment(p_id uuid, p_approve boolean, p_note text default '')
+returns void language plpgsql security definer set search_path = public as $$
+declare r ql_payment_requests;
+begin
+  perform ql__need_admin();
+  select * into r from ql_payment_requests where id = p_id for update;
+  if r.id is null or r.status not in ('waiting', 'pending', 'expired', 'failed') then raise exception 'This payment was already handled'; end if;
+  update ql_payment_requests set status = case when p_approve then 'approved' else 'rejected' end,
+         admin_note = coalesce(nullif(p_note, ''), case when p_approve and r.method = 'aba' then 'Approved by admin' else '' end),
+         decided_at = now() where id = p_id;
+  if p_approve then
+    perform ql__grant(r.user_id, r.plan_id, case r.period when 'month' then 30 when 'year' then 365 else null end);
+  end if;
+end;
+$$;
+revoke all on function public.ql_admin_decide_payment(uuid, boolean, text) from public, anon;
+grant execute on function public.ql_admin_decide_payment(uuid, boolean, text) to authenticated;
+
+-- Admin list: 'aba' shows every ABA payment (any status).
+create or replace function public.ql_admin_payments(p_status text default 'waiting')
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+begin
+  perform ql__need_admin();
+  return coalesce((select jsonb_agg(to_jsonb(r) || jsonb_build_object(
+           'email', u.email, 'name', coalesce(u.raw_user_meta_data->>'full_name', split_part(u.email, '@', 1))) order by r.created_at desc)
+    from (select * from ql_payment_requests
+           where (p_status = 'aba' and method = 'aba') or (p_status <> 'aba' and status = p_status)
+           order by created_at desc limit 300) r
+    left join auth.users u on u.id = r.user_id), '[]'::jsonb);
+end;
+$$;
+revoke all on function public.ql_admin_payments(text) from public, anon;
+grant execute on function public.ql_admin_payments(text) to authenticated;
 
 notify pgrst, 'reload schema';
