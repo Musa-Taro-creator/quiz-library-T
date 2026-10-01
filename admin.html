@@ -62,6 +62,8 @@ td{padding:10px;border-bottom:1px solid #f1f3f8;vertical-align:middle;white-spac
 .u{display:flex;align-items:center;gap:10px;min-width:170px}.av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;flex:none}
 .u small{display:block;color:var(--muted);font-size:12px;word-break:break-all}
 .tag{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:800;white-space:nowrap;background:#f1f5f9;color:#475569}
+.flim{margin:0 0 8px 30px;padding:2px 12px;border-left:3px solid #c7d2fe;border-radius:2px}.flim .lim{padding:6px 0}.flim .lim>span:first-child{font-size:13px;color:var(--muted)}
+body.t-neon .flim{border-left-color:#00e5ff66}body.t-ocean .flim{border-left-color:#fdba7499}
 .tag.ok{background:#ecfdf5;color:#047857}.tag.wait{background:#fffbeb;color:#b45309}.tag.no{background:#fef2f2;color:#b91c1c}
 .bar{height:7px;border-radius:9px;background:#eef0f6;overflow:hidden;width:110px}.bar i{display:block;height:100%;background:linear-gradient(90deg,#6366f1,#a855f7)}
 .filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.filters .btn.on{background:#111827;color:#fff;border-color:#111827}
@@ -230,7 +232,9 @@ const FEATURES=[
  ["Quiz editor",[["ed_addnew","Add New Questions"],["ed_images","Image Manager"],["ed_move","Move Questions"],["ed_sections","Sections"],["ed_find","Find & check problems"]]],
  ["Profile & account",[["pf_edit","Edit Profile"],["pf_avatar","Change Avatar"],["pf_themes","App themes"],["pf_devices","Devices list"],["signup","New sign-ups"]]]
 ];
-const LIMITS=[["storage_mb","Storage","MB"],["quizzes","Quizzes",""],["pdfs","PDF uploads",""],["questions_per_quiz","Questions per quiz",""],["results_kept","Results kept per quiz",""]];
+const LIMITS=[["storage_mb","Storage","MB"],["results_kept","Results kept per quiz",""]];
+/* limits that belong to a "+ New" feature: shown under its tick in Edit plan */
+const FEAT_LIMITS={new_folder:[["folders","How many folders"]],new_link:[["links","How many quiz links"]],new_pdf:[["pdfs","How many PDFs"]],new_quiz:[["quizzes","How many quizzes"],["questions_per_quiz","Questions per quiz"]]};
 const COLORS=["#94a3b8","#6366f1","#0ea5e9","#a855f7","#ec4899","#f59e0b","#10b981","#ef4444"];
 
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"ql-admin-auth"}});
@@ -399,7 +403,7 @@ async function plansView(){
     <div class="nm"><span class="dot" style="background:${p.color}"></span>${h(p.name)}${p.visibility!=="public"?` <span class="tag">${p.visibility==="code"?"Code only":"Hidden"}</span>`:""}</div>
     <div class="note" style="margin:2px 0 0">${h(p.tagline||"")}</div>
     <div class="pr">${p.is_default?"$0 <small>forever</small>":`${money(p.price_month)} <small>/ month${p.price_year!=null?" · "+money(p.price_year)+" / year":""}${p.price_lifetime!=null?" · "+money(p.price_lifetime)+" once":""}</small>`}</div>
-    <ul>${LIMITS.map(([k,l])=>`<li>${l}<b>${lim(p,k)}</b></li>`).join("")}<li>People on it<b>${p.members||0}</b></li></ul>
+    <ul>${[["storage_mb","Storage"],["quizzes","Quizzes","new_quiz"],["questions_per_quiz","Questions per quiz","new_quiz"],["pdfs","PDFs","new_pdf"],["links","Quiz links","new_link"],["folders","Folders","new_folder"],["results_kept","Results kept per quiz"]].filter(([k,l,f])=>!f||(p.features||{})[f]).map(([k,l])=>`<li>${l}<b>${lim(p,k)}</b></li>`).join("")}<li>People on it<b>${p.members||0}</b></li></ul>
     <button class="btn ${p.badge?"p":""}" data-edit="${h(p.id)}">Edit</button></div>`).join("")}
     <div class="addplan" id="addPlan2">＋ Add new plan</div></div>
   <div class="card" style="margin-top:16px"><h3>Plan order on the Upgrade page</h3><div class="seg" id="order">${plans.map((p,i)=>`<span class="inline" style="gap:4px"><button class="btn" data-up="${i}" ${i?"":"disabled"}>‹</button><b style="font-size:13px">${h(p.name)}</b><button class="btn" data-down="${i}" ${i<plans.length-1?"":"disabled"}>›</button></span>`).join("")}</div>
@@ -411,8 +415,9 @@ async function plansView(){
   $$("[data-up]").forEach(b=>b.onclick=()=>move(+b.dataset.up,-1));$$("[data-down]").forEach(b=>b.onclick=()=>move(+b.dataset.down,1));
 }
 function editPlan(p){
-  const isNew=!p;p=p||{name:"",tagline:"",color:"#0ea5e9",badge:"",price_month:null,price_year:null,price_lifetime:null,visibility:"public",limits:{storage_mb:1024,quizzes:null,pdfs:null,questions_per_quiz:null,results_kept:null},features:{}};
+  const isNew=!p;p=p||{name:"",tagline:"",color:"#0ea5e9",badge:"",price_month:null,price_year:null,price_lifetime:null,visibility:"public",limits:{storage_mb:1024,quizzes:null,pdfs:null,links:null,folders:null,questions_per_quiz:null,results_kept:null},features:{new_folder:true,new_link:true,new_pdf:true,new_quiz:true}};
   const L=p.limits||{},F=p.features||{};
+  const limRow=(k,l)=>`<div class="lim"><span>${l}</span><input class="in" data-lim="${k}" type="number" min="0" value="${L[k]??""}" ${L[k]==null?"disabled":""}><span class="uu"><button type="button" class="sw sm ${L[k]==null?"on":""}" data-unl="${k}"></button>Unlimited</span></div>`;
   const priceRow=(k,l)=>`<div class="lim"><span>${l}</span><input class="in" data-price="${k}" type="number" min="0" step="0.01" value="${p[k]??""}" placeholder="—" ${p[k]==null?"disabled":""}><span class="uu"><button type="button" class="sw sm ${p[k]!=null?"on":""}" data-poff="${k}"></button>Offer</span></div>`;
   const o=modal(isNew?"Add new plan":`Edit plan · ${h(p.name)}`,`<div class="two"><div>
     <div class="sec-t">Name &amp; look</div>
@@ -424,10 +429,10 @@ function editPlan(p){
     <div class="sec-t">Who can get it</div><div class="seg" id="pVis">${[["public","Show on Upgrade page"],["code","Only with a code"],["hidden","Hidden (nobody new)"]].map(([k,l])=>`<button type="button" data-v="${k}" class="${p.visibility===k?"on":""}">${l}</button>`).join("")}</div>
    </div><div>
     <div class="sec-t">Limits</div>
-    ${LIMITS.map(([k,l,u])=>`<div class="lim"><span>${l}${u?` (${u})`:""}</span><input class="in" data-lim="${k}" type="number" min="0" value="${L[k]??""}" ${L[k]==null?"disabled":""}><span class="uu"><button type="button" class="sw sm ${L[k]==null?"on":""}" data-unl="${k}"></button>Unlimited</span></div>`).join("")}
+    ${LIMITS.map(([k,l,u])=>limRow(k,l+(u?` (${u})`:""))).join("")}
     <div class="sec-t">Features in this plan</div>
     <div class="note" style="margin:0 0 6px">Ticks count for features set to "By plan" in Website Control.</div>
-    ${FEATURES.flatMap(g=>g[1]).filter(f=>f[0]!=="signup").map(([k,l])=>`<label class="chk"><input type="checkbox" data-feat="${k}" ${F[k]?"checked":""}>${l}<span class="tag" style="margin-left:auto">${modeLabel((settings.features||{})[k])}</span></label>`).join("")}
+    ${FEATURES.flatMap(g=>g[1]).filter(f=>f[0]!=="signup").map(([k,l])=>`<label class="chk"><input type="checkbox" data-feat="${k}" ${F[k]?"checked":""}>${l}<span class="tag" style="margin-left:auto">${modeLabel((settings.features||{})[k])}</span></label>${FEAT_LIMITS[k]?`<div class="flim ${F[k]?"":"hidden"}" data-flim="${k}">${FEAT_LIMITS[k].map(([lk,ll])=>limRow(lk,ll)).join("")}</div>`:""}`).join("")}
    </div></div>`,{wide:true,foot:`${isNew||p.is_default?"":`<button class="btn r" id="pDel">Delete plan</button>`}<span class="sp"></span><button class="btn" id="pCancel">Cancel</button><button class="btn p" id="pSave">Save plan</button>`});
   let color=p.color,badge=p.badge,vis=p.visibility;
   o.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{color=b.dataset.c;o.querySelectorAll("[data-c]").forEach(x=>x.classList.toggle("on",x===b))});
@@ -436,6 +441,7 @@ function editPlan(p){
   o.querySelectorAll("#pVis [data-v]").forEach(b=>b.onclick=()=>{vis=b.dataset.v;o.querySelectorAll("#pVis [data-v]").forEach(x=>x.classList.toggle("on",x===b))});
   o.querySelectorAll("[data-unl]").forEach(b=>b.onclick=()=>{b.classList.toggle("on");const i=o.querySelector(`[data-lim="${b.dataset.unl}"]`);i.disabled=b.classList.contains("on");if(!i.disabled&&!i.value)i.value=10;if(i.disabled)i.value=""});
   o.querySelectorAll("[data-poff]").forEach(b=>b.onclick=()=>{b.classList.toggle("on");const i=o.querySelector(`[data-price="${b.dataset.poff}"]`);i.disabled=!b.classList.contains("on");if(i.disabled)i.value=""});
+  o.querySelectorAll("[data-feat]").forEach(c=>c.onchange=()=>{const b=o.querySelector(`[data-flim="${c.dataset.feat}"]`);if(b)b.classList.toggle("hidden",!c.checked)});
   o.querySelector("#pCancel").onclick=()=>o.remove();
   o.querySelector("#pSave").onclick=async()=>{
     const limits={};o.querySelectorAll("[data-lim]").forEach(i=>limits[i.dataset.lim]=i.disabled||i.value===""?null:Number(i.value));

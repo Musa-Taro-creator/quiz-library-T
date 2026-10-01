@@ -18468,7 +18468,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     pf_edit:['#profileEditBtn'],pf_avatar:['#profileChangeAvatarBtn'],pf_themes:['.ql-theme-switch .ql-theme-opt:not([data-skin="white"])'],pf_devices:['.ql-dev-wrap'],
     signup:['.ql-auth-footer:has(#focusStudentRegister)','#studentRegisterForm']
   };
-  const LIMIT_LABEL={quizzes:"quizzes",pdfs:"PDFs",storage:"storage"};
+  const LIMIT_LABEL={quizzes:"quizzes",pdfs:"PDFs",links:"links",folders:"folders",questions_per_quiz:"questions per quiz",storage:"storage"};
   const h=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const money=v=>v==null||v===""?"":"$"+Number(v).toFixed(Number(v)%1?2:0);
   const cli=()=>typeof service!=="undefined"&&service.client;
@@ -18577,8 +18577,9 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   /* new quiz / PDF: check the limit before the form opens */
   document.addEventListener("click",e=>{
     if(!ready||!mine)return;
-    const t=e.target.closest&&e.target.closest('#newMenu [data-quiz-new],#adminQuickActions [data-quiz-quick],#newMenu [data-new="pdf"],#adminQuickActions [data-quick="pdf"]');if(!t)return;
-    const kind=t.matches('[data-quiz-new],[data-quiz-quick]')?"quizzes":"pdfs",lim=(curPlan().limits||{})[kind],used=Number((mine.usage||{})[kind]||0);
+    const t=e.target.closest&&e.target.closest('#newMenu [data-quiz-new],#adminQuickActions [data-quiz-quick],#newMenu [data-new],#adminQuickActions [data-quick="pdf"],#adminQuickActions [data-quick="link"],#adminQuickActions [data-quick="folder"]');if(!t)return;
+    const nk=t.dataset.new||t.dataset.quick;
+    const kind=t.matches('[data-quiz-new],[data-quiz-quick]')?"quizzes":nk==="pdf"?"pdfs":nk==="link"?"links":nk==="folder"?"folders":null;if(!kind)return;lim=(curPlan().limits||{})[kind],used=Number((mine.usage||{})[kind]||0);
     if(lim!=null&&used>=lim){e.preventDefault();e.stopImmediatePropagation();try{closeMenus()}catch{}openUpgrade(`You've used all ${lim} ${LIMIT_LABEL[kind]} in the ${curPlan().name} plan.`)}
   },true);
   /* database refusals (plan_limit:...) become a friendly message + Upgrade */
@@ -18588,6 +18589,18 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       if(k){setTimeout(()=>{loadMine();openUpgrade(k==="suspended"?"This account is suspended.":`You've reached the ${LIMIT_LABEL[k]||k} limit of the ${curPlan()?curPlan().name:"current"} plan.`)},50);
         return k==="storage"?"Not enough storage left in your plan.":k==="suspended"?"This account is suspended.":`You've reached your plan's ${LIMIT_LABEL[k]||k} limit.`}
       return prev.apply(this,arguments)};
+  }
+
+  /* questions per quiz: block saves that ADD questions past the plan's limit (editing a big quiz you already have still works) */
+  function guardQuestions(total,itemId){
+    if(!ready||!mine||!signedIn())return;const lim=(curPlan()&&curPlan().limits||{}).questions_per_quiz;if(lim==null)return;
+    const it=(state.items||[]).find(i=>String(i.id)===String(itemId)),before=Number(it&&it.quiz_settings&&it.quiz_settings.question_count||0);
+    if(Number(total)>lim&&Number(total)>before)throw new Error("plan_limit:questions_per_quiz");
+  }
+  if(typeof service!=="undefined"){
+    const fq=service.saveQuizQuestions,fp=service.saveQuizQuestionsPartial;
+    if(fq)service.saveQuizQuestions=async function(itemId,questions,settings){guardQuestions(Array.isArray(questions)?questions.length:settings&&settings.question_count,itemId);return await fq.apply(this,arguments)};
+    if(fp)service.saveQuizQuestionsPartial=async function(itemId,changed,settings){if(settings&&settings.question_count!=null)guardQuestions(settings.question_count,itemId);return await fp.apply(this,arguments)};
   }
 
   /* ---------- plan card in My Profile ---------- */
@@ -18633,8 +18646,11 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     const L=p.limits||{},out=[];
     const has=k=>!!(p.features&&p.features[k])&&featMode(k)!=="off";
     /* the quiz / PDF limits show only when Create Quiz / Upload PDF is ticked for this plan */
-    if(has("new_quiz"))out.push([`${L.quizzes==null?"Unlimited":L.quizzes} quizzes`,true]);
-    if(has("new_pdf"))out.push([`${L.pdfs==null?"Unlimited":L.pdfs} PDFs`,true]);
+    const n=v=>v==null?"Unlimited":v;
+    if(has("new_quiz"))out.push([`${n(L.quizzes)} quizzes · ${L.questions_per_quiz==null?"unlimited":L.questions_per_quiz} questions each`,true]);
+    if(has("new_pdf"))out.push([`${n(L.pdfs)} PDFs`,true]);
+    if(has("new_link"))out.push([`${n(L.links)} quiz links`,true]);
+    if(has("new_folder"))out.push([`${n(L.folders)} folders`,true]);
     /* only the features the admin ticked for this plan (same names as admin → Features in this plan) */
     const names={nav_random:"Random Quiz",nav_inbox:"Shared with me",nav_favorites:"Favorites",nav_recent:"Recent",nav_shared_links:"Shared Links",nav_trash:"Trash",nav_install:"Install app",
       new_folder:"Create Folder",new_link:"Add Quiz Link",new_pdf:"Upload PDF",new_quiz:"Create Quiz",
@@ -18642,7 +18658,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       quiz_autoadv:"Auto-advance",quiz_shuffle:"Shuffle",quiz_bookmark:"Bookmark & Flag",quiz_summary:"Quiz Summary",quiz_results:"Quiz Results",
       ed_addnew:"Add New Questions",ed_images:"Image Manager",ed_move:"Move Questions",ed_sections:"Sections",ed_find:"Find & check problems",
       pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list"};
-    for(const k in names){if(k!=="new_quiz"&&k!=="new_pdf"&&has(k))out.push([names[k],true])}
+    for(const k in names){if(!["new_quiz","new_pdf","new_link","new_folder"].includes(k)&&has(k))out.push([names[k],true])}
     return out;
   }
   function openUpgrade(reason,focusCode){
