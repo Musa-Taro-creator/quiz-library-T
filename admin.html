@@ -64,6 +64,7 @@ td{padding:10px;border-bottom:1px solid #f1f3f8;vertical-align:middle;white-spac
 .tag{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:800;white-space:nowrap;background:#f1f5f9;color:#475569}
 .flim{margin:0 0 8px 30px;padding:2px 12px;border-left:3px solid #c7d2fe;border-radius:2px}.flim .lim{padding:6px 0}.flim .lim>span:first-child{font-size:13px;color:var(--muted)}
 body.t-neon .flim{border-left-color:#00e5ff66}body.t-ocean .flim{border-left-color:#fdba7499}
+.dcust{display:inline-flex;gap:6px;align-items:center}.dcust select.in{width:auto;padding-right:28px}
 .tag.ok{background:#ecfdf5;color:#047857}.tag.wait{background:#fffbeb;color:#b45309}.tag.no{background:#fef2f2;color:#b91c1c}
 .bar{height:7px;border-radius:9px;background:#eef0f6;overflow:hidden;width:110px}.bar i{display:block;height:100%;background:linear-gradient(90deg,#6366f1,#a855f7)}
 .filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}.filters .btn.on{background:#111827;color:#fff;border-color:#111827}
@@ -485,7 +486,7 @@ async function receipts(tabs){
     try{await rpc("ql_admin_decide_payment",{p_id:id,p_approve:ok,p_note:note});toast(ok?"Approved — plan is on":"Rejected");await loadCommon();go("pay")}catch(e){alert(errMsg(e))}};
   $$("[data-ok]").forEach(b=>b.onclick=()=>{b.disabled=true;decide(b.dataset.ok,true)});$$("[data-no]").forEach(b=>b.onclick=()=>decide(b.dataset.no,false));
 }
-let gen={plan:null,days:30,uses:1,valid:7,count:1};
+let gen={plan:null,days:30,uses:1,valid:7,count:1,dUnit:1,dN:""};
 async function codes(tabs){
   const all=await rpc("ql_admin_codes");const now=Date.now();
   const st=c=>c.cancelled?"cancelled":c.expires_at&&new Date(c.expires_at)<now?"expired":c.max_uses!=null&&c.uses>=c.max_uses?"used":"active";
@@ -495,7 +496,7 @@ async function codes(tabs){
   $("#view").innerHTML=head("Payments","Approve a receipt, or give an activation code")+tabs+`
   <div class="codegen"><div class="card"><h3>Generate a code</h3>
     <div class="fld"><label>Plan it gives</label><div class="seg" data-g="plan">${plans.map(p=>`<button type="button" data-v="${h(p.id)}" class="${gen.plan===p.id?"on":""}">${h(p.name)}</button>`).join("")}</div></div>
-    <div class="fld"><label>Plan length (days)</label>${seg("days",[[7,"7 days"],[30,"1 month"],[90,"3 months"],[365,"1 year"],["","Never ends"]])}</div>
+    <div class="fld"><label>Plan length</label>${seg("days",[[7,"7 days"],[30,"1 month"],[90,"3 months"],[365,"1 year"],["","Never ends"]]).replace(/<input[^>]*data-custom="days"[^>]*>/,`<span class="dcust"><input class="in small" data-custom="days" type="number" min="1" placeholder="Custom" value="${h(gen.dN)}"><select class="in small" id="gDaysUnit">${[[1,"days"],[30,"months"],[365,"years"]].map(([m,l])=>`<option value="${m}" ${gen.dUnit===m?"selected":""}>${l}</option>`).join("")}</select></span>`)}</div>
     <div class="fld"><label>How many times can it be used?</label>${seg("uses",[[1,"Once"],[2,"2 times"],["","No limit"]])}</div>
     <div class="fld"><label>Code stops working after (days)</label>${seg("valid",[[1,"1 day"],[7,"7 days"],[30,"30 days"],["","Never"]])}</div>
     <div class="fld"><label>Note (only you see it)</label><input id="gNote" class="in" placeholder="e.g. Sokha — paid by ABA 1 Oct"></div>
@@ -512,7 +513,9 @@ async function codes(tabs){
    <div class="note">Each person can use a code only once. A code adds its days on top of the plan they already have.</div></div>`;
   $$("[data-t]").forEach(b=>b.onclick=()=>{payTab=b.dataset.t;go("pay")});
   $$("[data-g]").forEach(g=>{g.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{gen[g.dataset.g]=b.dataset.v===""?"":isNaN(b.dataset.v)?b.dataset.v:Number(b.dataset.v);g.querySelectorAll("[data-v]").forEach(x=>x.classList.toggle("on",x===b));const c=g.querySelector("[data-custom]");if(c)c.value=""});
-    const c=g.querySelector("[data-custom]");if(c)c.oninput=()=>{if(c.value){gen[g.dataset.g]=Number(c.value);g.querySelectorAll("[data-v]").forEach(x=>x.classList.remove("on"))}}});
+    const c=g.querySelector("[data-custom]");if(c)c.oninput=()=>{if(g.dataset.g==="days")gen.dN=c.value;if(c.value){gen[g.dataset.g]=g.dataset.g==="days"?Number(c.value)*gen.dUnit:Number(c.value);g.querySelectorAll("[data-v]").forEach(x=>x.classList.remove("on"))}}});
+  $("#gDaysUnit").onchange=e=>{gen.dUnit=Number(e.target.value);const c=$('[data-custom="days"]');if(c.value){gen.days=Number(c.value)*gen.dUnit;$$('[data-g="days"] [data-v]').forEach(x=>x.classList.remove("on"))}};
+  $$('[data-g="days"] [data-v]').forEach(b=>b.addEventListener("click",()=>{gen.dN=""}));
   $$("[data-cf]").forEach(b=>b.onclick=()=>{codeFilter=b.dataset.cf;go("pay")});
   $$("[data-cp]").forEach(b=>b.onclick=()=>copy(b.dataset.cp));
   $$("[data-cx]").forEach(b=>b.onclick=async()=>{if(!confirm("Cancel this code? It will stop working."))return;await rpc("ql_admin_cancel_code",{p_code:b.dataset.cx});toast("Code cancelled");go("pay")});
