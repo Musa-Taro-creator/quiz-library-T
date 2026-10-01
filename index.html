@@ -18583,6 +18583,12 @@ body.ql-ocean .qs-acts button.g{background:rgba(255,255,255,.1);color:#fff7ed;bo
 .qpay .up img{max-height:120px;border-radius:10px;display:block;margin:0 auto 6px}
 .qok{text-align:center;padding:6px 0}.qok .big{width:70px;height:70px;border-radius:50%;margin:0 auto 10px;display:grid;place-items:center;font-size:34px;color:#fff;background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 12px 30px rgba(16,185,129,.35)}
 .qok .qs-cd{justify-content:center;margin:0}.qok .qs-cd div{background:#4f46e5;color:#fff;border-color:#4f46e5}
+.qs-gift{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:12px;border-radius:20px;background:linear-gradient(135deg,color-mix(in srgb,var(--gc) 16%,#fff),#fff7ed);border:1.5px solid color-mix(in srgb,var(--gc) 45%,transparent);box-shadow:0 10px 28px color-mix(in srgb,var(--gc) 22%,transparent);animation:qsGiftIn .5s ease}
+@keyframes qsGiftIn{from{transform:translateY(8px);opacity:0}}
+.qs-gift-ico{font-size:30px;flex:none;animation:qsGiftWiggle 2.4s ease-in-out infinite}@keyframes qsGiftWiggle{0%,80%,100%{transform:rotate(0)}85%{transform:rotate(-12deg)}90%{transform:rotate(10deg)}95%{transform:rotate(-6deg)}}
+.qs-gift-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.qs-gift-txt small{font-size:10.5px;font-weight:900;letter-spacing:.08em;color:var(--gc)}.qs-gift-txt b{font-size:17px;color:#0f172a}.qs-gift-txt span{font-size:13px;color:#475569}
+.qs-gift button{flex:none;border:0;border-radius:14px;padding:11px 20px;font:inherit;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--gc),#f59e0b);cursor:pointer;box-shadow:0 8px 20px color-mix(in srgb,var(--gc) 35%,transparent)}
+body.ql-neon .qs-gift,body.ql-ocean .qs-gift{background:color-mix(in srgb,var(--gc) 14%,transparent)}body.ql-neon .qs-gift-txt b,body.ql-ocean .qs-gift-txt b{color:var(--sk-text)}body.ql-neon .qs-gift-txt span,body.ql-ocean .qs-gift-txt span{color:var(--sk-muted)}
 .qh-row{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(148,163,184,.2);font-size:13.5px}.qh-row>span{flex:1}
 .qh-tag{font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:999px}.qh-tag.waiting{background:#fffbeb;color:#b45309}.qh-tag.approved{background:#ecfdf5;color:#047857}.qh-tag.rejected{background:#fef2f2;color:#b91c1c}
 @media(max-width:640px){.qpay{grid-template-columns:1fr}.qpay .qr{margin:0 auto}}
@@ -18645,7 +18651,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   const money=v=>v==null||v===""?"":"$"+Number(v).toFixed(Number(v)%1?2:0);
   const cli=()=>typeof service!=="undefined"&&service.client;
   const signedIn=()=>typeof state!=="undefined"&&state.user&&!state.user.__mock&&!state.isAdmin;
-  let cfg=null,mine=null,ready=false,skew=0,timer=null;
+  let cfg=null,mine=null,ready=false,skew=0,timer=null,gifts=[];
   window.qlPlansState=()=>({cfg,mine});
   const plans=()=>(cfg&&cfg.plans)||[];
   const defPlan=()=>plans().find(p=>p.is_default)||plans()[0]||null;
@@ -18669,6 +18675,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       if(p&&!p.is_default&&s&&seen!==p.id+"|"+s.ends_at){try{localStorage.setItem(key,p.id+"|"+s.ends_at)}catch{}if(seen!==null||before)showActivated()}
       else if(seen===null){try{localStorage.setItem(key,(p&&p.id)+"|"+(s&&s.ends_at))}catch{}}
     }catch{return}
+    try{const g=await c.rpc("ql_my_gifts");gifts=g.error?[]:(g.data||[])}catch{gifts=[]}
     checkAccount();applyAll();storageAlert();
   }
   function storageAlert(){
@@ -18780,6 +18787,11 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   const capText=v=>v==null?"Unlimited":v;
   function cdParts(ms){ms=Math.max(0,ms);const d=Math.floor(ms/864e5),hh=Math.floor(ms%864e5/36e5),m=Math.floor(ms%36e5/6e4),s=Math.floor(ms%6e4/1e3);return [d,hh,m,s]}
   const cdHtml=ms=>{const [d,hh,m,s]=cdParts(ms),p=n=>String(n).padStart(2,"0");return `<div><b>${d}</b><small>DAYS</small></div><div><b>${p(hh)}</b><small>HOURS</small></div><div><b>${p(m)}</b><small>MIN</small></div><div><b>${p(s)}</b><small>SEC</small></div>`};
+  const giftLen=d=>d==null?"no end date":d%365===0?`${d/365} year${d/365>1?"s":""}`:d%30===0?`${d/30} month${d/30>1?"s":""}`:`${d} day${d>1?"s":""}`;
+  function giftHtml(){
+    if(!gifts||!gifts.length)return "";
+    return gifts.map(g=>`<div class="qs-gift" style="--gc:${h(g.color||"#a855f7")}"><div class="qs-gift-ico">🎁</div><div class="qs-gift-txt"><small>A GIFT FOR YOU</small><b>${h(g.plan_name||g.plan_id)} · ${h(giftLen(g.days))}</b>${g.message?`<span>${h(g.message)}</span>`:""}</div><button type="button" data-gift="${h(g.id)}">Claim</button></div>`).join("");
+  }
   function cardHtml(){
     const p=curPlan();if(!p)return "";const s=sub(),u=(mine&&mine.usage)||{},L=p.limits||{};
     const paid=!p.is_default&&s&&s.status==="active";const end=paid&&s.ends_at?new Date(s.ends_at).getTime():null;
@@ -18801,10 +18813,13 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     if(!ready||!signedIn()||!mine)return;
     const grid=document.querySelector(".profile-content .profile-grid-v2");if(!grid)return;
     let w=document.querySelector(".qs-wrap");
-    const html=cardHtml(),sig=JSON.stringify([mine.plan&&mine.plan.id,sub(),mine.usage,document.body.className.match(/ql-(white|neon|ocean)/)?.[1]]);
+    const html=giftHtml()+cardHtml(),sig=JSON.stringify([mine.plan&&mine.plan.id,sub(),mine.usage,document.body.className.match(/ql-(white|neon|ocean)/)?.[1],gifts.map(g=>g.id)]);
     if(w&&w.dataset.sig===sig)return;
     if(!w){w=document.createElement("section");w.className="profile-grid qs-wrap";grid.parentNode.insertBefore(w,grid)}
     w.dataset.sig=sig;w.innerHTML=html;
+    w.querySelectorAll("[data-gift]").forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent="Claiming…";
+      try{const {error}=await cli().rpc("ql_claim_gift",{p_id:b.dataset.gift});if(error)throw error;gifts=gifts.filter(g=>g.id!==b.dataset.gift);await loadMine();showActivated()}
+      catch(e){b.disabled=false;b.textContent="Claim";alert(String(e.message||e).replace(/^.*?:\s*(?=[A-Z])/,""));loadMine()}});
     w.querySelector('[data-qs="up"]').onclick=()=>openUpgrade();w.querySelector('[data-qs="code"]').onclick=()=>openUpgrade(null,true);w.querySelector('[data-qs="hist"]').onclick=openHistory;
     try{const {data}=await cli().rpc("ql_my_payments");const wait=(data||[]).filter(r=>r.status==="waiting");const el=w.querySelector("#qsWait");if(el&&wait.length){el.classList.remove("hidden");el.textContent=`⏳ ${wait.length} payment${wait.length>1?"s":""} waiting for approval — your plan switches on as soon as it's approved.`}}catch{}
   }

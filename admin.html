@@ -375,6 +375,13 @@ function manageUser(r){
    <div class="sec-t">Change plan</div><div class="inline"><select id="mPlan" class="in" style="width:auto">${plans.map(p=>`<option value="${h(p.id)}" ${p.id===r.plan_id?"selected":""}>${h(p.name)}</option>`).join("")}</select>
     <select id="mLen" class="in" style="width:auto"><option value="30">for 1 month</option><option value="90">for 3 months</option><option value="365">for 1 year</option><option value="">no end date</option></select><button class="btn p" id="mSet">Set plan</button></div>
    <div class="sec-t">Add time to current plan</div><div class="inline"><button class="btn" data-add="7">+7 days</button><button class="btn" data-add="30">+1 month</button><button class="btn" data-add="365">+1 year</button></div>
+   <div class="sec-t">🎁 Send a gift plan</div>
+   <div class="note" style="margin:0 0 8px">They see it in My Profile with a Claim button. It stays until they claim it or you cancel it. Days are added on top of what they already have.</div>
+   <div class="inline" style="flex-wrap:wrap"><select id="gPlan" class="in" style="width:auto">${plans.filter(p=>!p.is_default).map(p=>`<option value="${h(p.id)}">${h(p.name)}</option>`).join("")}</select>
+    <div class="seg" id="gLen">${[[30,"1 month"],[90,"3 months"],[365,"1 year"],["","No end"]].map(([v,l],i)=>`<button type="button" data-gl="${v}" class="${i===0?"on":""}">${l}</button>`).join("")}</div>
+    <span class="dcust"><input id="gN" class="in small" type="number" min="1" placeholder="Custom"><select id="gU" class="in small"><option value="1">days</option><option value="30">months</option><option value="365">years</option></select></span></div>
+   <div class="inline" style="margin-top:8px"><input id="gMsg" class="in" style="flex:1;min-width:180px" placeholder="Message (optional), e.g. Thanks for joining!" maxlength="300"><button class="btn p" id="gSend">Send gift</button></div>
+   <div id="gList" style="margin-top:8px"></div>
    <div class="sec-t">Extra storage on top of the plan</div><div class="inline"><input id="mExtra" class="in small" type="number" min="0" value="${Number(r.extra_storage_mb||0)}"> MB <button class="btn" id="mExtraSave">Save</button></div>
    <div class="sec-t">Account</div><div class="inline"><button class="btn" id="mOut">Sign out all devices</button>${r.status==="suspended"?`<button class="btn g" id="mSus">Unsuspend account</button>`:`<button class="btn r" id="mSus">Suspend account</button>`}</div>
    <div class="note">Suspended accounts are signed out and see a message until you unsuspend them. Nothing is deleted.</div>
@@ -384,6 +391,18 @@ function manageUser(r){
   const act=async(a,args,msg)=>{try{await rpc("ql_admin_update_user",{p_user:r.user_id,p_action:a,p_plan:null,p_days:null,p_value:null,...args});toast(msg);o.remove();go("users")}catch(e){alert(errMsg(e))}};
   o.querySelector("#mSet").onclick=()=>{const d=o.querySelector("#mLen").value;act("set_plan",{p_plan:o.querySelector("#mPlan").value,p_days:d?Number(d):null},"Plan changed")};
   o.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>act("add_days",{p_plan:r.plan_id,p_days:Number(b.dataset.add)},"Time added"));
+  let gDays=30;
+  o.querySelectorAll("[data-gl]").forEach(b=>b.onclick=()=>{gDays=b.dataset.gl===""?null:Number(b.dataset.gl);o.querySelector("#gN").value="";o.querySelectorAll("[data-gl]").forEach(x=>x.classList.toggle("on",x===b))});
+  const gCustom=()=>{const n=Number(o.querySelector("#gN").value);if(n>0){gDays=n*Number(o.querySelector("#gU").value);o.querySelectorAll("[data-gl]").forEach(x=>x.classList.remove("on"))}};
+  o.querySelector("#gN").oninput=gCustom;o.querySelector("#gU").onchange=gCustom;
+  const gLen=d=>d==null?"no end date":d%365===0?`${d/365} year${d/365>1?"s":""}`:d%30===0?`${d/30} month${d/30>1?"s":""}`:`${d} day${d>1?"s":""}`;
+  const gLoad=async()=>{const box=o.querySelector("#gList");try{const gs=await rpc("ql_admin_user_gifts",{p_user:r.user_id});
+    box.innerHTML=gs.length?gs.map(g=>`<div class="inline" style="justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line)"><span>${planTag(g.plan_id," · "+gLen(g.days))} <small style="color:var(--muted)">${ago(g.created_at)}${g.message?" · "+h(g.message):""}</small></span><span class="inline"><span class="tag ${g.status==="claimed"?"ok":g.status==="cancelled"?"no":"wait"}">${g.status==="pending"?"Waiting to be claimed":g.status==="claimed"?"Claimed":"Cancelled"}</span>${g.status==="pending"?`<button class="btn r" data-gx="${g.id}">Cancel</button>`:""}</span></div>`).join(""):"";
+    box.querySelectorAll("[data-gx]").forEach(b=>b.onclick=async()=>{if(!confirm("Cancel this gift? It disappears from their profile."))return;try{await rpc("ql_admin_cancel_gift",{p_id:b.dataset.gx});toast("Gift cancelled");gLoad()}catch(e){alert(errMsg(e))}})}
+    catch(e){box.innerHTML=/ql_admin_user_gifts|PGRST202|42883|does not exist/.test(errMsg(e))?`<div class="note">Run <b>gift_plans.sql</b> in Supabase first.</div>`:""}};
+  gLoad();
+  o.querySelector("#gSend").onclick=async e=>{const b=e.currentTarget;b.disabled=true;
+    try{await rpc("ql_admin_send_gift",{p_user:r.user_id,p_plan:o.querySelector("#gPlan").value,p_days:gDays,p_message:o.querySelector("#gMsg").value.trim()});o.querySelector("#gMsg").value="";toast("Gift sent — they'll see it in My Profile");gLoad()}catch(x){alert(errMsg(x))}finally{b.disabled=false}};
   o.querySelector("#mExtraSave").onclick=()=>act("extra_storage",{p_value:Number(o.querySelector("#mExtra").value||0)},"Extra storage saved");
   o.querySelector("#mOut").onclick=()=>{if(confirm("Sign this account out on every device?"))act("logout",{},"Signed out everywhere")};
   o.querySelector("#mDel").onclick=async()=>{const typed=o.querySelector("#mDelEmail").value.trim();
