@@ -17047,6 +17047,9 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
   async function touch(){const {error}=await cli().rpc("ql_touch_device",{p_device_id:deviceId,p_label:label()});if(error)throw error}
   async function blockedNow(){const {data,error}=await cli().from("ql_device_log").select("blocked").eq("user_id",uid).eq("device_id",deviceId).maybeSingle();return !error&&data&&data.blocked===true}
   async function claim(){const c=cli();const {data,error}=await c.rpc("ql_claim_device",{p_device_id:deviceId,p_label:label()});if(error)throw error;try{await c.auth.signOut({scope:"others"})}catch(e){}return data}
+  /* admin can let an account (or a plan / everyone) use many devices at once — supabase/multi_device.sql */
+  let many=false;
+  async function rule(){try{const {data,error}=await cli().rpc("ql_my_device_rule");if(!error)return data===true}catch(e){}return false}
   async function current(){const c=cli();const {data,error}=await c.from("ql_active_device").select("device_id,device_label,signed_in_at").eq("user_id",uid).maybeSingle();if(error)throw error;return data}
   function fmt(t){try{return new Date(t).toLocaleString([],{hour:"numeric",minute:"2-digit",day:"numeric",month:"short"})}catch(e){return ""}}
   async function kick(row,blocked){
@@ -17068,17 +17071,22 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
     document.getElementById("qlKickLogin").onclick=()=>location.reload();
   }
   function stop(){if(poll){clearInterval(poll);poll=null}if(chan){try{cli().removeChannel(chan)}catch(e){}chan=null}if(chan2){try{cli().removeChannel(chan2)}catch(e){}chan2=null}}
-  async function check(){if(!uid||kicked)return;try{if(await blockedNow())return kick(null,true);const row=await current();if(row&&row.device_id!==deviceId)kick(row)}catch(e){}}
+  async function check(){if(!uid||kicked)return;try{if(await blockedNow())return kick(null,true);
+    const was=many;many=await rule();if(many)return;
+    if(was){await claim();return} /* switched back to one device: this one takes it, the others are signed out */
+    const row=await current();if(row&&row.device_id!==deviceId)kick(row)}catch(e){}}
   async function start(u){
     uid=u;kicked=false;stop();
     let fresh=false;try{fresh=sessionStorage.getItem("ql_fresh_login")==="1";sessionStorage.removeItem("ql_fresh_login")}catch(e){}
-    try{
+    many=await rule();
+    if(many){try{await touch()}catch(e){if(isBlockedErr(e))return kick(null,true)}}
+    else try{
       const row=fresh?null:await current();
       if(fresh||!row)await claim();
       else if(row.device_id!==deviceId)return kick(row);
       else{try{await touch()}catch(e){if(isBlockedErr(e))return kick(null,true)}} /* device history SQL may not be installed yet */
     }catch(e){if(isBlockedErr(e))return kick(null,true);return} /* SQL not installed or offline: leave things as they are */
-    try{chan=cli().channel("ql-active-device-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_active_device",filter:"user_id=eq."+uid},p=>{const r=p.new;if(r&&r.device_id&&r.device_id!==deviceId)kick(r)}).subscribe()}catch(e){}
+    try{chan=cli().channel("ql-active-device-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_active_device",filter:"user_id=eq."+uid},p=>{const r=p.new;if(!many&&r&&r.device_id&&r.device_id!==deviceId)kick(r)}).subscribe()}catch(e){}
     /* own channel, so a missing device-history table never affects the one above */
     try{chan2=cli().channel("ql-device-log-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_device_log",filter:"user_id=eq."+uid},p=>{const r=p.new;if(r&&r.device_id===deviceId&&r.blocked)return kick(null,true);try{window.qlDevicesRefresh&&qlDevicesRefresh()}catch(e){}}).subscribe()}catch(e){}
     poll=setInterval(check,45000);
@@ -18916,7 +18924,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       nav_dashboard:"Dashboard",item_share_dash:"Post to Dashboard",dash_menu:"⋮ menu on Dashboard",dash_save:"Save from Dashboard to my library",sel_share_in:"Share many internally",sel_share_ex:"Share many externally",sel_copy:"Copy links of many",sel_duplicate:"Duplicate many",sel_move:"Move many",sel_trash:"Trash many",
       quiz_autoadv:"Auto-advance",quiz_shuffle:"Shuffle",quiz_bookmark:"Bookmark & Flag",quiz_summary:"Quiz Summary",quiz_results:"Quiz Results",
       ed_addnew:"Add New Questions",ed_images:"Image Manager",ed_move:"Move Questions",ed_sections:"Sections",ed_find:"Find & check problems",
-      pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list"};
+      pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list",multi_device:"Use many devices at the same time"};
     for(const k in names){if(!["new_quiz","new_pdf","new_link","new_folder"].includes(k)&&has(k))out.push([names[k],true])}
     if(p.features&&Array.isArray(p.features._others))p.features._others.forEach(t=>{if(String(t).trim())out.push([String(t),true])});
     return out;

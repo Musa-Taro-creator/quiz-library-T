@@ -235,8 +235,11 @@ const FEATURES=[
  ["Select many (bar at the top)",[["sel_share_in","Share internally"],["sel_share_ex","Share externally"],["sel_copy","Copy Link"],["sel_duplicate","Duplicate"],["sel_move","Move"],["sel_trash","Trash"]]],
  ["Taking a quiz",[["quiz_autoadv","Auto-advance"],["quiz_shuffle","Shuffle"],["quiz_bookmark","Bookmark & Flag"],["quiz_summary","Quiz Summary"],["quiz_results","Quiz Results"]]],
  ["Quiz editor",[["ed_addnew","Add New Questions"],["ed_images","Image Manager"],["ed_move","Move Questions"],["ed_sections","Sections"],["ed_find","Find & check problems"]]],
- ["Profile & account",[["pf_edit","Edit Profile"],["pf_avatar","Change Avatar"],["pf_themes","App themes"],["pf_devices","Devices list"],["signup","New sign-ups"]]]
+ ["Profile & account",[["pf_edit","Edit Profile"],["pf_avatar","Change Avatar"],["pf_themes","App themes"],["pf_devices","Devices list"],["signup","New sign-ups"]]],
+ ["Login & devices",[["multi_device","Many devices at the same time"]]]
 ];
+/* switches with their own choices (and default) instead of Everyone / By plan / Lock / Hidden */
+const FEAT_MODES={signup:{def:"on",opts:[["on","On"],["off","Off"]]},multi_device:{def:"off",opts:[["on","Everyone"],["plan","By plan"],["off","One device only"]]}};
 const LIMITS=[["storage_mb","Storage","MB"],["results_kept","Results kept per quiz",""]];
 /* limits that belong to a "+ New" feature: shown under its tick in Edit plan */
 const FEAT_LIMITS={new_folder:[["folders","How many folders"]],new_link:[["links","How many quiz links"]],new_pdf:[["pdfs","How many PDFs"]],new_quiz:[["quizzes","How many quizzes"],["questions_per_quiz","Questions per quiz"]]};
@@ -382,7 +385,7 @@ function manageUser(r){
     <div class="seg" id="gLen">${[[30,"1 month"],[90,"3 months"],[365,"1 year"],["","No end"]].map(([v,l],i)=>`<button type="button" data-gl="${v}" class="${i===0?"on":""}">${l}</button>`).join("")}</div>
     <span class="dcust"><input id="gN" class="in small" type="number" min="1" placeholder="Custom"><select id="gU" class="in small"><option value="1">days</option><option value="30">months</option><option value="365">years</option></select></span></div>
    <div class="inline" style="margin-top:8px"><input id="gMsg" class="in" style="flex:1;min-width:180px" placeholder="Message (optional), e.g. Thanks for joining!" maxlength="300"><button class="btn p" id="gSend">Send gift</button></div>
-   <div class="seg" id="gIdeas" style="margin-top:8px">${["Thanks for joining Quiz Library! 🎉","Welcome gift — enjoy Pro! 🎁","Thank you for your support ❤️","Good luck with your exams! 📚","Happy birthday! 🎂","Sorry for the trouble — this one's on us 🙏","You're one of our top students! 🏆","Happy New Year! 🎆","Your brain called — it wants more quizzes 🧠","Free Pro! Don't tell your classmates 🤫","Warning: may cause sudden smartness 🤓","Study now, nap later 😴","This gift is 100% calories-free 🍩","Plot twist: you're getting Pro 🎬","Exams are scared of you now 💪"].map(t=>`<button type="button" data-gi="${h(t)}">${h(t)}</button>`).join("")}</div>
+   <select id="gIdeas" class="in" style="margin-top:8px"><option value="">💡 Pick a message idea…</option><optgroup label="Normal">${["Thanks for joining Quiz Library! 🎉","Welcome gift — enjoy Pro! 🎁","Thank you for your support ❤️","Good luck with your exams! 📚","Happy birthday! 🎂","Sorry for the trouble — this one's on us 🙏","You're one of our top students! 🏆","Happy New Year! 🎆"].map(t=>`<option>${h(t)}</option>`).join("")}</optgroup><optgroup label="Funny">${["Your brain called — it wants more quizzes 🧠","Free Pro! Don't tell your classmates 🤫","Warning: may cause sudden smartness 🤓","Study now, nap later 😴","This gift is 100% calories-free 🍩","Plot twist: you're getting Pro 🎬","Exams are scared of you now 💪"].map(t=>`<option>${h(t)}</option>`).join("")}</optgroup></select>
    <div id="gList" style="margin-top:8px"></div>
    <div class="sec-t">👋 Personal greeting</div>
    <div class="note" style="margin:0 0 8px">Only for this person — replaces the normal greeting. Use {name} for their name. Leave both empty to use the normal greeting.</div>
@@ -392,6 +395,9 @@ function manageUser(r){
    <div class="sec-t">Extra storage on top of the plan</div><div class="inline"><input id="mExtra" class="in small" type="number" min="0" value="${Number(r.extra_storage_mb||0)}"> MB <button class="btn" id="mExtraSave">Save</button></div>
    <div class="sec-t">Account</div><div class="inline"><button class="btn" id="mOut">Sign out all devices</button>${r.status==="suspended"?`<button class="btn g" id="mSus">Unsuspend account</button>`:`<button class="btn r" id="mSus">Suspend account</button>`}</div>
    <div class="note">Suspended accounts are signed out and see a message until you unsuspend them. Nothing is deleted.</div>
+   <div class="sec-t">📱 Devices</div>
+   <div class="note" style="margin:0 0 8px">Can this person stay signed in on many devices at the same time? <span id="dvNow"></span></div>
+   <div class="seg" id="dvMode"><button type="button" data-dv="">Follow Website Control</button><button type="button" data-dv="one">One device only</button><button type="button" data-dv="many">Many devices</button></div>
    <div class="danger-zone"><div class="sec-t" style="margin-top:0;color:#dc2626">Delete account permanently</div>
     <div class="note" style="margin:0 0 8px">Deletes the login, their quizzes, PDFs, folders, payments and devices from Supabase. This cannot be undone.</div>
     <div class="inline"><input id="mDelEmail" class="in" style="flex:1;min-width:180px" placeholder="Type ${h(r.email)} to confirm" autocomplete="off"><button class="btn r" id="mDel">Delete forever</button></div></div>`);
@@ -403,7 +409,7 @@ function manageUser(r){
   let gDays=30;
   o.querySelectorAll("[data-gl]").forEach(b=>b.onclick=()=>{gDays=b.dataset.gl===""?null:Number(b.dataset.gl);o.querySelector("#gN").value="";o.querySelectorAll("[data-gl]").forEach(x=>x.classList.toggle("on",x===b))});
   const gCustom=()=>{const n=Number(o.querySelector("#gN").value);if(n>0){gDays=n*Number(o.querySelector("#gU").value);o.querySelectorAll("[data-gl]").forEach(x=>x.classList.remove("on"))}};
-  o.querySelectorAll("[data-gi]").forEach(b=>b.onclick=()=>{o.querySelector("#gMsg").value=b.dataset.gi;o.querySelector("#gMsg").focus()});
+  o.querySelector("#gIdeas").onchange=e=>{if(e.target.value)o.querySelector("#gMsg").value=e.target.value};
   o.querySelector("#gN").oninput=gCustom;o.querySelector("#gU").onchange=gCustom;
   const gLen=d=>d==null?"no end date":d%365===0?`${d/365} year${d/365>1?"s":""}`:d%30===0?`${d/30} month${d/30>1?"s":""}`:`${d} day${d>1?"s":""}`;
   const gLoad=async()=>{const box=o.querySelector("#gList");try{const gs=await rpc("ql_admin_user_gifts",{p_user:r.user_id});
@@ -413,6 +419,10 @@ function manageUser(r){
   gLoad();
   o.querySelector("#gSend").onclick=async e=>{const b=e.currentTarget;b.disabled=true;
     try{await rpc("ql_admin_send_gift",{p_user:r.user_id,p_plan:o.querySelector("#gPlan").value,p_days:gDays,p_message:o.querySelector("#gMsg").value.trim()});o.querySelector("#gMsg").value="";toast("Gift sent — they'll see it in My Profile");gLoad()}catch(x){alert(errMsg(x))}finally{b.disabled=false}};
+  const dvLoad=async()=>{try{const d=await rpc("ql_admin_get_device_rule",{p_user:r.user_id});o.querySelectorAll("[data-dv]").forEach(x=>x.classList.toggle("on",x.dataset.dv===(d.mode||"")));o.querySelector("#dvNow").textContent=d.effective_many?"Right now: many devices.":"Right now: one device only."}
+    catch(e){o.querySelector("#dvNow").innerHTML=/ql_admin_get_device_rule|PGRST202|42883|does not exist/.test(errMsg(e)+String(e.message||""))?"<b>Run multi_device.sql in Supabase first.</b>":""}};
+  dvLoad();
+  o.querySelectorAll("[data-dv]").forEach(b=>b.onclick=async()=>{try{await rpc("ql_admin_set_device_rule",{p_user:r.user_id,p_mode:b.dataset.dv||null});toast("Devices setting saved");dvLoad()}catch(e){alert(/ql_admin_set_device_rule|PGRST202|42883/.test(String(e.message||e))?"Run multi_device.sql in Supabase first.":errMsg(e))}});
   o.querySelector("#mExtraSave").onclick=()=>act("extra_storage",{p_value:Number(o.querySelector("#mExtra").value||0)},"Extra storage saved");
   o.querySelector("#mOut").onclick=()=>{if(confirm("Sign this account out on every device?"))act("logout",{},"Signed out everywhere")};
   o.querySelector("#mDel").onclick=async()=>{const typed=o.querySelector("#mDelEmail").value.trim();
@@ -581,12 +591,12 @@ async function ctl(){
     <span><span class="tag no">Hidden</span>&nbsp; nobody sees it</span></div>
     <div class="note">Tick features for each plan in Plans &amp; Limits → Edit.</div></div></div>
   <div class="grpgrid">${FEATURES.map(([g,items])=>`<div class="card"><h3>${h(g)}<span class="r" data-gall="${h(g)}" data-m="off">Hide all</span><span class="r" data-gall="${h(g)}" data-m="plan" style="margin-left:8px">By plan all</span><span class="r" data-gall="${h(g)}" data-m="lock" style="margin-left:8px">Lock all</span><span class="r" data-gall="${h(g)}" data-m="on" style="margin-left:8px">Show all</span></h3>
-    ${items.map(([k,l])=>{const m=F[k]||"on";return `<div class="tg"><span>${h(l)}</span><span class="mode" data-k="${k}">${(k==="signup"?[["on","On"],["off","Off"]]:[["on","Everyone"],["plan","By plan"],["lock","Lock"],["off","Hidden"]]).map(([v,t])=>`<button type="button" data-m="${v}" class="${m===v?"on":""}">${t}</button>`).join("")}</span></div>`}).join("")}</div>`).join("")}</div>`;
+    ${items.map(([k,l])=>{const fm=FEAT_MODES[k],m=F[k]||(fm?fm.def:"on");return `<div class="tg"><span>${h(l)}${k==="multi_device"?`<div class="note" style="margin:2px 0 0">One device only = signing in on a new device signs out the old one. You can also choose per person in Users → Manage.</div>`:""}</span><span class="mode" data-k="${k}">${(fm?fm.opts:[["on","Everyone"],["plan","By plan"],["lock","Lock"],["off","Hidden"]]).map(([v,t])=>`<button type="button" data-m="${v}" class="${m===v?"on":""}">${t}</button>`).join("")}</span></div>`}).join("")}</div>`).join("")}</div>`;
   $("#siteSw").onclick=async()=>{const open=site.open===false;if(!open&&!confirm("Close the website for students now?"))return;await saveSetting("site",{...site,open,close_at:open?null:site.close_at},open?"Website is open":"Website closed");go("ctl")};
   $("#siteSave").onclick=async()=>{const at=$("#siteAt").value;await saveSetting("site",{...site,message:$("#siteMsg").value.trim()||site.message,close_at:at?new Date(at).toISOString():null});go("ctl")};
   $("#siteAtClear")&&($("#siteAtClear").onclick=async()=>{await saveSetting("site",{...site,close_at:null});go("ctl")});
   $$(".mode").forEach(s=>s.querySelectorAll("button").forEach(b=>b.onclick=async()=>{F[s.dataset.k]=b.dataset.m;s.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));await saveSetting("features",F)}));
-  $$("[data-gall]").forEach(b=>b.onclick=async()=>{const items=FEATURES.find(g=>g[0]===b.dataset.gall)[1];items.forEach(([k])=>{F[k]=k==="signup"&&(b.dataset.m==="plan"||b.dataset.m==="lock")?(F[k]||"on"):b.dataset.m});await saveSetting("features",F);go("ctl")});
+  $$("[data-gall]").forEach(b=>b.onclick=async()=>{const items=FEATURES.find(g=>g[0]===b.dataset.gall)[1];items.forEach(([k])=>{const fm=FEAT_MODES[k];F[k]=fm&&!fm.opts.some(o=>o[0]===b.dataset.m)?(b.dataset.m==="lock"?"off":(F[k]||fm.def)):b.dataset.m});await saveSetting("features",F);go("ctl")});
 }
 
 /* ---------------- announcements ---------------- */
