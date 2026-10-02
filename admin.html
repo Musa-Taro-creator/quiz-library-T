@@ -216,7 +216,7 @@ body.t-ocean .bars div{background:linear-gradient(180deg,#fdba74,#0e6377)}
     <button class="nav" data-v="board"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="7" height="8" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.6"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.6"/><rect x="3.5" y="14.5" width="7" height="6" rx="1.6"/></svg>Student Dashboard<span class="pill hidden" id="boardPill">0</span></button>
     <button class="nav" data-v="news"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>Announcements</button>
     <button class="nav" data-v="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Settings</button>
-    <div class="foot">Signed in as<br><b id="meEmail" style="color:#fff;word-break:break-all"></b><br><button id="signOut">Sign out</button><div class="thsw" id="thsw"><button data-th="white" title="White Glass"></button><button data-th="neon" title="Neon Lines"></button><button data-th="ocean" title="Ocean Sunrise"></button></div></div>
+    <div class="foot">Signed in as<br><b id="meEmail" style="color:#fff;word-break:break-all"></b><br><button id="signOut">Sign out</button> <button id="installApp" class="hidden">📲 Install app</button><div class="thsw" id="thsw"><button data-th="white" title="White Glass"></button><button data-th="neon" title="Neon Lines"></button><button data-th="ocean" title="Ocean Sunrise"></button></div></div>
   </aside>
   <main class="main" id="view"></main>
 </div>
@@ -701,6 +701,24 @@ async function settingsView(){
 
 window.addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(v&&v!==cur&&!$("#app").classList.contains("hidden"))go(v)});
 boot().catch(e=>showLogin(errMsg(e)));
+
+/* ---------------- install the admin page as an app ---------------- */
+(function(){
+  const standalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+  const btn=document.getElementById("installApp");let ev=null;
+  const ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
+  const show=()=>{if(btn&&!standalone())btn.classList.remove("hidden")};
+  addEventListener("beforeinstallprompt",e=>{e.preventDefault();ev=e;show()});
+  addEventListener("appinstalled",()=>{btn&&btn.classList.add("hidden");toast("Admin app installed")});
+  if(ios)show();
+  if(btn)btn.onclick=async()=>{
+    if(ev){ev.prompt();try{await ev.userChoice}catch{}ev=null;return}
+    modal("Install the admin app",`<div class="note" style="margin:0 0 10px">On iPad / iPhone (Safari):</div>
+      <ol style="margin:0 0 12px;padding-left:20px;line-height:1.9"><li>Tap the <b>Share</b> button <span style="font-size:18px">⬆️</span> (top right on iPad, bottom on iPhone).</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>. The <b>QL Admin</b> icon appears on your home screen.</li></ol>
+      <div class="note" style="margin:0">On a computer (Chrome / Edge): click the install icon <b>⊕</b> at the right end of the address bar.</div>`);
+  };
+})();
 </script>
 </body>
 </html>
