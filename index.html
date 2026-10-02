@@ -18849,7 +18849,11 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     const chip=document.getElementById("studentAccountChip"),has=!!(signedIn()&&gifts&&gifts.length);
     if(chip){chip.classList.toggle("ql-gift-dot",has);chip.title=has?"You have a gift waiting 🎁":""}
     if(!has){closeGiftPop();return}
-    const g=gifts.find(x=>!giftShown.has(x.id));if(!g||document.getElementById("qlGiftPop"))return;giftShown.add(g.id);openGiftPop(g);
+    /* the pop-up shows only once per gift (remembered on this device); after that the red dot and My Profile card remain */
+    const key="ql_gift_popped_"+(state.user&&state.user.id),seen=(()=>{try{return JSON.parse(localStorage.getItem(key)||"[]")}catch{return []}})();
+    const g=gifts.find(x=>!giftShown.has(x.id)&&!seen.includes(x.id));if(!g||document.getElementById("qlGiftPop"))return;giftShown.add(g.id);
+    try{localStorage.setItem(key,JSON.stringify(seen.concat(g.id).slice(-50)))}catch{}
+    openGiftPop(g);
   }
   /* tapping the profile picture while a gift waits opens the gift again */
   document.addEventListener("click",e=>{const chip=e.target.closest&&e.target.closest("#studentAccountChip.ql-gift-dot");if(!chip||!gifts||!gifts.length)return;e.preventDefault();e.stopPropagation();openGiftPop(gifts[0])},true);
