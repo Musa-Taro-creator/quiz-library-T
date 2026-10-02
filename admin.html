@@ -704,7 +704,7 @@ async function settingsView(){
     <label class="chk"><input type="checkbox" id="sRec" ${p.receipts!==false?"checked":""}>Students can pay and upload a receipt</label>
     <div class="note">Untick to allow activation codes only.</div></div></div>
    <button class="btn p" id="sSave" style="margin-top:12px">Save payment details</button></div>
-  <div class="card" style="max-width:760px;margin-top:16px"><h3>Admin account</h3><div class="note" style="margin:0">Signed in as <b>${h(me.email)}</b>. To add another admin, add their email in plans_admin.sql (the ADMIN EMAIL line) and run it again.<br>Students' website: <a href="${STUDENT_SITE}" target="_blank" rel="noopener">${h(STUDENT_SITE)}</a></div>
+  <div class="card" style="max-width:760px;margin-top:16px"><h3>Admin account</h3><div class="note" style="margin:0">Signed in as <b>${h(me.email)}</b>. To add another admin, add their email in plans_admin.sql (the ADMIN EMAIL line) and run it again.<br>Students' website: <a href="${STUDENT_SITE}" target="_blank" rel="noopener">${h(STUDENT_SITE)}</a></div><div class="inline" style="margin-top:10px"><button class="btn p" type="button" onclick="qlAdminInstall()">📲 Install admin app (home screen)</button></div>
    <div class="sec-t" style="margin-top:16px">Change password</div>
    <div class="two"><div class="fld"><label>New password</label><input id="pw1" class="in" type="password" autocomplete="new-password" placeholder="At least 8 characters"></div><div class="fld"><label>Type it again</label><input id="pw2" class="in" type="password" autocomplete="new-password"></div></div>
    <button class="btn p" id="pwSave">Change password</button><div class="note" style="margin-top:8px">This is the same account you use on the students' website, so the new password works there too.</div></div>`;
@@ -732,12 +732,14 @@ boot().catch(e=>showLogin(errMsg(e)));
   addEventListener("beforeinstallprompt",e=>{e.preventDefault();ev=e;show()});
   addEventListener("appinstalled",()=>{btn&&btn.classList.add("hidden");toast("Admin app installed")});
   if(ios)show();
-  if(btn)btn.onclick=async()=>{
+  window.qlAdminInstall=async()=>{
     if(ev){ev.prompt();try{await ev.userChoice}catch{}ev=null;return}
     modal("Install the admin app",`<div class="note" style="margin:0 0 10px">On iPad / iPhone (Safari):</div>
       <ol style="margin:0 0 12px;padding-left:20px;line-height:1.9"><li>Tap the <b>Share</b> button <span style="font-size:18px">⬆️</span> (top right on iPad, bottom on iPhone).</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>. The <b>QL Admin</b> icon appears on your home screen.</li></ol>
+      <div class="note" style="margin:0 0 6px">On Android (Chrome): tap <b>⋮</b> (top right) → <b>Add to Home screen</b> or <b>Install app</b> → <b>Install</b>.</div>
       <div class="note" style="margin:0">On a computer (Chrome / Edge): click the install icon <b>⊕</b> at the right end of the address bar.</div>`);
   };
+  if(btn)btn.onclick=()=>qlAdminInstall();
 })();
 </script>
 </body>
