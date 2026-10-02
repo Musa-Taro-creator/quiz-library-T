@@ -18588,6 +18588,24 @@ body.ql-ocean .qs-acts button.g{background:rgba(255,255,255,.1);color:#fff7ed;bo
 .qpay .up img{max-height:120px;border-radius:10px;display:block;margin:0 auto 6px}
 .qok{text-align:center;padding:6px 0}.qok .big{width:70px;height:70px;border-radius:50%;margin:0 auto 10px;display:grid;place-items:center;font-size:34px;color:#fff;background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 12px 30px rgba(16,185,129,.35)}
 .qok .qs-cd{justify-content:center;margin:0}.qok .qs-cd div{background:#4f46e5;color:#fff;border-color:#4f46e5}
+.ql-gift-dot{position:relative}.ql-gift-dot::after{content:"";position:absolute;top:0;right:0;width:13px;height:13px;border-radius:50%;background:#ef4444;border:2px solid #fff;box-shadow:0 0 0 0 rgba(239,68,68,.6);animation:qlGiftDot 1.6s infinite}
+@keyframes qlGiftDot{0%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}70%{box-shadow:0 0 0 9px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
+.ql-gp{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.55);backdrop-filter:blur(6px);animation:qlGpFade .25s ease}
+@keyframes qlGpFade{from{opacity:0}to{opacity:1}}
+.ql-gp-box{position:relative;overflow:hidden;width:min(400px,100%);padding:30px 24px 22px;border-radius:26px;text-align:center;background:linear-gradient(160deg,color-mix(in srgb,var(--gc) 18%,#fff),#fff 55%,#fff7ed);box-shadow:0 30px 80px rgba(15,23,42,.35);animation:qlGpPop .5s cubic-bezier(.2,1.4,.4,1)}
+@keyframes qlGpPop{from{transform:scale(.6) translateY(30px);opacity:0}to{transform:none;opacity:1}}
+.ql-gp-ico{font-size:64px;line-height:1;margin-bottom:10px;animation:qlGpShake 1.8s ease-in-out infinite;display:inline-block}
+@keyframes qlGpShake{0%,70%,100%{transform:rotate(0) scale(1)}75%{transform:rotate(-14deg) scale(1.08)}82%{transform:rotate(12deg) scale(1.08)}90%{transform:rotate(-6deg)}}
+.ql-gp-box small{display:block;font-size:11px;font-weight:900;letter-spacing:.12em;color:var(--gc)}
+.ql-gp-box h3{margin:6px 0 4px;font-size:24px;color:#0f172a;text-wrap:balance}
+.ql-gp-len{display:inline-block;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:800;color:var(--gc);background:color-mix(in srgb,var(--gc) 14%,#fff)}
+.ql-gp-box p{margin:14px 0 0;font-size:15px;color:#334155;font-style:italic}
+.ql-gp-acts{display:flex;gap:10px;margin-top:20px}.ql-gp-acts button{flex:1;padding:12px;border-radius:14px;font-size:15px;font-weight:800;border:0;cursor:pointer}
+.ql-gp-claim{color:#fff;background:linear-gradient(135deg,var(--gc),color-mix(in srgb,var(--gc) 60%,#ec4899));box-shadow:0 8px 20px color-mix(in srgb,var(--gc) 40%,transparent)}
+.ql-gp-later{color:#475569;background:#f1f5f9}.ql-gp-more{margin-top:12px;font-size:12.5px;color:#64748b}
+.ql-gp-conf{position:absolute;inset:0;pointer-events:none}.ql-gp-conf i{position:absolute;top:-12px;width:8px;height:12px;border-radius:2px;opacity:0;animation:qlGpConf linear 1 forwards}
+@keyframes qlGpConf{0%{opacity:1;transform:translateY(0) rotate(0)}100%{opacity:0;transform:translateY(460px) rotate(540deg)}}
+@media (prefers-reduced-motion:reduce){.ql-gp-ico,.ql-gp-conf i,.ql-gift-dot::after{animation:none}}
 .qs-gift{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:12px;border-radius:20px;background:linear-gradient(135deg,color-mix(in srgb,var(--gc) 16%,#fff),#fff7ed);border:1.5px solid color-mix(in srgb,var(--gc) 45%,transparent);box-shadow:0 10px 28px color-mix(in srgb,var(--gc) 22%,transparent);animation:qsGiftIn .5s ease}
 @keyframes qsGiftIn{from{transform:translateY(8px);opacity:0}}
 .qs-gift-ico{font-size:30px;flex:none;animation:qsGiftWiggle 2.4s ease-in-out infinite}@keyframes qsGiftWiggle{0%,80%,100%{transform:rotate(0)}85%{transform:rotate(-12deg)}90%{transform:rotate(10deg)}95%{transform:rotate(-6deg)}}
@@ -18819,6 +18837,27 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     if(!gifts||!gifts.length)return "";
     return gifts.map(g=>`<div class="qs-gift" style="--gc:${h(g.color||"#a855f7")}"><div class="qs-gift-ico">🎁</div><div class="qs-gift-txt"><small>A GIFT FOR YOU</small><b>${h(g.plan_name||g.plan_id)} · ${h(giftLen(g.days))}</b>${g.message?`<span>${h(g.message)}</span>`:""}</div><button type="button" data-gift="${h(g.id)}">Claim</button></div>`).join("");
   }
+  async function claimGift(id,b){
+    if(b){b.disabled=true;b.textContent="Claiming…"}
+    try{const {error}=await cli().rpc("ql_claim_gift",{p_id:id});if(error)throw error;gifts=gifts.filter(g=>g.id!==id);closeGiftPop();await loadMine();showActivated()}
+    catch(e){if(b){b.disabled=false;b.textContent="Claim"}alert(String(e.message||e).replace(/^.*?:\s*(?=[A-Z])/,""));loadMine()}
+  }
+  /* a gift waiting: red dot on the profile picture + a pop-up once each time the app opens (or the moment it arrives) */
+  const giftShown=new Set();
+  function closeGiftPop(){const o=document.getElementById("qlGiftPop");if(o)o.remove()}
+  function giftAlert(){
+    const chip=document.getElementById("studentAccountChip"),has=!!(signedIn()&&gifts&&gifts.length);
+    if(chip){chip.classList.toggle("ql-gift-dot",has);chip.title=has?"You have a gift waiting 🎁":""}
+    if(!has){closeGiftPop();return}
+    const g=gifts.find(x=>!giftShown.has(x.id));if(!g||document.getElementById("qlGiftPop"))return;giftShown.add(g.id);
+    const o=document.createElement("div");o.id="qlGiftPop";o.className="ql-gp";o.style.setProperty("--gc",g.color||"#a855f7");
+    const bits=Array.from({length:26},(_,i)=>`<i style="left:${Math.round(Math.random()*100)}%;background:${["#f43f5e","#f59e0b","#22c55e","#3b82f6","#a855f7","#ec4899"][i%6]};animation-delay:${(Math.random()*.6).toFixed(2)}s;animation-duration:${(1.6+Math.random()*1.2).toFixed(2)}s"></i>`).join("");
+    o.innerHTML=`<div class="ql-gp-box" role="dialog" aria-label="A gift for you"><div class="ql-gp-conf">${bits}</div><div class="ql-gp-ico">🎁</div><small>A GIFT FOR YOU</small><h3>You got ${h(g.plan_name||g.plan_id)}!</h3><div class="ql-gp-len">${h(giftLen(g.days))}</div>${g.message?`<p>“${h(g.message)}”</p>`:""}<div class="ql-gp-acts"><button type="button" class="ql-gp-claim">Claim now</button><button type="button" class="ql-gp-later">Later</button></div>${gifts.length>1?`<div class="ql-gp-more">+${gifts.length-1} more gift${gifts.length>2?"s":""} in My Profile</div>`:""}</div>`;
+    document.body.appendChild(o);
+    o.querySelector(".ql-gp-claim").onclick=e=>claimGift(g.id,e.currentTarget);
+    o.querySelector(".ql-gp-later").onclick=closeGiftPop;
+    o.onclick=e=>{if(e.target===o)closeGiftPop()};
+  }
   function cardHtml(){
     const p=curPlan();if(!p)return "";const s=sub(),u=(mine&&mine.usage)||{},L=p.limits||{};
     const paid=!p.is_default&&s&&s.status==="active";const end=paid&&s.ends_at?new Date(s.ends_at).getTime():null;
@@ -18844,9 +18883,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     if(w&&w.dataset.sig===sig)return;
     if(!w){w=document.createElement("section");w.className="profile-grid qs-wrap";grid.parentNode.insertBefore(w,grid)}
     w.dataset.sig=sig;w.innerHTML=html;
-    w.querySelectorAll("[data-gift]").forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent="Claiming…";
-      try{const {error}=await cli().rpc("ql_claim_gift",{p_id:b.dataset.gift});if(error)throw error;gifts=gifts.filter(g=>g.id!==b.dataset.gift);await loadMine();showActivated()}
-      catch(e){b.disabled=false;b.textContent="Claim";alert(String(e.message||e).replace(/^.*?:\s*(?=[A-Z])/,""));loadMine()}});
+    w.querySelectorAll("[data-gift]").forEach(b=>b.onclick=()=>claimGift(b.dataset.gift,b));
     w.querySelector('[data-qs="up"]').onclick=()=>openUpgrade();w.querySelector('[data-qs="code"]').onclick=()=>openUpgrade(null,true);w.querySelector('[data-qs="hist"]').onclick=openHistory;
     try{const {data}=await cli().rpc("ql_my_payments");const wait=(data||[]).filter(r=>r.status==="waiting");const el=w.querySelector("#qsWait");if(el&&wait.length){el.classList.remove("hidden");el.textContent=`⏳ ${wait.length} payment${wait.length>1?"s":""} waiting for approval — your plan switches on as soon as it's approved.`}}catch{}
   }
@@ -18942,7 +18979,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   window.qlOpenUpgrade=openUpgrade;
 
   /* ---------- glue ---------- */
-  function applyAll(){if(!ready)return;applyClosed();applyAnnouncement();applyFeatures();placeCard()}
+  function applyAll(){if(!ready)return;applyClosed();applyAnnouncement();applyFeatures();placeCard();giftAlert()}
   let lastUser=null;
   if(typeof render==="function"){const prev=render;render=function(){const r=prev.apply(this,arguments);try{if(ready){applyFeatures();placeCard()}}catch{}return r}}
   let mo=null;const watch=()=>{if(mo)return;mo=new MutationObserver(()=>{clearTimeout(watch.t);watch.t=setTimeout(()=>{try{applyFeatures();placeCard()}catch{}},120)});mo.observe(document.body,{childList:true,subtree:true})};
