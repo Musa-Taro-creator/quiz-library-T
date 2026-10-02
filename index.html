@@ -17040,16 +17040,21 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
   let deviceId="";try{deviceId=localStorage.getItem(KEY)||""}catch(e){}
   if(!deviceId){deviceId=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(36).slice(2));try{localStorage.setItem(KEY,deviceId)}catch(e){}}
   const label=()=>{const ua=navigator.userAgent;const dev=(/iPad/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1))?"iPad":/iPhone/.test(ua)?"iPhone":/Android/.test(ua)?"Android":/Windows/.test(ua)?"Windows PC":/Mac/.test(ua)?"Mac":"Device";const br=/Edg\//.test(ua)?"Edge":/Chrome|CriOS/.test(ua)?"Chrome":/Firefox|FxiOS/.test(ua)?"Firefox":/Safari/.test(ua)?"Safari":"Browser";return dev+" · "+br};
-  let uid=null,chan=null,chan2=null,poll=null,kicked=false,ready=null;
+  let uid=null,chan=null,chan2=null,chan3=null,poll=null,kicked=false,ready=null;
   const cli=()=>typeof service!=="undefined"&&service.client;
   window.qlDevice={id:deviceId,label};
   const isBlockedErr=e=>/device_blocked/.test(String(e&&(e.message||e)));
   async function touch(){const {error}=await cli().rpc("ql_touch_device",{p_device_id:deviceId,p_label:label()});if(error)throw error}
   async function blockedNow(){const {data,error}=await cli().from("ql_device_log").select("blocked").eq("user_id",uid).eq("device_id",deviceId).maybeSingle();return !error&&data&&data.blocked===true}
   async function claim(){const c=cli();const {data,error}=await c.rpc("ql_claim_device",{p_device_id:deviceId,p_label:label()});if(error)throw error;try{await c.auth.signOut({scope:"others"})}catch(e){}return data}
-  /* admin can let an account (or a plan / everyone) use many devices at once — supabase/multi_device.sql */
-  let many=false;
-  async function rule(){try{const {data,error}=await cli().rpc("ql_my_device_rule");if(!error)return data===true}catch(e){}return false}
+  /* device limit (supabase/multi_device.sql): each account can be signed in on N devices at once
+     (N from the person or the plan, 1 by default). Signing in on one more device signs out the
+     device that signed in longest ago. Falls back to the one-device system if that SQL is missing. */
+  let multi=null,info=null;
+  const setInfo=d=>{if(!d)return;info={limit:d.limit==null?null:Number(d.limit),count:Number(d.count||0)};window.qlDevice.info=info;try{window.qlPlanCardRefresh&&qlPlanCardRefresh()}catch(e){}};
+  async function mSignin(){const {data,error}=await cli().rpc("ql_device_signin",{p_device_id:deviceId,p_label:label()});if(error)throw error;setInfo(data);return data}
+  async function mCheck(){const {data,error}=await cli().rpc("ql_device_check",{p_device_id:deviceId,p_label:label()});if(error)throw error;setInfo(data);return data}
+  const missingFn=e=>/ql_device_(signin|check)|PGRST202|42883|does not exist|schema cache/i.test(String(e&&(e.message||e.code||e)));
   async function current(){const c=cli();const {data,error}=await c.from("ql_active_device").select("device_id,device_label,signed_in_at").eq("user_id",uid).maybeSingle();if(error)throw error;return data}
   function fmt(t){try{return new Date(t).toLocaleString([],{hour:"numeric",minute:"2-digit",day:"numeric",month:"short"})}catch(e){return ""}}
   async function kick(row,blocked){
@@ -17064,33 +17069,38 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
       <p>The owner of this account blocked <b>${esc(label())}</b>, so it can't use the account.</p>
       <p class="ql-kick-small">To use it again, unblock it from another device: My Profile → Devices → Unblock.</p>
       <button type="button" class="ql-kick-btn" id="qlKickLogin">OK</button></div>`:`<h3 id="qlKickT">Signed out on this device</h3>
-      <p>Your account was just signed in on <b>${esc(where)}</b>${row&&row.signed_in_at?` at ${esc(fmt(row.signed_in_at))}`:""}. Only one device can use an account at a time.</p>
+      <p>Your account was just signed in on <b>${esc(where)}</b>${row&&row.signed_in_at?` at ${esc(fmt(row.signed_in_at))}`:""}. ${info&&info.limit>1?`Your account can be used on <b>${info.limit} devices</b> at the same time, so the device that signed in longest ago was signed out.`:"Only one device can use an account at a time."}</p>
       <p class="ql-kick-small">Wasn't you? Sign in here and change your password.</p>
       <button type="button" class="ql-kick-btn" id="qlKickLogin">Sign in on this device</button></div>`}`;
     document.body.appendChild(ov);
     document.getElementById("qlKickLogin").onclick=()=>location.reload();
   }
-  function stop(){if(poll){clearInterval(poll);poll=null}if(chan){try{cli().removeChannel(chan)}catch(e){}chan=null}if(chan2){try{cli().removeChannel(chan2)}catch(e){}chan2=null}}
-  async function check(){if(!uid||kicked)return;try{if(await blockedNow())return kick(null,true);
-    const was=many;many=await rule();if(many)return;
-    if(was){await claim();return} /* switched back to one device: this one takes it, the others are signed out */
-    const row=await current();if(row&&row.device_id!==deviceId)kick(row)}catch(e){}}
+  function stop(){if(poll){clearInterval(poll);poll=null}if(chan){try{cli().removeChannel(chan)}catch(e){}chan=null}if(chan2){try{cli().removeChannel(chan2)}catch(e){}chan2=null}if(chan3){try{cli().removeChannel(chan3)}catch(e){}chan3=null}}
+  async function check(){if(!uid||kicked)return;try{
+    if(multi){const d=await mCheck();if(!d.signed_in)kick(d.newest?{device_label:d.newest.label,signed_in_at:d.newest.at}:null);return}
+    if(await blockedNow())return kick(null,true);const row=await current();if(row&&row.device_id!==deviceId)kick(row)}catch(e){if(isBlockedErr(e))kick(null,true)}}
   async function start(u){
     uid=u;kicked=false;stop();
     let fresh=false;try{fresh=sessionStorage.getItem("ql_fresh_login")==="1";sessionStorage.removeItem("ql_fresh_login")}catch(e){}
-    many=await rule();
-    if(many){try{await touch()}catch(e){if(isBlockedErr(e))return kick(null,true)}}
-    else try{
+    multi=null;
+    try{const d=fresh?await mSignin():await mCheck();multi=true;
+      if(!fresh&&!d.signed_in){if(d.any)return kick(d.newest?{device_label:d.newest.label,signed_in_at:d.newest.at}:null);await mSignin()}}
+    catch(e){if(isBlockedErr(e))return kick(null,true);if(!missingFn(e))return;multi=false}
+    if(!multi)try{
       const row=fresh?null:await current();
       if(fresh||!row)await claim();
       else if(row.device_id!==deviceId)return kick(row);
       else{try{await touch()}catch(e){if(isBlockedErr(e))return kick(null,true)}} /* device history SQL may not be installed yet */
     }catch(e){if(isBlockedErr(e))return kick(null,true);return} /* SQL not installed or offline: leave things as they are */
-    try{chan=cli().channel("ql-active-device-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_active_device",filter:"user_id=eq."+uid},p=>{const r=p.new;if(!many&&r&&r.device_id&&r.device_id!==deviceId)kick(r)}).subscribe()}catch(e){}
+    if(multi)try{chan3=cli().channel("ql-signed-devices-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_signed_devices",filter:"user_id=eq."+uid},()=>check()).subscribe()}catch(e){}
+    try{chan=cli().channel("ql-active-device-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_active_device",filter:"user_id=eq."+uid},p=>{const r=p.new;if(!multi&&r&&r.device_id&&r.device_id!==deviceId)kick(r)}).subscribe()}catch(e){}
     /* own channel, so a missing device-history table never affects the one above */
     try{chan2=cli().channel("ql-device-log-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_device_log",filter:"user_id=eq."+uid},p=>{const r=p.new;if(r&&r.device_id===deviceId&&r.blocked)return kick(null,true);try{window.qlDevicesRefresh&&qlDevicesRefresh()}catch(e){}}).subscribe()}catch(e){}
     poll=setInterval(check,45000);
   }
+  /* signing out frees this device's place */
+  setInterval(()=>{const c=cli();if(!c||!c.auth||c.auth.__qlDevWrap)return;const orig=c.auth.signOut.bind(c.auth);
+    c.auth.signOut=async function(o){if(multi&&uid&&!kicked&&!(o&&o.scope==="others"))try{await c.rpc("ql_device_signout",{p_device_id:deviceId})}catch(e){}return orig(o)};c.auth.__qlDevWrap=true},1000);
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")check()});
   setInterval(()=>{
     if(!cli()||typeof state==="undefined")return;
@@ -18614,6 +18624,7 @@ body.ql-ocean .qs-acts button.g{background:rgba(255,255,255,.1);color:#fff7ed;bo
 .ql-gp-conf{position:absolute;inset:-20px;pointer-events:none;overflow:hidden}.ql-congrats{font-size:54px!important;animation:qlGpPop .6s cubic-bezier(.2,1.4,.4,1)}.ql-gp-conf i{position:absolute;top:-12px;width:8px;height:12px;border-radius:2px;opacity:0;animation:qlGpConf linear 1 forwards}
 @keyframes qlGpConf{0%{opacity:1;transform:translateY(0) rotate(0)}100%{opacity:0;transform:translateY(460px) rotate(540deg)}}
 @media (prefers-reduced-motion:reduce){.ql-gp-ico,.ql-gp-conf i,.ql-gift-dot::after{animation:none}}
+.qs-dev{display:flex;gap:8px;align-items:flex-start;margin-top:12px;padding:10px 12px;border-radius:14px;font-size:13.5px;color:#334155;background:rgba(99,102,241,.08)}.qs-dev b{color:#4338ca}
 .qs-gift{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:12px;border-radius:20px;background:linear-gradient(135deg,color-mix(in srgb,var(--gc) 16%,#fff),#fff7ed);border:1.5px solid color-mix(in srgb,var(--gc) 45%,transparent);box-shadow:0 10px 28px color-mix(in srgb,var(--gc) 22%,transparent);animation:qsGiftIn .5s ease}
 @keyframes qsGiftIn{from{transform:translateY(8px);opacity:0}}
 .qs-gift-ico{font-size:30px;flex:none;animation:qsGiftWiggle 2.4s ease-in-out infinite}@keyframes qsGiftWiggle{0%,80%,100%{transform:rotate(0)}85%{transform:rotate(-12deg)}90%{transform:rotate(10deg)}95%{transform:rotate(-6deg)}}
@@ -18873,6 +18884,9 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     o.querySelector(".ql-gp-later").onclick=closeGiftPop;
     o.onclick=e=>{if(e.target===o)closeGiftPop()};
   }
+  function devLine(){const d=window.qlDevice&&qlDevice.info;if(!d)return "";
+    return `<div class="qs-dev">📱 <span>${d.limit==null?"You can use <b>unlimited devices</b> at the same time":d.limit===1?"You can use <b>1 device</b> at a time — signing in on another device signs this one out":`You can use up to <b>${d.limit} devices</b> at the same time`}${d.limit!==1?` · ${d.count} signed in now`:""}</span></div>`}
+  window.qlPlanCardRefresh=()=>placeCard();
   function cardHtml(){
     const p=curPlan();if(!p)return "";const s=sub(),u=(mine&&mine.usage)||{},L=p.limits||{};
     const paid=!p.is_default&&s&&s.status==="active";const end=paid&&s.ends_at?new Date(s.ends_at).getTime():null;
@@ -18887,6 +18901,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       ${end?`<div class="qs-cd" data-end="${end}">${cdHtml(end-now())}</div>`:""}</div>
       ${end&&left!=null?`<div class="qs-bar"><i style="width:${left}%"></i></div><div class="qs-meta"><span>Started ${new Date(start).toLocaleDateString([], {day:"numeric",month:"short",year:"numeric"})}</span><span>${Math.round(left)}% of your plan time left</span></div>`:""}
       ${cap&&Number(u.storage_bytes||0)/cap>=.9?`<div class="qs-wait">⚠️ Your storage is almost full (${Math.min(100,Math.round(Number(u.storage_bytes||0)/cap*100))}%). Upgrade to keep adding PDFs.</div>`:""}
+      ${devLine()}
       <div class="qs-wait hidden" id="qsWait"></div>
       <div class="qs-acts"><button type="button" data-qs="up">${paid?"Renew / Upgrade":"Upgrade"}</button><button type="button" class="g" data-qs="code">Enter promo code</button><button type="button" class="g" data-qs="hist">Payment history</button></div></div>`;
   }
@@ -18894,7 +18909,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     if(!ready||!signedIn()||!mine)return;
     const grid=document.querySelector(".profile-content .profile-grid-v2");if(!grid)return;
     let w=document.querySelector(".qs-wrap");
-    const html=giftHtml()+cardHtml(),sig=JSON.stringify([mine.plan&&mine.plan.id,sub(),mine.usage,document.body.className.match(/ql-(white|neon|ocean)/)?.[1],gifts.map(g=>g.id)]);
+    const html=giftHtml()+cardHtml(),sig=JSON.stringify([window.qlDevice&&qlDevice.info,mine.plan&&mine.plan.id,sub(),mine.usage,document.body.className.match(/ql-(white|neon|ocean)/)?.[1],gifts.map(g=>g.id)]);
     if(w&&w.dataset.sig===sig)return;
     if(!w){w=document.createElement("section");w.className="profile-grid qs-wrap";grid.parentNode.insertBefore(w,grid)}
     w.dataset.sig=sig;w.innerHTML=html;
@@ -18917,6 +18932,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     if(has("new_pdf"))out.push([`${n(L.pdfs)} PDFs`,true]);
     if(has("new_link"))out.push([`${n(L.links)} quiz links`,true]);
     if(has("new_folder"))out.push([`${n(L.folders)} folders`,true]);
+    {const dv="devices" in L?L.devices:1;out.push([dv==null?"Unlimited devices at the same time":dv===1?"1 device at a time":`${dv} devices at the same time`,true])}
     /* only the features the admin ticked for this plan (same names as admin → Features in this plan) */
     const names={nav_random:"Random Quiz",nav_inbox:"Shared with me",nav_favorites:"Favorites",nav_recent:"Recent",nav_shared_links:"Shared Links",nav_trash:"Trash",nav_install:"Install app",
       new_folder:"Create Folder",new_link:"Add Quiz Link",new_pdf:"Upload PDF",new_quiz:"Create Quiz",
@@ -18924,7 +18940,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       nav_dashboard:"Dashboard",item_share_dash:"Post to Dashboard",dash_menu:"⋮ menu on Dashboard",dash_save:"Save from Dashboard to my library",sel_share_in:"Share many internally",sel_share_ex:"Share many externally",sel_copy:"Copy links of many",sel_duplicate:"Duplicate many",sel_move:"Move many",sel_trash:"Trash many",
       quiz_autoadv:"Auto-advance",quiz_shuffle:"Shuffle",quiz_bookmark:"Bookmark & Flag",quiz_summary:"Quiz Summary",quiz_results:"Quiz Results",
       ed_addnew:"Add New Questions",ed_images:"Image Manager",ed_move:"Move Questions",ed_sections:"Sections",ed_find:"Find & check problems",
-      pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list",multi_device:"Use many devices at the same time"};
+      pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list"};
     for(const k in names){if(!["new_quiz","new_pdf","new_link","new_folder"].includes(k)&&has(k))out.push([names[k],true])}
     if(p.features&&Array.isArray(p.features._others))p.features._others.forEach(t=>{if(String(t).trim())out.push([String(t),true])});
     return out;

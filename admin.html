@@ -235,12 +235,11 @@ const FEATURES=[
  ["Select many (bar at the top)",[["sel_share_in","Share internally"],["sel_share_ex","Share externally"],["sel_copy","Copy Link"],["sel_duplicate","Duplicate"],["sel_move","Move"],["sel_trash","Trash"]]],
  ["Taking a quiz",[["quiz_autoadv","Auto-advance"],["quiz_shuffle","Shuffle"],["quiz_bookmark","Bookmark & Flag"],["quiz_summary","Quiz Summary"],["quiz_results","Quiz Results"]]],
  ["Quiz editor",[["ed_addnew","Add New Questions"],["ed_images","Image Manager"],["ed_move","Move Questions"],["ed_sections","Sections"],["ed_find","Find & check problems"]]],
- ["Profile & account",[["pf_edit","Edit Profile"],["pf_avatar","Change Avatar"],["pf_themes","App themes"],["pf_devices","Devices list"],["signup","New sign-ups"]]],
- ["Login & devices",[["multi_device","Many devices at the same time"]]]
+ ["Profile & account",[["pf_edit","Edit Profile"],["pf_avatar","Change Avatar"],["pf_themes","App themes"],["pf_devices","Devices list"],["signup","New sign-ups"]]]
 ];
 /* switches with their own choices (and default) instead of Everyone / By plan / Lock / Hidden */
-const FEAT_MODES={signup:{def:"on",opts:[["on","On"],["off","Off"]]},multi_device:{def:"off",opts:[["on","Everyone"],["plan","By plan"],["off","One device only"]]}};
-const LIMITS=[["storage_mb","Storage","MB"],["results_kept","Results kept per quiz",""]];
+const FEAT_MODES={signup:{def:"on",opts:[["on","On"],["off","Off"]]}};
+const LIMITS=[["storage_mb","Storage","MB"],["results_kept","Results kept per quiz",""],["devices","Devices at the same time",""]];
 /* limits that belong to a "+ New" feature: shown under its tick in Edit plan */
 const FEAT_LIMITS={new_folder:[["folders","How many folders"]],new_link:[["links","How many quiz links"]],new_pdf:[["pdfs","How many PDFs"]],new_quiz:[["quizzes","How many quizzes"],["questions_per_quiz","Questions per quiz"]]};
 const COLORS=["#94a3b8","#6366f1","#0ea5e9","#a855f7","#ec4899","#f59e0b","#10b981","#ef4444"];
@@ -396,8 +395,10 @@ function manageUser(r){
    <div class="sec-t">Account</div><div class="inline"><button class="btn" id="mOut">Sign out all devices</button>${r.status==="suspended"?`<button class="btn g" id="mSus">Unsuspend account</button>`:`<button class="btn r" id="mSus">Suspend account</button>`}</div>
    <div class="note">Suspended accounts are signed out and see a message until you unsuspend them. Nothing is deleted.</div>
    <div class="sec-t">📱 Devices</div>
-   <div class="note" style="margin:0 0 8px">Can this person stay signed in on many devices at the same time? <span id="dvNow"></span></div>
-   <div class="seg" id="dvMode"><button type="button" data-dv="">Follow Website Control</button><button type="button" data-dv="one">One device only</button><button type="button" data-dv="many">Many devices</button></div>
+   <div class="note" style="margin:0 0 8px">How many devices can this person use at the same time? Signing in on one more device signs out the one that signed in longest ago. <span id="dvNow"></span></div>
+   <div class="inline" style="flex-wrap:wrap"><div class="seg" id="dvMode"><button type="button" data-dv="plan">Follow plan</button>${[1,2,3,5].map(n=>`<button type="button" data-dv="${n}">${n}</button>`).join("")}<button type="button" data-dv="unl">Unlimited</button></div>
+    <input id="dvN" class="in small" type="number" min="1" max="100" placeholder="Other"><button class="btn" id="dvSave">Save</button></div>
+   <div id="dvList" class="note" style="margin-top:6px"></div>
    <div class="danger-zone"><div class="sec-t" style="margin-top:0;color:#dc2626">Delete account permanently</div>
     <div class="note" style="margin:0 0 8px">Deletes the login, their quizzes, PDFs, folders, payments and devices from Supabase. This cannot be undone.</div>
     <div class="inline"><input id="mDelEmail" class="in" style="flex:1;min-width:180px" placeholder="Type ${h(r.email)} to confirm" autocomplete="off"><button class="btn r" id="mDel">Delete forever</button></div></div>`);
@@ -419,10 +420,15 @@ function manageUser(r){
   gLoad();
   o.querySelector("#gSend").onclick=async e=>{const b=e.currentTarget;b.disabled=true;
     try{await rpc("ql_admin_send_gift",{p_user:r.user_id,p_plan:o.querySelector("#gPlan").value,p_days:gDays,p_message:o.querySelector("#gMsg").value.trim()});o.querySelector("#gMsg").value="";toast("Gift sent — they'll see it in My Profile");gLoad()}catch(x){alert(errMsg(x))}finally{b.disabled=false}};
-  const dvLoad=async()=>{try{const d=await rpc("ql_admin_get_device_rule",{p_user:r.user_id});o.querySelectorAll("[data-dv]").forEach(x=>x.classList.toggle("on",x.dataset.dv===(d.mode||"")));o.querySelector("#dvNow").textContent=d.effective_many?"Right now: many devices.":"Right now: one device only."}
-    catch(e){o.querySelector("#dvNow").innerHTML=/ql_admin_get_device_rule|PGRST202|42883|does not exist/.test(errMsg(e)+String(e.message||""))?"<b>Run multi_device.sql in Supabase first.</b>":""}};
+  const dvLoad=async()=>{try{const d=await rpc("ql_admin_get_device_rule",{p_user:r.user_id});
+      const cur=!d.custom?"plan":d.max==null?"unl":String(d.max);o.querySelectorAll("[data-dv]").forEach(x=>x.classList.toggle("on",x.dataset.dv===cur));o.querySelector("#dvN").value=d.custom&&d.max!=null&&![1,2,3,5].includes(d.max)?d.max:"";
+      const n=d.effective;o.querySelector("#dvNow").innerHTML=`<b>Right now: ${n==null?"unlimited devices":n+" device"+(n>1?"s":"")}</b> (${d.custom?"set for this person":"from the "+h(d.plan||"")+" plan"}).`;
+      o.querySelector("#dvList").innerHTML=(d.devices||[]).length?"Signed in now: "+d.devices.map(x=>`${h(x.label||"Device")} <small>(${ago(x.signed_in_at)})</small>`).join(" · "):"No device signed in right now."}
+    catch(e){o.querySelector("#dvNow").innerHTML=/ql_admin_get_device_rule|PGRST202|42883|does not exist/.test(String(e.message||e))?"<b>Run multi_device.sql in Supabase first.</b>":""}};
   dvLoad();
-  o.querySelectorAll("[data-dv]").forEach(b=>b.onclick=async()=>{try{await rpc("ql_admin_set_device_rule",{p_user:r.user_id,p_mode:b.dataset.dv||null});toast("Devices setting saved");dvLoad()}catch(e){alert(/ql_admin_set_device_rule|PGRST202|42883/.test(String(e.message||e))?"Run multi_device.sql in Supabase first.":errMsg(e))}});
+  const dvSet=async(follow,max)=>{try{await rpc("ql_admin_set_device_limit",{p_user:r.user_id,p_follow:follow,p_max:max});toast("Devices limit saved");dvLoad()}catch(e){alert(/ql_admin_set_device_limit|PGRST202|42883/.test(String(e.message||e))?"Run the new multi_device.sql in Supabase first.":errMsg(e))}};
+  o.querySelectorAll("[data-dv]").forEach(b=>b.onclick=()=>{const v=b.dataset.dv;v==="plan"?dvSet(true,null):v==="unl"?dvSet(false,null):dvSet(false,Number(v))});
+  o.querySelector("#dvSave").onclick=()=>{const n=Math.round(Number(o.querySelector("#dvN").value));if(!(n>=1&&n<=100))return alert("Type a number from 1 to 100.");dvSet(false,n)};
   o.querySelector("#mExtraSave").onclick=()=>act("extra_storage",{p_value:Number(o.querySelector("#mExtra").value||0)},"Extra storage saved");
   o.querySelector("#mOut").onclick=()=>{if(confirm("Sign this account out on every device?"))act("logout",{},"Signed out everywhere")};
   o.querySelector("#mDel").onclick=async()=>{const typed=o.querySelector("#mDelEmail").value.trim();
@@ -440,13 +446,13 @@ function manageUser(r){
 let selPlan=null;
 async function plansView(){
   plans=await rpc("ql_admin_plans");
-  const lim=(p,k)=>{const v=(p.limits||{})[k];return v==null?"Unlimited":k==="storage_mb"?mb(v):v};
+  const lim=(p,k)=>{const L=p.limits||{};if(k==="devices"&&!(k in L))return 1;const v=L[k];return v==null?"Unlimited":k==="storage_mb"?mb(v):v};
   $("#view").innerHTML=head("Plans &amp; Limits","Change a plan and it applies to everyone on it",`<button class="btn p" id="addPlan">＋ Add new plan</button>`)+`
   <div class="plans">${plans.map(p=>`<div class="plan" data-pick="${h(p.id)}" style="cursor:pointer;${(selPlan||plans.find(x=>x.badge)?.id||plans[0]?.id)===p.id?`border:2px solid ${p.color};box-shadow:0 12px 30px ${p.color}40`:""}">${p.badge?`<span class="badge" style="background:${p.color}">${h(p.badge)}</span>`:""}
     <div class="nm"><span class="dot" style="background:${p.color}"></span>${h(p.name)}${p.visibility!=="public"?` <span class="tag">${p.visibility==="code"?"Code only":"Hidden"}</span>`:""}</div>
     <div class="note" style="margin:2px 0 0">${h(p.tagline||"")}</div>
     <div class="pr">${p.is_default?"$0 <small>forever</small>":`${money(p.price_month)} <small>/ month${p.price_year!=null?" · "+money(p.price_year)+" / year":""}${p.price_lifetime!=null?" · "+money(p.price_lifetime)+" once":""}</small>`}</div>
-    <ul>${[["storage_mb","Storage"],["quizzes","Quizzes","new_quiz"],["questions_per_quiz","Questions per quiz","new_quiz"],["pdfs","PDFs","new_pdf"],["links","Quiz links","new_link"],["folders","Folders","new_folder"],["results_kept","Results kept per quiz"]].filter(([k,l,f])=>!f||(p.features||{})[f]).map(([k,l])=>`<li>${l}<b>${lim(p,k)}</b></li>`).join("")}<li>People on it<b>${p.members||0}</b></li></ul>
+    <ul>${[["storage_mb","Storage"],["quizzes","Quizzes","new_quiz"],["questions_per_quiz","Questions per quiz","new_quiz"],["pdfs","PDFs","new_pdf"],["links","Quiz links","new_link"],["folders","Folders","new_folder"],["results_kept","Results kept per quiz"],["devices","Devices at the same time"]].filter(([k,l,f])=>!f||(p.features||{})[f]).map(([k,l])=>`<li>${l}<b>${lim(p,k)}</b></li>`).join("")}<li>People on it<b>${p.members||0}</b></li></ul>
     <button class="btn ${p.badge?"p":""}" data-edit="${h(p.id)}">Edit</button></div>`).join("")}
     <div class="addplan" id="addPlan2">＋ Add new plan</div></div>
   <div class="card" style="margin-top:16px"><h3>Plan order on the Upgrade page</h3><div class="seg" id="order">${plans.map((p,i)=>`<span class="inline" style="gap:4px"><button class="btn" data-up="${i}" ${i?"":"disabled"}>‹</button><b style="font-size:13px">${h(p.name)}</b><button class="btn" data-down="${i}" ${i<plans.length-1?"":"disabled"}>›</button></span>`).join("")}</div>
@@ -460,7 +466,7 @@ async function plansView(){
 function editPlan(p){
   const isNew=!p;p=p||{name:"",tagline:"",color:"#0ea5e9",badge:"",price_month:null,price_year:null,price_lifetime:null,visibility:"public",limits:{storage_mb:1024,quizzes:null,pdfs:null,links:null,folders:null,questions_per_quiz:null,results_kept:null},features:{new_folder:true,new_link:true,new_pdf:true,new_quiz:true}};
   const L=p.limits||{},F=p.features||{};
-  const limRow=(k,l)=>`<div class="lim"><span>${l}</span><input class="in" data-lim="${k}" type="number" min="0" value="${L[k]??""}" ${L[k]==null?"disabled":""}><span class="uu"><button type="button" class="sw sm ${L[k]==null?"on":""}" data-unl="${k}"></button>Unlimited</span></div>`;
+  const limRow=(k,l)=>{const v=k==="devices"&&!(k in L)?1:L[k];return `<div class="lim"><span>${l}</span><input class="in" data-lim="${k}" type="number" min="${k==="devices"?1:0}" value="${v??""}" ${v==null?"disabled":""}><span class="uu"><button type="button" class="sw sm ${v==null?"on":""}" data-unl="${k}"></button>Unlimited</span></div>`};
   const priceRow=(k,l)=>`<div class="lim"><span>${l}</span><input class="in" data-price="${k}" type="number" min="0" step="0.01" value="${p[k]??""}" placeholder="—" ${p[k]==null?"disabled":""}><span class="uu"><button type="button" class="sw sm ${p[k]!=null?"on":""}" data-poff="${k}"></button>Offer</span></div>`;
   const o=modal(isNew?"Add new plan":`Edit plan · ${h(p.name)}`,`<div class="two"><div>
     <div class="sec-t">Name &amp; look</div>
@@ -591,7 +597,7 @@ async function ctl(){
     <span><span class="tag no">Hidden</span>&nbsp; nobody sees it</span></div>
     <div class="note">Tick features for each plan in Plans &amp; Limits → Edit.</div></div></div>
   <div class="grpgrid">${FEATURES.map(([g,items])=>`<div class="card"><h3>${h(g)}<span class="r" data-gall="${h(g)}" data-m="off">Hide all</span><span class="r" data-gall="${h(g)}" data-m="plan" style="margin-left:8px">By plan all</span><span class="r" data-gall="${h(g)}" data-m="lock" style="margin-left:8px">Lock all</span><span class="r" data-gall="${h(g)}" data-m="on" style="margin-left:8px">Show all</span></h3>
-    ${items.map(([k,l])=>{const fm=FEAT_MODES[k],m=F[k]||(fm?fm.def:"on");return `<div class="tg"><span>${h(l)}${k==="multi_device"?`<div class="note" style="margin:2px 0 0">One device only = signing in on a new device signs out the old one. You can also choose per person in Users → Manage.</div>`:""}</span><span class="mode" data-k="${k}">${(fm?fm.opts:[["on","Everyone"],["plan","By plan"],["lock","Lock"],["off","Hidden"]]).map(([v,t])=>`<button type="button" data-m="${v}" class="${m===v?"on":""}">${t}</button>`).join("")}</span></div>`}).join("")}</div>`).join("")}</div>`;
+    ${items.map(([k,l])=>{const fm=FEAT_MODES[k],m=F[k]||(fm?fm.def:"on");return `<div class="tg"><span>${h(l)}</span><span class="mode" data-k="${k}">${(fm?fm.opts:[["on","Everyone"],["plan","By plan"],["lock","Lock"],["off","Hidden"]]).map(([v,t])=>`<button type="button" data-m="${v}" class="${m===v?"on":""}">${t}</button>`).join("")}</span></div>`}).join("")}</div>`).join("")}</div>`;
   $("#siteSw").onclick=async()=>{const open=site.open===false;if(!open&&!confirm("Close the website for students now?"))return;await saveSetting("site",{...site,open,close_at:open?null:site.close_at},open?"Website is open":"Website closed");go("ctl")};
   $("#siteSave").onclick=async()=>{const at=$("#siteAt").value;await saveSetting("site",{...site,message:$("#siteMsg").value.trim()||site.message,close_at:at?new Date(at).toISOString():null});go("ctl")};
   $("#siteAtClear")&&($("#siteAtClear").onclick=async()=>{await saveSetting("site",{...site,close_at:null});go("ctl")});
