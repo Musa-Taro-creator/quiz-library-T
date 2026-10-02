@@ -18856,8 +18856,6 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     try{localStorage.setItem(key,JSON.stringify(seen.concat(g.id).slice(-50)))}catch{}
     openGiftPop(g);
   }
-  /* tapping the profile picture while a gift waits opens the gift again */
-  document.addEventListener("click",e=>{const chip=e.target.closest&&e.target.closest("#studentAccountChip.ql-gift-dot");if(!chip||!gifts||!gifts.length)return;e.preventDefault();e.stopPropagation();openGiftPop(gifts[0])},true);
   function openGiftPop(g){
     closeGiftPop();const o=document.createElement("div");o.id="qlGiftPop";o.className="ql-gp";o.style.setProperty("--gc",g.color||"#a855f7");
     const bits=Array.from({length:26},(_,i)=>`<i style="left:${Math.round(Math.random()*100)}%;background:${["#f43f5e","#f59e0b","#22c55e","#3b82f6","#a855f7","#ec4899"][i%6]};animation-delay:${(Math.random()*.6).toFixed(2)}s;animation-duration:${(1.6+Math.random()*1.2).toFixed(2)}s"></i>`).join("");
