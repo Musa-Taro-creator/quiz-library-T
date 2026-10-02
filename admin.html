@@ -451,30 +451,42 @@ async function plansView(){
   <div class="plans">${plans.map(p=>`<div class="plan" data-pick="${h(p.id)}" style="cursor:pointer;${(selPlan||plans.find(x=>x.badge)?.id||plans[0]?.id)===p.id?`border:2px solid ${p.color};box-shadow:0 12px 30px ${p.color}40`:""}">${p.badge?`<span class="badge" style="background:${p.color}">${h(p.badge)}</span>`:""}
     <div class="nm"><span class="dot" style="background:${p.color}"></span>${h(p.name)}${p.visibility!=="public"?` <span class="tag">${p.visibility==="code"?"Code only":"Hidden"}</span>`:""}</div>
     <div class="note" style="margin:2px 0 0">${h(p.tagline||"")}</div>
-    <div class="pr">${p.is_default?"$0 <small>forever</small>":`${money(p.price_month)} <small>/ month${p.price_year!=null?" · "+money(p.price_year)+" / year":""}${p.price_lifetime!=null?" · "+money(p.price_lifetime)+" once":""}</small>`}</div>
+    <div class="pr">${p.is_default?"$0 <small>forever</small>":(()=>{const sp=saleOf(p),f=v=>sp?`<s style="opacity:.55;font-size:.7em">${money(v)}</s> ${money(salePrice(v,sp))}`:money(v);return `${f(p.price_month)} <small>/ month${p.price_year!=null?" · "+f(p.price_year)+" / year":""}${p.price_lifetime!=null?" · "+f(p.price_lifetime)+" once":""}</small>${sp?`<div><span class="tag" style="background:#fee2e2;color:#dc2626">-${sp.pct}% sale${sp.until?" · until "+day(sp.until):""}</span></div>`:""}`})()}</div>
     <ul>${[["storage_mb","Storage"],["quizzes","Quizzes","new_quiz"],["questions_per_quiz","Questions per quiz","new_quiz"],["pdfs","PDFs","new_pdf"],["links","Quiz links","new_link"],["folders","Folders","new_folder"],["results_kept","Results kept per quiz"],["devices","Devices at the same time"]].filter(([k,l,f])=>!f||(p.features||{})[f]).map(([k,l])=>`<li>${l}<b>${lim(p,k)}</b></li>`).join("")}<li>People on it<b>${p.members||0}</b></li></ul>
-    <button class="btn ${p.badge?"p":""}" data-edit="${h(p.id)}">Edit</button></div>`).join("")}
+    <div class="inline"><button class="btn ${p.badge?"p":""}" data-edit="${h(p.id)}">Edit</button><button class="btn" data-clone="${h(p.id)}" title="Make a new plan with the same settings">⧉ Clone</button></div></div>`).join("")}
     <div class="addplan" id="addPlan2">＋ Add new plan</div></div>
   <div class="card" style="margin-top:16px"><h3>Plan order on the Upgrade page</h3><div class="seg" id="order">${plans.map((p,i)=>`<span class="inline" style="gap:4px"><button class="btn" data-up="${i}" ${i?"":"disabled"}>‹</button><b style="font-size:13px">${h(p.name)}</b><button class="btn" data-down="${i}" ${i<plans.length-1?"":"disabled"}>›</button></span>`).join("")}</div>
   <div class="note">Hidden plans never show on the Upgrade page. "Code only" plans can be given with an activation code.</div></div>`;
   $("#addPlan").onclick=$("#addPlan2").onclick=()=>editPlan(null);
   $$("[data-pick]").forEach(c=>c.onclick=e=>{if(e.target.closest("button"))return;selPlan=c.dataset.pick;$$("[data-pick]").forEach(x=>{const p=plans.find(q=>q.id===x.dataset.pick);const on=x===c;x.style.border=on?`2px solid ${p.color}`:"";x.style.boxShadow=on?`0 12px 30px ${p.color}40`:""})});
   $$("[data-edit]").forEach(b=>b.onclick=()=>editPlan(plans.find(p=>p.id===b.dataset.edit)));
+  $$("[data-clone]").forEach(b=>b.onclick=()=>editPlan(plans.find(p=>p.id===b.dataset.clone),true));
   const move=async(i,d)=>{const ids=plans.map(p=>p.id);[ids[i],ids[i+d]]=[ids[i+d],ids[i]];await rpc("ql_admin_order_plans",{p_ids:ids});go("plans")};
   $$("[data-up]").forEach(b=>b.onclick=()=>move(+b.dataset.up,-1));$$("[data-down]").forEach(b=>b.onclick=()=>move(+b.dataset.down,1));
 }
-function editPlan(p){
-  const isNew=!p;p=p||{name:"",tagline:"",color:"#0ea5e9",badge:"",price_month:null,price_year:null,price_lifetime:null,visibility:"public",limits:{storage_mb:1024,quizzes:null,pdfs:null,links:null,folders:null,questions_per_quiz:null,results_kept:null},features:{new_folder:true,new_link:true,new_pdf:true,new_quiz:true}};
+/* a sale on a plan: features._sale = {pct, until}; active while pct > 0 and the end date hasn't passed */
+const saleOf=p=>{const x=p&&p.features&&p.features._sale;return x&&Number(x.pct)>0&&(!x.until||new Date(x.until)>new Date())?{pct:Number(x.pct),until:x.until||null}:null};
+const salePrice=(v,sp)=>v==null?v:Math.round(Number(v)*(100-sp.pct))/100;
+function editPlan(p,clone){
+  if(clone&&p){p=JSON.parse(JSON.stringify(p));p.name=p.name+" copy";p.badge="";p.is_default=false;delete p.id;delete p.members;delete p.sort}
+  const isNew=!p||!!clone;p=p||{name:"",tagline:"",color:"#0ea5e9",badge:"",price_month:null,price_year:null,price_lifetime:null,visibility:"public",limits:{storage_mb:1024,quizzes:null,pdfs:null,links:null,folders:null,questions_per_quiz:null,results_kept:null},features:{new_folder:true,new_link:true,new_pdf:true,new_quiz:true}};
   const L=p.limits||{},F=p.features||{};
   const limRow=(k,l)=>{const v=k==="devices"&&!(k in L)?1:L[k];return `<div class="lim"><span>${l}</span><input class="in" data-lim="${k}" type="number" min="${k==="devices"?1:0}" value="${v??""}" ${v==null?"disabled":""}><span class="uu"><button type="button" class="sw sm ${v==null?"on":""}" data-unl="${k}"></button>Unlimited</span></div>`};
   const priceRow=(k,l)=>`<div class="lim"><span>${l}</span><input class="in" data-price="${k}" type="number" min="0" step="0.01" value="${p[k]??""}" placeholder="—" ${p[k]==null?"disabled":""}><span class="uu"><button type="button" class="sw sm ${p[k]!=null?"on":""}" data-poff="${k}"></button>Offer</span></div>`;
-  const o=modal(isNew?"Add new plan":`Edit plan · ${h(p.name)}`,`<div class="two"><div>
+  const o=modal(clone?"Clone plan":isNew?"Add new plan":`Edit plan · ${h(p.name)}`,`<div class="two"><div>
     <div class="sec-t">Name &amp; look</div>
     <div class="fld"><label>Plan name</label><input id="pName" class="in" value="${h(p.name)}" placeholder="e.g. Student"></div>
     <div class="fld"><label>Short line under the name</label><input id="pTag" class="in" value="${h(p.tagline)}" placeholder="e.g. For one school year"></div>
     <div class="fld"><label>Colour</label><div class="dots">${COLORS.map(c=>`<button type="button" data-c="${c}" class="${c===p.color?"on":""}" style="background:${c}"></button>`).join("")}</div></div>
     <div class="fld"><label>Badge</label><div class="seg" id="pBadge">${["","MOST POPULAR","BEST VALUE","NEW"].map(b=>`<button type="button" data-b="${b}" class="${b===p.badge?"on":""}">${b||"None"}</button>`).join("")}<input class="in" id="pBadgeC" style="width:130px" placeholder="Custom…" value="${["","MOST POPULAR","BEST VALUE","NEW"].includes(p.badge)?"":h(p.badge)}"></div></div>
-    ${p.is_default?`<div class="note">This is the free plan everyone falls back to — it has no price.</div>`:`<div class="sec-t">Price (USD)</div>${priceRow("price_month","Per month")}${priceRow("price_year","Per year")}${priceRow("price_lifetime","One-time (lifetime)")}`}
+    ${p.is_default?`<div class="note">This is the free plan everyone falls back to — it has no price.</div>`:`<div class="sec-t">Price (USD)</div>${priceRow("price_month","Per month")}
+     <div class="lim"><span>Yearly discount <small style="color:var(--muted)">(fills Per year)</small></span><input class="in" id="pYearPct" type="number" min="0" max="90" step="1" placeholder="%" value="${p.price_month&&p.price_year?Math.round((1-p.price_year/(p.price_month*12))*100):""}"><span class="uu">% off 12 months</span></div>
+     ${priceRow("price_year","Per year")}${priceRow("price_lifetime","One-time (lifetime)")}
+     <div class="sec-t">🏷️ Discount (sale)</div>
+     <div class="note" style="margin:0 0 6px">Takes % off every price of this plan. Students see the old price crossed out. Leave empty for no sale.</div>
+     <div class="lim"><span>Discount</span><input class="in" id="pSalePct" type="number" min="0" max="90" step="1" placeholder="%" value="${(F._sale&&F._sale.pct)||""}"><span class="uu">% off</span></div>
+     <div class="lim"><span>Ends on <small style="color:var(--muted)">(optional)</small></span><input class="in" id="pSaleUntil" type="date" value="${F._sale&&F._sale.until?new Date(new Date(F._sale.until).getTime()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10):""}"><span class="uu"></span></div>
+     <div class="note" id="pSalePrev" style="margin:4px 0 0"></div>`}
     <div class="sec-t">Who can get it</div><div class="seg" id="pVis">${[["public","Show on Upgrade page"],["code","Only with a code"],["hidden","Hidden (nobody new)"]].map(([k,l])=>`<button type="button" data-v="${k}" class="${p.visibility===k?"on":""}">${l}</button>`).join("")}</div>
     <div class="sec-t">Others</div>
     <div class="note" style="margin:0 0 6px">Your own extra lines, shown at the bottom of this plan for students — one per line (e.g. Priority support, No ads).</div>
@@ -493,11 +505,19 @@ function editPlan(p){
   o.querySelectorAll("#pVis [data-v]").forEach(b=>b.onclick=()=>{vis=b.dataset.v;o.querySelectorAll("#pVis [data-v]").forEach(x=>x.classList.toggle("on",x===b))});
   o.querySelectorAll("[data-unl]").forEach(b=>b.onclick=()=>{b.classList.toggle("on");const i=o.querySelector(`[data-lim="${b.dataset.unl}"]`);i.disabled=b.classList.contains("on");if(!i.disabled&&!i.value)i.value=10;if(i.disabled)i.value=""});
   o.querySelectorAll("[data-poff]").forEach(b=>b.onclick=()=>{b.classList.toggle("on");const i=o.querySelector(`[data-price="${b.dataset.poff}"]`);i.disabled=!b.classList.contains("on");if(i.disabled)i.value=""});
+  const pv=k=>{const i=o.querySelector(`[data-price="${k}"]`);return i&&!i.disabled&&i.value!==""?Number(i.value):null};
+  const yearAuto=()=>{const pi=o.querySelector("#pYearPct");if(!pi||pi.value==="")return;const m=pv("price_month");if(m==null)return;const yi=o.querySelector('[data-price="price_year"]'),yb=o.querySelector('[data-poff="price_year"]');
+    yi.disabled=false;yb.classList.add("on");yi.value=(Math.round(m*12*(100-Math.min(90,Math.max(0,Number(pi.value)))))/100).toFixed(2).replace(/\.00$/,"");salePrev()};
+  const salePrev=()=>{const el=o.querySelector("#pSalePrev");if(!el)return;const pct=Number(o.querySelector("#pSalePct").value);if(!(pct>0)){el.textContent="";return}
+    el.innerHTML="Students pay: "+[["price_month","/ month"],["price_year","/ year"],["price_lifetime","once"]].filter(([k])=>pv(k)!=null).map(([k,l])=>`<s>${money(pv(k))}</s> <b>${money(Math.round(pv(k)*(100-pct))/100)}</b> ${l}`).join(" · ")};
+  if(o.querySelector("#pYearPct")){o.querySelector("#pYearPct").oninput=yearAuto;o.querySelector('[data-price="price_month"]').addEventListener("input",yearAuto);
+    o.querySelectorAll("[data-price]").forEach(i=>i.addEventListener("input",salePrev));o.querySelector("#pSalePct").oninput=salePrev;salePrev()}
   o.querySelectorAll("[data-feat]").forEach(c=>c.onchange=()=>{const b=o.querySelector(`[data-flim="${c.dataset.feat}"]`);if(b)b.classList.toggle("hidden",!c.checked)});
   o.querySelector("#pCancel").onclick=()=>o.remove();
   o.querySelector("#pSave").onclick=async()=>{
     const limits={};o.querySelectorAll("[data-lim]").forEach(i=>limits[i.dataset.lim]=i.disabled||i.value===""?null:Number(i.value));
     const features={};o.querySelectorAll("[data-feat]").forEach(i=>{if(i.checked)features[i.dataset.feat]=true});
+    const sp=o.querySelector("#pSalePct");if(sp&&Number(sp.value)>0){const pct=Math.min(90,Math.round(Number(sp.value))),u=o.querySelector("#pSaleUntil").value;features._sale={pct,until:u?new Date(u+"T23:59:59").toISOString():null}}
     const others=o.querySelector("#pOthers").value.split("\n").map(x=>x.trim()).filter(Boolean).slice(0,12).map(x=>x.slice(0,80));if(others.length)features._others=others;
     const body={id:isNew?"":p.id,name:o.querySelector("#pName").value.trim(),tagline:o.querySelector("#pTag").value.trim(),color,badge,visibility:vis,sort:p.sort??(plans.length+1)*10,limits,features};
     ["price_month","price_year","price_lifetime"].forEach(k=>{const i=o.querySelector(`[data-price="${k}"]`);body[k]=p.is_default?(k==="price_lifetime"?"":"0"):(i&&!i.disabled&&i.value!==""?i.value:"")});

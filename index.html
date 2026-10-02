@@ -18624,6 +18624,7 @@ body.ql-ocean .qs-acts button.g{background:rgba(255,255,255,.1);color:#fff7ed;bo
 .ql-gp-conf{position:absolute;inset:-20px;pointer-events:none;overflow:hidden}.ql-congrats{font-size:54px!important;animation:qlGpPop .6s cubic-bezier(.2,1.4,.4,1)}.ql-gp-conf i{position:absolute;top:-12px;width:8px;height:12px;border-radius:2px;opacity:0;animation:qlGpConf linear 1 forwards}
 @keyframes qlGpConf{0%{opacity:1;transform:translateY(0) rotate(0)}100%{opacity:0;transform:translateY(460px) rotate(540deg)}}
 @media (prefers-reduced-motion:reduce){.ql-gp-ico,.ql-gp-conf i,.ql-gift-dot::after{animation:none}}
+.qu-was{opacity:.5;font-size:.6em;font-weight:700;margin-right:2px}.qu-sale{display:inline-block;width:fit-content;align-self:flex-start;margin:4px 0 2px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;color:#fff;background:linear-gradient(135deg,#ef4444,#f97316)}
 .qs-dev{display:flex;gap:8px;align-items:flex-start;margin-top:12px;padding:10px 12px;border-radius:14px;font-size:13.5px;color:#334155;background:rgba(99,102,241,.08)}.qs-dev b{color:#4338ca}
 .qs-gift{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:12px;border-radius:20px;background:linear-gradient(135deg,color-mix(in srgb,var(--gc) 16%,#fff),#fff7ed);border:1.5px solid color-mix(in srgb,var(--gc) 45%,transparent);box-shadow:0 10px 28px color-mix(in srgb,var(--gc) 22%,transparent);animation:qsGiftIn .5s ease}
 @keyframes qsGiftIn{from{transform:translateY(8px);opacity:0}}
@@ -18922,7 +18923,10 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   /* ---------- upgrade / pay / code ---------- */
   let period="month",quSel=null;
   const periodOf=p=>period==="year"&&p.price_year!=null?"year":period==="lifetime"&&p.price_lifetime!=null?"lifetime":p.price_month!=null?"month":p.price_year!=null?"year":"lifetime";
-  const priceOf=(p,per)=>per==="year"?p.price_year:per==="lifetime"?p.price_lifetime:p.price_month;
+  const basePrice=(p,per)=>per==="year"?p.price_year:per==="lifetime"?p.price_lifetime:p.price_month;
+  /* a sale set by the admin (features._sale = {pct, until}) takes % off every price of the plan */
+  const saleOf=p=>{const x=p&&p.features&&p.features._sale;return x&&Number(x.pct)>0&&(!x.until||new Date(x.until).getTime()>now())?{pct:Number(x.pct),until:x.until||null}:null};
+  const priceOf=(p,per)=>{const v=basePrice(p,per),sp=saleOf(p);return v==null||!sp?v:Math.round(Number(v)*(100-sp.pct))/100};
   function featureLines(p){
     const L=p.limits||{},out=[];
     const has=k=>!!(p.features&&p.features[k])&&featMode(k)!=="off";
@@ -18957,7 +18961,8 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
         <div class="qu-top">${hasYear||hasLife?`<div class="qu-toggle"><button type="button" data-per="month" class="${period==="month"?"on":""}">Monthly</button>${hasYear?`<button type="button" data-per="year" class="${period==="year"?"on":""}">Yearly${save>0?` <em>Save ${save}%</em>`:""}</button>`:""}${hasLife?`<button type="button" data-per="lifetime" class="${period==="lifetime"?"on":""}">Lifetime</button>`:""}</div>`:""}</div>
         <div class="qu-plans">${ps.map(p=>{const per=periodOf(p),pr=priceOf(p,per),isCur=cur&&cur.id===p.id;
           return `<div class="qu-p ${isCur?"cur":""} ${quSel===p.id?"hl":""}" data-qusel="${h(p.id)}" style="--pc:${h(p.color)}">${p.badge?`<span class="bd">${h(p.badge)}</span>`:""}<h4>${h(p.name)}</h4><div class="tl">${h(p.tagline||"")}</div>
-          <div class="pr">${p.is_default?"$0":money(pr)} ${p.is_default?"":`<small>/ ${per==="lifetime"?"once":per}</small>`}</div>
+          <div class="pr">${!p.is_default&&saleOf(p)?`<s class="qu-was">${money(basePrice(p,per))}</s> `:""}${p.is_default?"$0":money(pr)} ${p.is_default?"":`<small>/ ${per==="lifetime"?"once":per}</small>`}</div>
+          ${!p.is_default&&saleOf(p)?`<div class="qu-sale">🏷️ ${saleOf(p).pct}% off${saleOf(p).until?` · until ${new Date(saleOf(p).until).toLocaleDateString([], {day:"numeric",month:"short"})}`:""}</div>`:""}
           <ul>${featureLines(p).map(([t,ok])=>`<li class="${ok?"":"no"}">${h(t)}</li>`).join("")}</ul>
           ${p.is_default?`<button class="b" type="button" disabled>${isCur?"Your plan":"Free"}</button>`:receipts?`<button class="b" type="button" data-buy="${h(p.id)}" data-per="${per}">${isCur?"Renew "+h(p.name):"Choose "+h(p.name)}</button>`:`<button class="b" type="button" disabled>Ask for a code</button>`}</div>`}).join("")}</div>
         <div class="qu-code"><b>Have a promo code?</b><input id="quCode" placeholder="Enter promo code" autocomplete="off" spellcheck="false"><button type="button" id="quCodeGo">Activate</button></div><div id="quCodeSt" class="status hidden" style="margin-top:8px"></div>`;
