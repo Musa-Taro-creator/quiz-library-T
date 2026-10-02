@@ -18603,7 +18603,7 @@ body.ql-ocean .qs-acts button.g{background:rgba(255,255,255,.1);color:#fff7ed;bo
 .ql-gp-acts{display:flex;gap:10px;margin-top:20px}.ql-gp-acts button{flex:1;padding:12px;border-radius:14px;font-size:15px;font-weight:800;border:0;cursor:pointer}
 .ql-gp-claim{color:#fff;background:linear-gradient(135deg,var(--gc),color-mix(in srgb,var(--gc) 60%,#ec4899));box-shadow:0 8px 20px color-mix(in srgb,var(--gc) 40%,transparent)}
 .ql-gp-later{color:#475569;background:#f1f5f9}.ql-gp-more{margin-top:12px;font-size:12.5px;color:#64748b}
-.ql-gp-conf{position:absolute;inset:0;pointer-events:none}.ql-gp-conf i{position:absolute;top:-12px;width:8px;height:12px;border-radius:2px;opacity:0;animation:qlGpConf linear 1 forwards}
+.ql-gp-conf{position:absolute;inset:-20px;pointer-events:none;overflow:hidden}.ql-congrats{font-size:54px!important;animation:qlGpPop .6s cubic-bezier(.2,1.4,.4,1)}.ql-gp-conf i{position:absolute;top:-12px;width:8px;height:12px;border-radius:2px;opacity:0;animation:qlGpConf linear 1 forwards}
 @keyframes qlGpConf{0%{opacity:1;transform:translateY(0) rotate(0)}100%{opacity:0;transform:translateY(460px) rotate(540deg)}}
 @media (prefers-reduced-motion:reduce){.ql-gp-ico,.ql-gp-conf i,.ql-gift-dot::after{animation:none}}
 .qs-gift{display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:12px;border-radius:20px;background:linear-gradient(135deg,color-mix(in srgb,var(--gc) 16%,#fff),#fff7ed);border:1.5px solid color-mix(in srgb,var(--gc) 45%,transparent);box-shadow:0 10px 28px color-mix(in srgb,var(--gc) 22%,transparent);animation:qsGiftIn .5s ease}
@@ -18839,7 +18839,8 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   }
   async function claimGift(id,b){
     if(b){b.disabled=true;b.textContent="Claiming…"}
-    try{const {error}=await cli().rpc("ql_claim_gift",{p_id:id});if(error)throw error;gifts=gifts.filter(g=>g.id!==id);closeGiftPop();await loadMine();showActivated()}
+    const gift=(gifts||[]).find(g=>g.id===id)||{};
+    try{const {error}=await cli().rpc("ql_claim_gift",{p_id:id});if(error)throw error;gifts=gifts.filter(g=>g.id!==id);closeGiftPop();await loadMine();showActivated(gift)}
     catch(e){if(b){b.disabled=false;b.textContent="Claim"}alert(String(e.message||e).replace(/^.*?:\s*(?=[A-Z])/,""));loadMine()}
   }
   /* a gift waiting: red dot on the profile picture + a pop-up once each time the app opens (or the moment it arrives) */
@@ -18978,9 +18979,10 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       b.innerHTML=(data||[]).length?(data||[]).map(r=>{const p=plans().find(x=>x.id===r.plan_id);return `<div class="qh-row"><span><b>${h(p?p.name:r.plan_id)}</b> · ${r.period==="year"?"1 year":r.period==="lifetime"?"lifetime":"1 month"} · ${money(r.amount)}<br><small style="opacity:.7">${new Date(r.created_at).toLocaleString()}${r.admin_note?" · "+h(r.admin_note):""}</small></span><span class="qh-tag ${r.status}">${r.status==="waiting"?"Waiting":r.status==="approved"?"Approved":"Rejected"}</span></div>`}).join(""):`<div class="status">No payments yet.</div>`}
     catch(e){document.getElementById("qhBody").innerHTML=`<div class="status error">${h(String(e.message||e))}</div>`}
   }
-  function showActivated(){
+  function showActivated(gift){
     const p=curPlan(),s=sub();if(!p||p.is_default)return;const end=s&&s.ends_at?new Date(s.ends_at).getTime():null;
-    openModal("",`<div class="qok"><div class="big">✓</div><h3 style="margin:0 0 4px">${h(p.name)} is active!</h3><p style="margin:0 0 14px;opacity:.7">${end?"Your plan ends in":"Your plan has no end date"}</p>
+    const conf=gift?`<div class="ql-gp-conf">${Array.from({length:30},(_,i)=>`<i style="left:${Math.round(Math.random()*100)}%;background:${["#f43f5e","#f59e0b","#22c55e","#3b82f6","#a855f7","#ec4899"][i%6]};animation-delay:${(Math.random()*.8).toFixed(2)}s;animation-duration:${(1.8+Math.random()*1.4).toFixed(2)}s"></i>`).join("")}</div>`:"";
+    openModal("",`<div class="qok" style="position:relative">${conf}${gift?`<div class="big ql-congrats">🎉</div><h3 style="margin:0 0 4px">Congratulations!</h3><p style="margin:0 0 6px;font-weight:700">Your gift is claimed — ${h(p.name)} is now active.</p>${gift.message?`<p style="margin:0 0 10px;opacity:.75;font-style:italic">“${h(gift.message)}”</p>`:""}`:`<div class="big">✓</div><h3 style="margin:0 0 4px">${h(p.name)} is active!</h3>`}<p style="margin:0 0 14px;opacity:.7">${end?"Your plan ends in":"Your plan has no end date"}</p>
       ${end?`<div class="qs-cd" data-end="${end}">${cdHtml(end-now())}</div><p style="opacity:.7;font-size:13px;margin:14px 0 0">Until ${new Date(end).toLocaleDateString([], {day:"numeric",month:"short",year:"numeric"})} · see it any time in My Profile</p>`:""}</div>
       <div class="form-actions"><button class="btn primary" type="button" onclick="closeModal()">Start using ${h(p.name)}</button></div>`);
   }
