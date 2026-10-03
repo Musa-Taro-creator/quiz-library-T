@@ -146,3 +146,31 @@ drop trigger if exists ql_push_on_payment on public.ql_payment_requests;
 create trigger ql_push_on_payment after insert on public.ql_payment_requests for each row execute function public.ql__push_on_payment();
 
 notify pgrst, 'reload schema';
+
+-- v2: the Edge Function asks the database for the keys with this secret
+-- (works on every project, no service key needed). Safe to run again.
+create or replace function public.ql_push_payload(p_secret text)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare c ql_push_config;
+begin
+  select * into c from ql_push_config where id = 1;
+  if c.secret is null or p_secret is distinct from c.secret then return null; end if;
+  return jsonb_build_object('public_key', c.public_key, 'private_key', c.private_key,
+    'subs', coalesce((select jsonb_agg(jsonb_build_object('endpoint', endpoint, 'p256dh', p256dh, 'auth', auth)) from ql_push_subs), '[]'::jsonb));
+end;
+$$;
+revoke all on function public.ql_push_payload(text) from public;
+grant execute on function public.ql_push_payload(text) to anon, authenticated;
+
+-- devices that turned notifications off are removed
+create or replace function public.ql_push_gone(p_secret text, p_endpoints text[])
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if p_secret is distinct from (select secret from ql_push_config where id = 1) then return; end if;
+  delete from ql_push_subs where endpoint = any(p_endpoints);
+end;
+$$;
+revoke all on function public.ql_push_gone(text, text[]) from public;
+grant execute on function public.ql_push_gone(text, text[]) to anon, authenticated;
+
+notify pgrst, 'reload schema';
