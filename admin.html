@@ -195,6 +195,11 @@ body.t-ocean .bars div{background:linear-gradient(180deg,#fdba74,#0e6377)}
 .msgm{display:flex;flex-direction:column;max-width:78%}.msgm.me{align-self:flex-end;align-items:flex-end}.msgm .b{padding:9px 13px;border-radius:16px;line-height:1.45;overflow-wrap:anywhere}.msgm.me .b{color:#fff;background:linear-gradient(135deg,#6366f1,#8b5cf6)}.msgm.them .b{background:#fff;color:#1e293b;border:1px solid #e2e8f0}.msgm img{display:block;max-width:240px;max-height:240px;margin-top:6px;border-radius:10px;cursor:zoom-in}.msgm small{font-size:11px;color:var(--muted);margin-top:3px}
 .msgin{display:flex;gap:8px;align-items:flex-end}.msgin textarea{flex:1;min-width:0;resize:vertical}.msgpic{position:relative;width:fit-content}.msgpic img{max-height:80px;border-radius:10px}.msgpic button{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;border:0;background:#0f172a;color:#fff;cursor:pointer}
 @media(max-width:900px){.msgwrap{grid-template-columns:1fr}.msgwrap.has .msglist{display:none}.msgwrap:not(.has) .msgthread{display:none}.msgback{display:inline-flex}}
+.rvw{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;align-items:start}.rvimg{display:flex;flex-direction:column;align-items:center;gap:4px}.rvimg img{width:100%;max-height:68vh;object-fit:contain;border-radius:14px;background:#0f172a0d;cursor:zoom-in}.rvimg small{color:var(--muted)}
+.rvinfo .u small{display:block;color:var(--muted)}.rvrow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}.rvrow span{color:var(--muted)}.rvamt{font-size:22px}
+.rvchecks{margin-top:10px;display:flex;flex-direction:column;gap:6px}.rvc{margin-top:6px;padding:8px 11px;border-radius:10px;font-size:13.5px;background:rgba(100,116,139,.12)}.rvc.ok{background:rgba(16,185,129,.14);color:#059669}.rvc.warn{background:rgba(245,158,11,.16);color:#b45309}.rvc.bad{background:rgba(239,68,68,.15);color:#dc2626}
+.rvbtns{margin-top:14px}.rvbtns .btn{flex:1;justify-content:center;padding:13px;font-size:16px}.rvrej{margin-top:10px}
+@media(max-width:760px){.rvw{grid-template-columns:1fr}.rvimg img{max-height:46vh}}
 </style>
 </head>
 <body class="t-white">
@@ -304,6 +309,7 @@ const planTag=(id,extra="")=>{const p=planById(id);return `<span class="tag" sty
 function go(v){
   const views={dash,users,plansView,pay,ctl,news,settingsView,board,msgs};
   const map={dash:"dash",users:"users",plans:"plansView",pay:"pay",ctl:"ctl",news:"news",settings:"settingsView",board:"board",msgs:"msgs"};
+  if(v==="review"){autoReview=true;payTab="receipts";payStatus="waiting";v="pay"}
   if(!map[v])v="dash";const same=v===cur&&$("#view").children.length&&!$("#view .loading");const y=window.scrollY;cur=v;if(location.hash.slice(1)!==v)location.hash=v;
   $$(".nav").forEach(n=>n.classList.toggle("on",n.dataset.v===v));
   /* same page refreshing itself (filters, tabs, after saving): keep it on screen and keep the scroll position */
@@ -551,7 +557,7 @@ async function receipts(tabs){
   <div class="card"><div class="tbl"><table><tr><th>Receipt</th><th>User</th><th>Plan</th><th>Amount</th><th>Sent</th><th></th></tr>
   ${rows.length?rows.map(r=>`<tr><td>${r.receipt?`<img class="rec" src="${h(r.receipt)}" data-big="${r.id}" alt="receipt">`:"—"}</td><td><div class="u"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div>${h(r.name)}<small>${h(r.email)}</small></div></div></td>
    <td>${planTag(r.plan_id," · "+(r.period==="month"?"1 month":r.period==="year"?"1 year":"lifetime"))}</td><td><b>${money(r.amount)}</b></td><td>${ago(r.created_at)}</td>
-   <td>${r.status==="waiting"?`<span class="inline"><button class="btn g" data-ok="${r.id}">Approve</button><button class="btn r" data-no="${r.id}">Reject</button></span>`:`<span class="tag ${r.status==="approved"?"ok":"no"}">${r.status}</span>${r.admin_note?`<div class="note" style="margin:4px 0 0">${h(r.admin_note)}</div>`:""}`}</td></tr>`).join(""):`<tr><td colspan="6" class="empty">No ${payStatus} payments</td></tr>`}</table></div>
+   <td>${r.status==="waiting"?`<span class="inline"><button class="btn p" data-rv="${r.id}">🔍 Review</button><button class="btn g" data-ok="${r.id}">Approve</button><button class="btn r" data-no="${r.id}">Reject</button></span>`:`<span class="tag ${r.status==="approved"?"ok":"no"}">${r.status}</span>${r.admin_note?`<div class="note" style="margin:4px 0 0">${h(r.admin_note)}</div>`:""}`}</td></tr>`).join(""):`<tr><td colspan="6" class="empty">No ${payStatus} payments</td></tr>`}</table></div>
   <div class="note">Approve = their plan switches on right away (1 month = 30 days, 1 year = 365 days), added on top of any time they still have.</div></div>`;
   $$("[data-t]").forEach(b=>b.onclick=()=>{payTab=b.dataset.t;go("pay")});
   $$("[data-s]").forEach(b=>b.onclick=()=>{payStatus=b.dataset.s;go("pay")});
@@ -559,6 +565,56 @@ async function receipts(tabs){
   const decide=async(id,ok)=>{let note="";if(!ok){note=prompt("Reason (the student sees this):","Payment not found")??null;if(note===null)return}
     try{await rpc("ql_admin_decide_payment",{p_id:id,p_approve:ok,p_note:note});toast(ok?"Approved — plan is on":"Rejected");await loadCommon();go("pay")}catch(e){alert(errMsg(e))}};
   $$("[data-ok]").forEach(b=>b.onclick=()=>{b.disabled=true;decide(b.dataset.ok,true)});$$("[data-no]").forEach(b=>b.onclick=()=>decide(b.dataset.no,false));
+  if(payStatus==="waiting"){$$("[data-rv]").forEach(b=>b.onclick=()=>reviewPay(rows,rows.findIndex(r=>r.id===b.dataset.rv)));
+    $$("[data-big]").forEach(i=>{const k=rows.findIndex(r=>r.id===i.dataset.big);if(k>=0)i.onclick=()=>reviewPay(rows,k)});
+    if(autoReview&&rows.length){autoReview=false;reviewPay(rows,0)}}
+  autoReview=false;
+}
+/* ---------------- fast receipt review ---------------- */
+let autoReview=false,ocrLib=null;
+const REJECTS=["Wrong amount","Photo not clear","Payment not found","Receipt already used"];
+function loadOcr(){if(ocrLib)return ocrLib;ocrLib=new Promise((res,rej)=>{const sc=document.createElement("script");sc.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";sc.onload=()=>res(window.Tesseract);sc.onerror=()=>{ocrLib=null;rej(new Error("Couldn't load the amount reader"))};document.head.appendChild(sc)});return ocrLib}
+/* read numbers on the receipt and look for the expected price (USD, or riel at about 4,000–4,200 per $) */
+async function readAmount(img,expect){
+  const T=await loadOcr();const {data}=await T.recognize(img,"eng");const text=(data&&data.text)||"";
+  const nums=(text.replace(/,(?=\d{3}\b)/g,"").match(/\d+(?:\.\d{1,2})?/g)||[]).map(Number).filter(n=>n>0);
+  const usd=nums.find(n=>Math.abs(n-expect)<0.005),khr=nums.find(n=>n>=expect*3900&&n<=expect*4300&&n>=100);
+  return {usd,khr,nums}}
+function reviewPay(rows,i){
+  const r=rows[i];if(!r)return;const left=rows.length-1-i;
+  const len=r.period==="month"?"1 month":r.period==="year"?"1 year":"lifetime";
+  const o=modal("Review receipt",`<div class="rvw"><div class="rvimg"><img src="${h(r.receipt||"")}" alt="receipt" id="rvImg"><small>Tap the photo to zoom</small></div>
+   <div class="rvinfo"><div class="u" style="margin-bottom:10px"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div><b>${h(r.name||"Student")}</b><small>${h(r.email||"")}</small></div></div>
+    <div class="rvrow"><span>Plan</span><b>${planTag(r.plan_id," · "+len)}</b></div>
+    <div class="rvrow"><span>Should pay</span><b class="rvamt">${money(r.amount)}</b></div>
+    <div class="rvrow"><span>Sent</span><b>${ago(r.created_at)}</b></div>
+    <div class="rvchecks" id="rvChecks"><div class="rvc">⏳ Checking…</div></div>
+    <div class="rvc" id="rvOcr">🔍 Reading the amount on the receipt…</div>
+    <div class="inline rvbtns"><button class="btn g rvok" id="rvOk">✅ Approve</button><button class="btn r" id="rvNo">❌ Reject</button></div>
+    <div class="rvrej hidden" id="rvRej"><div class="note" style="margin:0 0 6px">Why? (the student sees this)</div><div class="seg">${REJECTS.map(t=>`<button type="button" data-rj="${h(t)}">${h(t)}</button>`).join("")}</div>
+     <div class="inline" style="margin-top:8px"><input id="rvNote" class="in" style="flex:1;min-width:150px" placeholder="Other reason…" maxlength="200"><button class="btn r" id="rvNoGo">Reject</button></div></div>
+    <div class="note" style="margin:10px 0 0">${left>0?`${left} more waiting after this one`:"This is the last one waiting"}</div></div></div>`,{wide:true});
+  o.querySelector("#rvImg").onclick=e=>window.open(e.target.src,"_blank");
+  rpc("ql_admin_payment_checks",{p_id:r.id}).then(c=>{const el=o.querySelector("#rvChecks");if(!c){el.innerHTML="";return}
+    const w=[];if(c.same_photo_approved>0)w.push(`<div class="rvc bad">⚠️ This receipt photo was <b>already approved</b> before — probably used twice.</div>`);else if(c.same_photo>0)w.push(`<div class="rvc warn">⚠️ The same photo was sent ${c.same_photo} other time${c.same_photo>1?"s":""}.</div>`);
+    if(c.other_waiting>0)w.push(`<div class="rvc warn">⚠️ This student has ${c.other_waiting} other receipt${c.other_waiting>1?"s":""} waiting.</div>`);
+    if(!w.length)w.push(`<div class="rvc ok">✓ New receipt photo (not used before)</div>`);
+    if(c.paid_before>0)w.push(`<div class="rvc">ℹ️ Paid ${c.paid_before} time${c.paid_before>1?"s":""} before</div>`);el.innerHTML=w.join("")})
+   .catch(e=>{o.querySelector("#rvChecks").innerHTML=/ql_admin_payment_checks|PGRST202|42883/.test(String(e.message||e))?`<div class="rvc">Run <b>payment_review.sql</b> for the duplicate-photo check.</div>`:""});
+  const oc=o.querySelector("#rvOcr");
+  if(r.receipt)readAmount(r.receipt,Number(r.amount)).then(x=>{
+    oc.className="rvc "+(x.usd||x.khr?"ok":"warn");
+    oc.innerHTML=x.usd?`✓ Receipt shows <b>${money(x.usd)}</b> — matches (check the photo too)`:x.khr?`✓ Receipt shows <b>${Number(x.khr).toLocaleString()} ៛</b> — about ${money(r.amount)} (check the photo)`:`⚠️ Couldn't find ${money(r.amount)} on the receipt — please check the photo`;
+  }).catch(()=>{oc.className="rvc";oc.textContent="🔍 Amount reader not available — please check the photo"});
+  else{oc.className="rvc warn";oc.textContent="⚠️ No receipt photo"}
+  const done=async(ok,note)=>{o.querySelectorAll("button").forEach(b=>b.disabled=true);
+    try{await rpc("ql_admin_decide_payment",{p_id:r.id,p_approve:ok,p_note:note||""});toast(ok?"Approved — their plan is on":"Rejected — the student sees why");o.remove();
+      const rest=rows.filter((_,k)=>k!==i);await loadCommon();go("pay");if(rest.length)setTimeout(()=>reviewPay(rest,Math.min(i,rest.length-1)),350)}
+    catch(e){alert(errMsg(e));o.querySelectorAll("button").forEach(b=>b.disabled=false)}};
+  o.querySelector("#rvOk").onclick=()=>done(true,"");
+  o.querySelector("#rvNo").onclick=()=>o.querySelector("#rvRej").classList.toggle("hidden");
+  o.querySelectorAll("[data-rj]").forEach(b=>b.onclick=()=>done(false,b.dataset.rj));
+  o.querySelector("#rvNoGo").onclick=()=>{const t=o.querySelector("#rvNote").value.trim();if(!t)return o.querySelector("#rvNote").focus();done(false,t)};
 }
 let gen={plan:null,days:30,uses:1,valid:7,count:1,dUnit:1,dN:""};
 async function codes(tabs){
