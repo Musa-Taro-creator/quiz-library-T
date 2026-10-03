@@ -19208,7 +19208,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     face(tx>x?1:-1);el.classList.add("qn-"+kind);if(kind==="run")sfx("whoosh");const speed=kind==="run"?200:kind==="sneak"?34:64;let last=performance.now();
     const step=t=>{const dt=Math.min(.05,(t-last)/1000);last=t;const d=tx-x;x+=Math.sign(d)*Math.min(Math.abs(d),speed*dt);place();
       if(Math.abs(tx-x)<1){stopWalk();done&&done();return}walkRaf=requestAnimationFrame(step)};walkRaf=requestAnimationFrame(step)}
-  const ACTS=["qn-wave","qn-flip","qn-fall","qn-facepalm","qn-kick","qn-cheer","qn-meditate","qn-sleep","qn-sad"];
+  const ACTS=["qn-point","qn-wave","qn-flip","qn-fall","qn-facepalm","qn-kick","qn-cheer","qn-meditate","qn-sleep","qn-sad"];
   function act(name,ms,ex){if(!el)return;stopWalk();if(name!=="sit")standUp();clearTimeout(actT);ACTS.forEach(c=>el.classList.remove(c));void el.offsetWidth;el.classList.add("qn-"+name);if(ex)expr(ex,ms);if(ms)actT=setTimeout(()=>el&&el.classList.remove("qn-"+name),ms);if(name!=="meditate"&&name!=="sleep"){sleeping=false;poke()}}
   function say(text,ms=4200){if(!el)return;const b=el.querySelector(".qn-bubble");b.querySelector(".qn-text").textContent=text;b.classList.add("show");clearTimeout(bubbleT);bubbleT=setTimeout(()=>b.classList.remove("show"),ms)}
   function confetti(){if(!el)return;const box=el.querySelector(".qn-conf");box.innerHTML=Array.from({length:18},(_,i)=>`<i style="left:${10+Math.random()*80}%;background:${["#f43f5e","#f59e0b","#22c55e","#3b82f6","#a855f7","#ec4899"][i%6]};animation-delay:${(Math.random()*.3).toFixed(2)}s;--dx:${(Math.random()*80-40).toFixed(0)}px"></i>`).join("");setTimeout(()=>{if(box)box.innerHTML=""},1800)}
@@ -19267,16 +19267,44 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   function placePf(){const acts=document.querySelector(".profile-actions");if(!acts)return;
     let b=acts.querySelector(".ql-ninja-pf");if(isOff()){if(!b){b=document.createElement("button");b.type="button";b.className="btn ql-ninja-pf";b.textContent="🥷 Show Killer-Mewsai";b.onclick=show;acts.appendChild(b)}}else if(b)b.remove();
     let s=acts.querySelector(".ql-ninja-snd");if(!isOff()){if(!s){s=document.createElement("button");s.type="button";s.className="btn ql-ninja-snd";s.onclick=()=>{LS(SND_KEY,soundOn()?null:"1");s.textContent=soundOn()?"🔊 Ninja sounds: On":"🔈 Ninja sounds: Off";if(soundOn()){actx();sfx("ding")}};acts.appendChild(s)}s.textContent=soundOn()?"🔊 Ninja sounds: On":"🔈 Ninja sounds: Off"}else if(s)s.remove()}
+  /* ---------- quiz pranks: he "tells" the answer… but he's only guessing ----------
+     The app never gives him the correct answers, so his tip is always a random guess.
+     After the student answers he admits it was a joke. */
+  const PRANK=["Psst… it's {L}! Trust me 😏","100% sure it's {L}. Ninja intuition 🥷","My shuriken says… {L}! 🎯","Pick {L}. I saw it in a dream 😴","Sensei whispered {L} to me 🤫","Easy. It's {L}. …Probably. 😅"];
+  let lastQid=null,prank=null,picked={};
+  const visQids=()=>{const ids=new Set();document.querySelectorAll(".qz-run-option input").forEach(i=>{if(i.offsetParent&&i.dataset.qid)ids.add(i.dataset.qid)});return [...ids]};
+  function clearHint(){document.querySelectorAll(".qn-hint").forEach(h=>h.remove())}
+  function maybePrank(qid){
+    if(!el||!inQuiz||Math.random()>.3)return;
+    const go=()=>{if(!el||lastQid!==qid||picked[qid]||document.querySelector(".qz-run-feedback.correct,.qz-run-feedback.incorrect"))return;
+      if(walkRaf){setTimeout(go,500);return}
+      const opts=[...document.querySelectorAll(".qz-run-option")].filter(o=>o.offsetParent&&o.querySelector(`input[data-qid="${qid}"]`));if(opts.length<2)return;
+      const o=pick(opts),L=((o.querySelector(".qz-run-letter")||{}).textContent||"").trim()||"this one";
+      prank={qid,L};clearHint();const h=document.createElement("span");h.className="qn-hint";h.textContent="👈 Killer-Mewsai's pick";o.appendChild(h);
+      const orc=o.getBoundingClientRect(),me=el.getBoundingClientRect();face(orc.left+orc.width/2>me.left+me.width/2?1:-1);
+      act("point",2600,"proud");sfx("whoosh");say(pick(PRANK).replace("{L}",L),3600)};setTimeout(go,1300)}
+  document.addEventListener("click",e=>{const o=e.target.closest&&e.target.closest(".qz-run-option");if(!o||!el)return;const i=o.querySelector("input[data-qid]");if(!i)return;
+    const L=((o.querySelector(".qz-run-letter")||{}).textContent||"").trim();picked[i.dataset.qid]=L;
+    if(prank&&prank.qid===i.dataset.qid)setTimeout(()=>{if(prank&&prank.qid===i.dataset.qid&&!document.querySelector(".qz-run-feedback.correct,.qz-run-feedback.incorrect")){say(L===prank.L?"Ooh, you trusted me! You'll find out at the end 😏":"You ignored my tip?! Bold move 😤",2600);clearHint();prank=null}},700)},true);
+  function prankReply(correct){if(!prank||prank.qid!==lastQid)return null;const took=picked[prank.qid]===prank.L;prank=null;clearHint();
+    if(correct&&took)return ["See? Ninja genius! (I was totally guessing 😅)","happy"];
+    if(correct)return ["Good thing you didn't listen to me 😂","happy"];
+    if(took)return ["Hehe… gotcha! Never trust a ninja 😜 (I didn't know!)","proud"];
+    return ["Not my fault this time! 😤 …but I was guessing too 🙈","sad"]}
   /* ---------- react to the app ---------- */
   const seen=new WeakSet();
   new MutationObserver(()=>{
     if(!el)return;
     document.querySelectorAll(".qz-run-feedback.correct,.qz-run-feedback.incorrect").forEach(f=>{if(seen.has(f))return;seen.add(f);
-      if(f.classList.contains("correct")){act("flip",1300,"happy");sfx("ding");setTimeout(()=>throwStar(),700);say(pick(RIGHT),2600)}
-      else{const r=Math.random();if(r<.4){act("fall",2200,"dizzy");sfx("boing")}else if(r<.7)act("facepalm",1900,"closed");else{act("sad",2200,"sad")}say(pick(WRONG),2600)}});
+      const pr=prankReply(f.classList.contains("correct"));
+      if(f.classList.contains("correct")){act("flip",1300,"happy");sfx("ding");setTimeout(()=>throwStar(),700);say(pr?pr[0]:pick(RIGHT),pr?3400:2600)}
+      else if(pr&&pr[1]==="proud"){act("kick",1300,"proud");say(pr[0],3600)}
+      else{const r=Math.random();if(r<.4){act("fall",2200,"dizzy");sfx("boing")}else if(r<.7)act("facepalm",1900,"closed");else{act("sad",2200,"sad")}say(pr?pr[0]:pick(WRONG),pr?3400:2600)}});
     document.querySelectorAll(".qz-results-hero,.ql-congrats,.qok .big").forEach(f=>{if(seen.has(f))return;seen.add(f);act("cheer",2300,"happy");confetti();sfx("ding");setTimeout(()=>throwStar(),500);say(f.classList.contains("qz-results-hero")?"Mission complete! Great job, ninja student 🎉":"Woohoo! Congratulations! 🎉",3600)});
     el.classList.toggle("qn-dim",!!document.querySelector("#modalOverlay.show,#qlGiftPop,#qlKicked"));
     const q=!!document.querySelector(".qz-run-option,.qz-runner-result");if(q!==inQuiz){inQuiz=q;el.classList.toggle("qn-quiz",q);if(q){standUp();sleeping=false;el.classList.remove("qn-meditate","qn-sleep");walkTo(8,"run",()=>face(1))}}
+    if(inQuiz){const ids=visQids();const qid=ids.length===1?ids[0]:null;if(qid&&qid!==lastQid){lastQid=qid;if(prank&&prank.qid!==qid){prank=null;clearHint()}maybePrank(qid)}}
+    else if(lastQid){lastQid=null;prank=null;picked={};clearHint()}
   }).observe(document.body,{childList:true,subtree:true});
   ["pointerdown","keydown"].forEach(t=>addEventListener(t,e=>{if(!el)return;if(e.clientX!=null)look(e.clientX,e.clientY);if(!el.contains(e.target))wake();if(!sleeping)poke()},{passive:true,capture:true}));
   let lm=0;addEventListener("pointermove",e=>{const n=Date.now();if(n-lm>120&&el){lm=n;look(e.clientX,e.clientY)}},{passive:true});
@@ -19375,6 +19403,11 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
 .qn-sad .qn-all{transform:translateY(3px)}
 .qn-sad .qn-head{transform:rotate(-8deg) translateY(3px)}
 .qn-sad .qn-upperL{transform:rotate(4deg)}.qn-sad .qn-upperR{transform:rotate(-4deg)}
+/* point at an answer (quiz prank) */
+.qn-point .qn-upperR{transform:rotate(-118deg)}.qn-point .qn-foreR{transform:rotate(-10deg)}
+.qn-point .qn-head{transform:rotate(-6deg)}.qn-point .qn-all{transform:rotate(-3deg)}
+.qn-hint{margin-left:auto;padding:3px 9px;border-radius:999px;font:800 12px/1.2 system-ui,sans-serif;color:#fff;background:#dc2626;white-space:nowrap;animation:qnHint .6s ease-in-out infinite alternate;pointer-events:none}
+@keyframes qnHint{from{transform:translateX(0) rotate(-2deg)}to{transform:translateX(-5px) rotate(2deg)}}
 /* karate kick */
 .qn-kick .qn-thighR{transform:rotate(-100deg)}.qn-kick .qn-shinR{transform:rotate(0)}
 .qn-kick .qn-thighL{transform:rotate(12deg)}.qn-kick .qn-shinL{transform:rotate(16deg)}
