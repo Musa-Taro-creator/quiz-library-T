@@ -707,6 +707,9 @@ async function settingsView(){
    <div class="two"><div class="fld"><label>Phone</label><input id="ctPh" class="in" placeholder="012 345 678" value="${h(ct.phone||"")}"></div><div class="fld"><label>Email</label><input id="ctEm" class="in" placeholder="you@gmail.com" value="${h(ct.email||"")}"></div></div>
    <div class="fld"><label>Short note (optional)</label><input id="ctNote" class="in" maxlength="160" placeholder="e.g. We answer within 24 hours, 8am–8pm" value="${h(ct.note||"")}"></div>
    <button class="btn p" id="ctSave">Save contact info</button></div>
+  <div class="card" style="max-width:760px;margin-bottom:16px" id="pushCard"><h3>🔔 Notifications</h3>
+   <div class="note" style="margin:0 0 10px">Get a notification on this phone / computer when a student sends a <b>Help &amp; Support message</b> or a <b>payment receipt</b> — even when the admin app is closed. Turn it on once on each device you use.</div>
+   <div id="pushBody"><div class="note">Checking…</div></div></div>
   <div class="card" style="max-width:760px;margin-bottom:16px"><h3>Admin look</h3><div class="thpick">${[["white","White Glass","linear-gradient(135deg,#dbeafe,#fce7f3)"],["neon","Neon Lines","repeating-linear-gradient(60deg,#0b1220 0 8px,#00e5ff66 8px 9px,#0b1220 9px 16px,#ff2e9766 16px 17px)"],["ocean","Ocean Sunrise","linear-gradient(120deg,#0b3954,#0e6377 55%,#f08a4b)"]].map(([k,l,g])=>`<button type="button" data-th="${k}" class="${curTheme===k?"on":""}"><i style="background:${g}"></i>${l}</button>`).join("")}</div></div>`+`
   <div class="card" style="max-width:760px"><h3>Payment details shown to students</h3><div class="two"><div>
    <div class="fld"><label>Bank / wallet</label><input id="sBank" class="in" value="${h(p.bank)}" placeholder="e.g. ABA Bank"></div>
@@ -726,6 +729,7 @@ async function settingsView(){
     if(a.length<8)return alert("Use at least 8 characters.");if(a!==b2)return alert("The two passwords are not the same.");
     b.disabled=true;try{const {error}=await sb.auth.updateUser({password:a});if(error)throw error;$("#pw1").value=$("#pw2").value="";toast("Password changed")}catch(x){alert(errMsg(x))}finally{b.disabled=false}};
   $$("[data-sp]").forEach(b=>b.onclick=()=>{const [f,d]=b.dataset.sp.split(",");$("#spFiles").value=f;$("#spDb").value=d});
+  pushCard();
   $("#ctSave").onclick=async()=>{const v=id=>$(id).value.trim();await saveSetting("site",{...(settings.site||{}),contact:{telegram:v("#ctTg"),facebook:v("#ctFb"),phone:v("#ctPh"),email:v("#ctEm"),note:v("#ctNote")}},"Contact info saved — students see it in Help & Support")};
   $("#spSave").onclick=()=>saveSetting("supabase",{files_mb:Number($("#spFiles").value||1024),db_mb:Number($("#spDb").value||500),warn_percent:Math.min(100,Math.max(50,Number($("#spWarn").value||90)))},"Supabase size saved");
   let qr=p.qr_image;
@@ -769,6 +773,46 @@ async function msgs(){
   $("#msgSend").onclick=send;$("#msgText").onkeydown=e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();send()}};
   $("#msgDel").onclick=async()=>{if(!confirm("Delete this whole conversation?"))return;try{await rpc("ql_admin_support_delete",{p_user:sel.user_id});msgUser=null;toast("Conversation deleted");go("msgs")}catch(e){alert(errMsg(e))}};
 }
+
+/* ---------------- notifications for the admin (Web Push) ---------------- */
+const pushOk=()=>"serviceWorker" in navigator&&"PushManager" in window&&"Notification" in window;
+const isIOS=()=>/iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
+const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const devLabel=()=>{const ua=navigator.userAgent;return (isIOS()?(/iPhone/.test(ua)?"iPhone":"iPad"):/Android/.test(ua)?"Android":/Windows/.test(ua)?"Windows PC":/Mac/.test(ua)?"Mac":"Device")+" · "+(/Edg\//.test(ua)?"Edge":/Chrome|CriOS/.test(ua)?"Chrome":/Firefox/.test(ua)?"Firefox":"Safari")};
+const b64u=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const unb64u=s=>{s=s.replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";return Uint8Array.from(atob(s),c=>c.charCodeAt(0))};
+async function makeVapid(){const k=await crypto.subtle.generateKey({name:"ECDSA",namedCurve:"P-256"},true,["sign","verify"]);const j=await crypto.subtle.exportKey("jwk",k.privateKey);
+  const x=unb64u(j.x),y=unb64u(j.y),p=new Uint8Array(65);p[0]=4;p.set(x,1);p.set(y,33);return {pub:b64u(p),priv:j.d}}
+async function mySub(){if(!pushOk())return null;const reg=await navigator.serviceWorker.getRegistration();return reg?await reg.pushManager.getSubscription():null}
+async function pushCard(){
+  const box=$("#pushBody");if(!box)return;
+  let info;try{info=await rpc("ql_admin_push_info")}catch(e){box.innerHTML=`<div class="note" style="margin:0">One-time setup first: run <b>admin_push.sql</b> in Supabase and create the Edge Function <b>ql-push</b> (see the steps I sent you).</div>`;return}
+  const sub=await mySub().catch(()=>null),on=!!(sub&&info.devices.some(d=>d.endpoint===sub.endpoint)&&typeof Notification!=="undefined"&&Notification.permission==="granted");
+  const iosNeedsApp=isIOS()&&!isStandalone();
+  box.innerHTML=`<div class="inline" style="flex-wrap:wrap;margin-bottom:8px"><span class="tag ${on?"ok":"no"}">${on?"On for this device":"Off for this device"}</span>
+    ${on?`<button class="btn" id="pushTest">Send a test</button><button class="btn r" id="pushOff">Turn off here</button>`:`<button class="btn p" id="pushOn" ${!pushOk()&&!iosNeedsApp?"disabled":""}>🔔 Turn on notifications</button>`}</div>
+    ${iosNeedsApp?`<div class="note" style="margin:0 0 8px">On iPad / iPhone, notifications only work in the installed app: tap <b>📲 Install admin app</b> (below), open <b>QL Admin</b> from your home screen, then turn them on there.</div>`:""}
+    ${!pushOk()&&!iosNeedsApp?`<div class="note" style="margin:0 0 8px">This browser can't show notifications. Use Chrome, Edge, or the installed admin app.</div>`:""}
+    ${typeof Notification!=="undefined"&&Notification.permission==="denied"?`<div class="note" style="margin:0 0 8px;color:#dc2626">Notifications are blocked for this site. Allow them in the browser / phone settings, then try again.</div>`:""}
+    ${info.devices.length?`<div class="note" style="margin:6px 0 4px">Devices that get notifications:</div>${info.devices.map(d=>`<div class="inline" style="justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--line)"><span>${h(d.label||"Device")}${sub&&d.endpoint===sub.endpoint?" <b>(this one)</b>":""} <small style="color:var(--muted)">· since ${day(d.created_at)}</small></span><button class="btn" data-pushrm="${h(d.id)}">Remove</button></div>`).join("")}`:""}`;
+  const on1=$("#pushOn");if(on1)on1.onclick=async()=>{
+    if(iosNeedsApp)return qlAdminInstall();
+    on1.disabled=true;on1.textContent="Turning on…";
+    try{const perm=await Notification.requestPermission();if(perm!=="granted")throw new Error("You didn't allow notifications. Allow them in the browser / phone settings and try again.");
+      let pub=info.public_key;if(!pub){const k=await makeVapid();pub=await rpc("ql_admin_push_setup",{p_public:k.pub,p_private:k.priv,p_fn_url:SUPABASE_URL+"/functions/v1/ql-push",p_replace:false})}
+      else await rpc("ql_admin_push_setup",{p_public:pub,p_private:"",p_fn_url:SUPABASE_URL+"/functions/v1/ql-push",p_replace:false});
+      const reg=await navigator.serviceWorker.register("sw.js");await navigator.serviceWorker.ready;
+      let s=await reg.pushManager.getSubscription();if(s)await s.unsubscribe();
+      s=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:unb64u(pub)});const j=s.toJSON();
+      await rpc("ql_admin_push_subscribe",{p_endpoint:j.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth,p_label:devLabel()});
+      toast("Notifications are on for this device");pushCard()}
+    catch(e){alert(errMsg(e));pushCard()}};
+  const t=$("#pushTest");if(t)t.onclick=async()=>{try{await rpc("ql_admin_push_test");toast("Test sent — it should arrive in a few seconds")}catch(e){alert(errMsg(e))}};
+  const off=$("#pushOff");if(off)off.onclick=async()=>{try{const d=info.devices.find(x=>sub&&x.endpoint===sub.endpoint);if(d)await rpc("ql_admin_push_remove",{p_id:d.id});if(sub)await sub.unsubscribe();toast("Notifications are off for this device")}catch(e){alert(errMsg(e))}pushCard()};
+  $$("[data-pushrm]").forEach(b=>b.onclick=async()=>{if(!confirm("Stop notifications on that device?"))return;try{await rpc("ql_admin_push_remove",{p_id:b.dataset.pushrm});pushCard()}catch(e){alert(errMsg(e))}});
+}
+/* tapping a notification opens admin.html#msgs / #pay */
+addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(v&&v!==cur&&typeof go==="function"&&$("#app")&&!$("#app").classList.contains("hidden"))go(v)});
 
 /* ---------------- install the admin page as an app ---------------- */
 (function(){
