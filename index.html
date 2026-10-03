@@ -19196,7 +19196,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   const SFX={whoosh:()=>noise(.35,400,2600,.3),pop:()=>{noise(.25,1800,300,.35);tone(220,70,.18,"sine",.12)},ding:()=>{tone(880,880,.18,"sine",.12);tone(1320,1320,.3,"sine",.1,.1)},boing:()=>tone(420,90,.5,"triangle",.14),hiyah:()=>{tone(300,520,.09,"sawtooth",.07);tone(520,260,.22,"sawtooth",.08,.09)},throw:()=>noise(.18,3000,900,.2)};
   const sfx=k=>{if(soundOn())try{SFX[k]()}catch{}};
   /* ---------- state ---------- */
-  let el=null,bubbleT=null,actT=null,exprT=null,idleT=null,wanderT=null,greeted=false,sleeping=false,sitting=null,x=null,dir=1,walkRaf=0,inQuiz=false,taps=[];
+  let el=null,bubbleT=null,actT=null,exprT=null,idleT=null,wanderT=null,greeted=false,sleeping=false,perched=null,climbRaf=0,floorB=14,x=null,dir=1,walkRaf=0,inQuiz=false,taps=[];
   const W=()=>el?el.offsetWidth:84,Hh=()=>el?el.offsetHeight:119;
   const maxX=()=>Math.max(8,innerWidth-W()-8);
   function place(){if(!el)return;x=Math.min(Math.max(8,x),maxX());el.style.left=x+"px";el.classList.toggle("qn-bl",x+W()/2>innerWidth/2)}
@@ -19204,12 +19204,12 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   function expr(name,ms){if(!el)return;clearTimeout(exprT);el.className=el.className.replace(/\bqn-e-\w+/g,"").trim();if(name)el.classList.add("qn-e-"+name);if(ms)exprT=setTimeout(()=>expr(null),ms)}
   function stopWalk(){cancelAnimationFrame(walkRaf);walkRaf=0;if(el)el.classList.remove("qn-walk","qn-sneak","qn-run")}
   function walkTo(tx,kind="walk",done){
-    if(!el)return;standUp();stopWalk();tx=Math.min(Math.max(8,tx),maxX());if(Math.abs(tx-x)<4){done&&done();return}
+    if(!el)return;if(perched){hopDown(()=>walkTo(tx,kind,done));return}stopWalk();tx=Math.min(Math.max(8,tx),maxX());if(Math.abs(tx-x)<4){done&&done();return}
     face(tx>x?1:-1);el.classList.add("qn-"+kind);if(kind==="run")sfx("whoosh");const speed=kind==="run"?200:kind==="sneak"?34:64;let last=performance.now();
     const step=t=>{const dt=Math.min(.05,(t-last)/1000);last=t;const d=tx-x;x+=Math.sign(d)*Math.min(Math.abs(d),speed*dt);place();
       if(Math.abs(tx-x)<1){stopWalk();done&&done();return}walkRaf=requestAnimationFrame(step)};walkRaf=requestAnimationFrame(step)}
-  const ACTS=["qn-point","qn-wave","qn-flip","qn-fall","qn-facepalm","qn-kick","qn-cheer","qn-meditate","qn-sleep","qn-sad"];
-  function act(name,ms,ex){if(!el)return;stopWalk();if(name!=="sit")standUp();clearTimeout(actT);ACTS.forEach(c=>el.classList.remove(c));void el.offsetWidth;el.classList.add("qn-"+name);if(ex)expr(ex,ms);if(ms)actT=setTimeout(()=>el&&el.classList.remove("qn-"+name),ms);if(name!=="meditate"&&name!=="sleep"){sleeping=false;poke()}}
+  const ACTS=["qn-point","qn-pointdown","qn-wave","qn-flip","qn-fall","qn-facepalm","qn-kick","qn-cheer","qn-meditate","qn-sleep","qn-sad"];
+  function act(name,ms,ex){if(!el)return;stopWalk();clearTimeout(actT);ACTS.forEach(c=>el.classList.remove(c));void el.offsetWidth;el.classList.add("qn-"+name);if(ex)expr(ex,ms);if(ms)actT=setTimeout(()=>el&&el.classList.remove("qn-"+name),ms);if(name!=="meditate"&&name!=="sleep"){sleeping=false;poke()}}
   function say(text,ms=4200){if(!el)return;const b=el.querySelector(".qn-bubble");b.querySelector(".qn-text").textContent=text;b.classList.add("show");clearTimeout(bubbleT);bubbleT=setTimeout(()=>b.classList.remove("show"),ms)}
   function confetti(){if(!el)return;const box=el.querySelector(".qn-conf");box.innerHTML=Array.from({length:18},(_,i)=>`<i style="left:${10+Math.random()*80}%;background:${["#f43f5e","#f59e0b","#22c55e","#3b82f6","#a855f7","#ec4899"][i%6]};animation-delay:${(Math.random()*.3).toFixed(2)}s;--dx:${(Math.random()*80-40).toFixed(0)}px"></i>`).join("");setTimeout(()=>{if(box)box.innerHTML=""},1800)}
   /* eyes follow where the student taps / points */
@@ -19224,27 +19224,52 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   function puff(cx,cy){const p=document.createElement("div");p.className="qn-puff";p.style.left=cx+"px";p.style.top=cy+"px";p.innerHTML="<i></i><i></i><i></i><i></i><i></i>";document.body.appendChild(p);setTimeout(()=>p.remove(),900)}
   function teleport(tx){if(!el||el.classList.contains("qn-gone"))return;stopWalk();standUp();sfx("pop");const r=el.getBoundingClientRect();puff(r.left+r.width/2,r.top+r.height*.6);el.classList.add("qn-gone");
     setTimeout(()=>{if(!el)return;x=tx??(8+Math.random()*(maxX()-8));place();const r2=el.getBoundingClientRect();puff(r2.left+r2.width/2,r2.top+r2.height*.6);sfx("pop");el.classList.remove("qn-gone");face(x+W()/2>innerWidth/2?-1:1);act("wave",1300,"proud");say(pick(["Ta-da! Ninja teleport 💨","Did you see me move? No? Good. 🥷","Poof! I'm over here now 😎"]),2800)},550)}
-  /* sit on the top edge of a library card and swing the legs */
-  function sitOnCard(){if(!el||inQuiz)return false;const cards=[...document.querySelectorAll(".item-card")].filter(c=>{const r=c.getBoundingClientRect();return r.width>80&&r.top>90&&r.bottom<innerHeight-130&&r.left>=0&&r.right<=innerWidth});if(!cards.length)return false;
-    const c=pick(cards),r=c.getBoundingClientRect(),tx=Math.min(Math.max(8,r.left+r.width*.55-W()/2),maxX());
-    teleportTo(tx,r.top-Hh()*.69);return true}
-  function teleportTo(tx,top){stopWalk();sfx("pop");const r=el.getBoundingClientRect();puff(r.left+r.width/2,r.top+r.height*.6);el.classList.add("qn-gone");
-    setTimeout(()=>{if(!el)return;x=tx;place();el.style.top=top+"px";el.style.bottom="auto";sitting=top;el.classList.add("qn-sit");const r2=el.getBoundingClientRect();puff(r2.left+r2.width/2,r2.top+r2.height*.6);el.classList.remove("qn-gone");expr("happy",2500);say(pick(["Nice view from up here 😎","I'll just sit on your notes… 🥷","Comfy! Keep studying 📚"]),3000);
-      setTimeout(()=>{if(sitting!==null)hopDown()},9000+Math.random()*5000)},550)}
-  function standUp(){if(sitting===null||!el)return;sitting=null;el.classList.remove("qn-sit");el.style.top="";el.style.bottom=""}
-  function hopDown(){if(!el||sitting===null)return;sfx("whoosh");const r=el.getBoundingClientRect();puff(r.left+r.width/2,r.top+r.height*.6);standUp()}
-  addEventListener("scroll",()=>{if(sitting!==null)hopDown()},{passive:true,capture:true});
+  /* ---------- climbing: he throws a rope and climbs onto a button, card or quiz answer ---------- */
+  const setTop=t=>{el.style.top=t+"px";el.style.bottom="auto"};
+  function rope(on,topY,botY){let r=document.getElementById("qnRope");if(!on){if(r)r.remove();return}
+    if(!r){r=document.createElement("div");r.id="qnRope";r.className="qn-rope";document.body.appendChild(r)}
+    const cx=x+W()/2;r.style.left=cx+"px";r.style.top=topY+"px";r.style.height=Math.max(0,botY-topY)+"px"}
+  function animTop(from,to,dur,cls,step2,done){cancelAnimationFrame(climbRaf);if(cls)el.classList.add(cls);const t0=performance.now();
+    const step=t=>{if(!el)return;const k=Math.min(1,(t-t0)/dur),e=cls==="qn-drop"?k*k:k;setTop(from+(to-from)*e);step2&&step2(from+(to-from)*e);if(k<1)climbRaf=requestAnimationFrame(step);else{if(cls)el.classList.remove(cls);done&&done()}};climbRaf=requestAnimationFrame(step)}
+  function floorTop(){return innerHeight-floorB-Hh()}
+  function climbTo(target,mode,cb){
+    if(!el||!target)return cb&&cb(false);
+    if(perched)return hopDown(()=>climbTo(target,mode,cb));
+    floorB=parseFloat(getComputedStyle(el).bottom)||14;
+    const r=target.getBoundingClientRect();const tx=mode==="quiz"?r.right-W()-6:r.left+r.width*.55-W()/2;
+    if(mode==="quiz"){/* never stand where he would cover the question text */
+      const prev=el.style.visibility;el.style.visibility="hidden";const hit=document.elementFromPoint(Math.max(1,r.right-W()/2-6),Math.max(1,r.top-Hh()*.5));el.style.visibility=prev;
+      if(hit&&hit.closest(".qz-run-prompt,.qz-run-num,.qz-run-points,.qz-run-question > h2,.qz-run-question > h3"))return cb&&cb(false)}
+    const go=f=>{if(mode!=="quiz")return walkTo(tx,Math.abs(tx-x)>320?"run":"walk",f);stopWalk();const a=el.getBoundingClientRect();puff(a.left+a.width/2,a.top+a.height*.6);sfx("pop");el.classList.add("qn-gone");
+      setTimeout(()=>{if(!el)return;x=tx;place();const b2=el.getBoundingClientRect();puff(b2.left+b2.width/2,b2.top+b2.height*.6);el.classList.remove("qn-gone");face(-1);setTimeout(f,250)},380)};
+    go(()=>{if(!el)return;
+      const r2=target.getBoundingClientRect(),cur=el.getBoundingClientRect().top,top=r2.top-Hh()*(mode==="sit"?.66:.93);
+      if(top<6||r2.bottom<0||r2.top>innerHeight||top>cur-20)return cb&&cb(false);
+      face(dir);sfx("throw");el.classList.add("qn-climb");const hookY=r2.top;
+      rope(true,hookY,cur+Hh()*.3);
+      setTimeout(()=>{if(!el)return;sfx("whoosh");animTop(cur,top,Math.min(1500,Math.max(600,(cur-top)*2.2)),"qn-climb",y=>rope(true,hookY,y+Hh()*.3),()=>{rope(false);perched={mode,target};el.classList.add(mode==="sit"?"qn-sit":"qn-perch");cb&&cb(true)})},350)})}
+  function hopDown(cb){if(!el||!perched){cb&&cb();return}cancelAnimationFrame(climbRaf);rope(false);const cur=el.getBoundingClientRect().top,fl=floorTop();
+    el.classList.remove("qn-sit","qn-perch");ACTS.forEach(c=>el.classList.remove(c));perched=null;sfx("whoosh");expr("wide",700);
+    animTop(cur,fl,Math.min(700,Math.max(250,(fl-cur)*1.2)),"qn-drop",null,()=>{if(!el)return;el.style.top="";el.style.bottom="";el.classList.add("qn-land");setTimeout(()=>el&&el.classList.remove("qn-land"),260);cb&&cb()})}
+  function standUp(){if(!perched||!el)return;cancelAnimationFrame(climbRaf);rope(false);perched=null;el.classList.remove("qn-sit","qn-perch","qn-climb","qn-drop");el.style.top="";el.style.bottom=""}
+  function climbables(){if(inQuiz)return [];return [...document.querySelectorAll(".item-card,.content button,.content .btn,#newBtn")].filter(c=>{if(c.closest("#modalOverlay,.mobile-bottom-nav,.sidebar"))return false;const r=c.getBoundingClientRect();return r.width>=70&&r.height>=30&&r.top>110&&r.bottom<innerHeight-60&&r.left>=0&&r.right<=innerWidth})}
+  function climbSomething(){const list=climbables();if(!list.length)return false;const c=pick(list),card=c.classList.contains("item-card");
+    climbTo(c,card&&Math.random()<.6?"sit":"stand",ok=>{if(!ok||!el)return;expr(card?"happy":"proud",2500);
+      say(pick(card?["Nice view from up here 😎","I'll just sit on your notes… 🥷","Comfy! Keep studying 📚"]:["King of the button! 👑","I climbed it. Because I can. 🧗","Don't press this one, I'm standing on it 😤"]),3000);
+      setTimeout(()=>{if(perched&&perched.target===c)hopDown()},8000+Math.random()*6000)});return true}
+  addEventListener("scroll",()=>{if(perched&&perched.mode!=="quiz")hopDown()},{passive:true,capture:true});
   /* idle → meditate → sleep */
   function poke(){clearTimeout(idleT);idleT=setTimeout(meditate,75000)}
   function meditate(){if(!el||inQuiz)return;standUp();sleeping=true;act("meditate",0,"closed");say("Ommm… focus… 🧘",3500);clearTimeout(idleT);idleT=setTimeout(()=>{if(sleeping&&el){el.classList.add("qn-sleep");say("Zzz… even ninjas need sleep 😴",3500)}},30000)}
   function wake(){if(!sleeping||!el)return;sleeping=false;el.classList.remove("qn-meditate","qn-sleep");act("wave",1800,"wide");say(pick(["I wasn't sleeping! I was… training 😳","Huh?! Ninja reflexes activated! ⚡","Back to work, student! 🥷"]))}
+  const climbRaf_busy=()=>el&&el.classList.contains("qn-climb");
   function wander(){clearTimeout(wanderT);wanderT=setTimeout(()=>{
-    if(el&&!sleeping&&!inQuiz&&!walkRaf&&sitting===null&&!el.classList.contains("qn-dim")&&!document.hidden){const r=Math.random(),rx=()=>8+Math.random()*(maxX()-8);
+    if(el&&!sleeping&&!inQuiz&&!walkRaf&&!perched&&!climbRaf_busy()&&!el.classList.contains("qn-dim")&&!document.hidden){const r=Math.random(),rx=()=>8+Math.random()*(maxX()-8);
       if(r<.32)walkTo(rx(),"walk",()=>{if(Math.random()<.4)act("wave",1600)});
       else if(r<.45){say(pick(["*sneaks quietly*","Shhh… 🤫","You can't see me 🥷"]),2500);expr("proud",4000);walkTo(rx(),"sneak")}
       else if(r<.55){say("Ninja speed! ⚡",1800);walkTo(rx(),"run")}
       else if(r<.67)teleport();
-      else if(r<.82){if(!sitOnCard())teleport()}
+      else if(r<.82){if(!climbSomething())teleport()}
       else if(r<.92){act("kick",900,"angry");sfx("hiyah");setTimeout(()=>throwStar(),350);say("Shuriken! ⭐",1800)}
       else{act("kick",1100,"angry");sfx("hiyah");say("Hi-yah! 💥",1500)}}
     wander()},12000+Math.random()*18000)}
@@ -19255,7 +19280,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     el.innerHTML=`<div class="qn-bubble"><b class="qn-name">Killer-Mewsai</b><span class="qn-text"></span><button type="button" class="qn-x" aria-label="Hide Killer-Mewsai" title="Hide">×</button></div><div class="qn-conf"></div><div class="qn-zzz">z<span>z</span><span>Z</span></div><div class="qn-body">${SVG}</div>`;
     document.body.appendChild(el);
     el.addEventListener("click",e=>{if(e.target.closest(".qn-x")){e.stopPropagation();hide();return}
-      if(sleeping)return wake();if(sitting!==null){hopDown();act("cheer",900,"happy");say("Wheee! 🥷",1500);return}
+      if(sleeping)return wake();if(perched){hopDown(()=>{act("cheer",900,"happy");say("Wheee! 🥷",1500)});return}
       const now=Date.now();taps=taps.filter(t=>now-t<1600);taps.push(now);
       if(taps.length>=3){taps=[];act("kick",900,"angry");sfx("hiyah");say("Stop poking me! 😤",2200);setTimeout(()=>teleport(),1000);return}
       const r=Math.random();if(r<.6){act("kick",1200,"angry");sfx("hiyah");say(pick(JOKES))}else if(r<.8){act("wave",1400,"proud");say(pick(JOKES))}else{expr("wide",1200);say("Ah! You scared me! 😲",2000)}});
@@ -19280,12 +19305,14 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       if(walkRaf){setTimeout(go,500);return}
       const opts=[...document.querySelectorAll(".qz-run-option")].filter(o=>o.offsetParent&&o.querySelector(`input[data-qid="${qid}"]`));if(opts.length<2)return;
       const o=pick(opts),L=((o.querySelector(".qz-run-letter")||{}).textContent||"").trim()||"this one";
-      prank={qid,L};clearHint();const h=document.createElement("span");h.className="qn-hint";h.textContent="👈 Killer-Mewsai's pick";o.appendChild(h);
-      const orc=o.getBoundingClientRect(),me=el.getBoundingClientRect();face(orc.left+orc.width/2>me.left+me.width/2?1:-1);
-      act("point",2600,"proud");sfx("whoosh");say(pick(PRANK).replace("{L}",L),3600)};setTimeout(go,1300)}
+      prank={qid,L};const line=pick(PRANK).replace("{L}",L);
+      const fromCorner=()=>{if(!el||lastQid!==qid||picked[qid])return;clearHint();const h=document.createElement("span");h.className="qn-hint";h.textContent="👈 Killer-Mewsai's pick";o.appendChild(h);
+        const orc=o.getBoundingClientRect(),me=el.getBoundingClientRect();face(orc.left+orc.width/2>me.left+me.width/2?1:-1);act("point",2600,"proud");sfx("whoosh");say(line,3600)};
+      if(Math.random()<.7){say("Hold on… let me check that answer 🧗",2200);climbTo(o,"quiz",ok=>{if(!el||lastQid!==qid)return;if(!ok||picked[qid])return fromCorner();face(-1);act("pointdown",0,"proud");sfx("whoosh");say(line,4200)})}
+      else fromCorner()};setTimeout(go,1300)}
   document.addEventListener("click",e=>{const o=e.target.closest&&e.target.closest(".qz-run-option");if(!o||!el)return;const i=o.querySelector("input[data-qid]");if(!i)return;
     const L=((o.querySelector(".qz-run-letter")||{}).textContent||"").trim();picked[i.dataset.qid]=L;
-    if(prank&&prank.qid===i.dataset.qid)setTimeout(()=>{if(prank&&prank.qid===i.dataset.qid&&!document.querySelector(".qz-run-feedback.correct,.qz-run-feedback.incorrect")){say(L===prank.L?"Ooh, you trusted me! You'll find out at the end 😏":"You ignored my tip?! Bold move 😤",2600);clearHint();prank=null}},700)},true);
+    if(prank&&prank.qid===i.dataset.qid)setTimeout(()=>{if(prank&&prank.qid===i.dataset.qid&&!document.querySelector(".qz-run-feedback.correct,.qz-run-feedback.incorrect")){const t=L===prank.L?"Ooh, you trusted me! You'll find out at the end 😏":"You ignored my tip?! Bold move 😤";clearHint();prank=null;hopDown(()=>say(t,2600))}},700)},true);
   function prankReply(correct){if(!prank||prank.qid!==lastQid)return null;const took=picked[prank.qid]===prank.L;prank=null;clearHint();
     if(correct&&took)return ["See? Ninja genius! (I was totally guessing 😅)","happy"];
     if(correct)return ["Good thing you didn't listen to me 😂","happy"];
@@ -19296,6 +19323,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   new MutationObserver(()=>{
     if(!el)return;
     document.querySelectorAll(".qz-run-feedback.correct,.qz-run-feedback.incorrect").forEach(f=>{if(seen.has(f))return;seen.add(f);
+      if(perched){const ok=f.classList.contains("correct"),pr=prankReply(ok);hopDown(()=>{if(ok){act("flip",1300,"happy");sfx("ding");setTimeout(()=>throwStar(),700);say(pr?pr[0]:pick(RIGHT),3400)}else if(pr&&pr[1]==="proud"){act("kick",1300,"proud");say(pr[0],3600)}else{act("fall",2200,"dizzy");sfx("boing");say(pr?pr[0]:pick(WRONG),3400)}});return}
       const pr=prankReply(f.classList.contains("correct"));
       if(f.classList.contains("correct")){act("flip",1300,"happy");sfx("ding");setTimeout(()=>throwStar(),700);say(pr?pr[0]:pick(RIGHT),pr?3400:2600)}
       else if(pr&&pr[1]==="proud"){act("kick",1300,"proud");say(pr[0],3600)}
@@ -19303,20 +19331,20 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     document.querySelectorAll(".qz-results-hero,.ql-congrats,.qok .big").forEach(f=>{if(seen.has(f))return;seen.add(f);act("cheer",2300,"happy");confetti();sfx("ding");setTimeout(()=>throwStar(),500);say(f.classList.contains("qz-results-hero")?"Mission complete! Great job, ninja student 🎉":"Woohoo! Congratulations! 🎉",3600)});
     el.classList.toggle("qn-dim",!!document.querySelector("#modalOverlay.show,#qlGiftPop,#qlKicked"));
     const q=!!document.querySelector(".qz-run-option,.qz-runner-result");if(q!==inQuiz){inQuiz=q;el.classList.toggle("qn-quiz",q);if(q){standUp();sleeping=false;el.classList.remove("qn-meditate","qn-sleep");walkTo(8,"run",()=>face(1))}}
-    if(inQuiz){const ids=visQids();const qid=ids.length===1?ids[0]:null;if(qid&&qid!==lastQid){lastQid=qid;if(prank&&prank.qid!==qid){prank=null;clearHint()}maybePrank(qid)}}
-    else if(lastQid){lastQid=null;prank=null;picked={};clearHint()}
+    if(inQuiz){const ids=visQids();const qid=ids.length===1?ids[0]:null;if(qid&&qid!==lastQid){lastQid=qid;if(prank&&prank.qid!==qid){prank=null;clearHint()}if(perched)hopDown();maybePrank(qid)}}
+    else if(lastQid){lastQid=null;prank=null;picked={};clearHint();if(perched)standUp()}
   }).observe(document.body,{childList:true,subtree:true});
   ["pointerdown","keydown"].forEach(t=>addEventListener(t,e=>{if(!el)return;if(e.clientX!=null)look(e.clientX,e.clientY);if(!el.contains(e.target))wake();if(!sleeping)poke()},{passive:true,capture:true}));
   let lm=0;addEventListener("pointermove",e=>{const n=Date.now();if(n-lm>120&&el){lm=n;look(e.clientX,e.clientY)}},{passive:true});
-  addEventListener("resize",()=>{if(sitting!==null)standUp();place()});
+  addEventListener("resize",()=>{if(perched)standUp();place()});
   setInterval(()=>{try{if(signedIn()&&!isOff())build();else if(el&&!signedIn()){el.remove();el=null;greeted=false}placePf();
     if(el&&Math.random()<.08){const s=el.querySelector(".qn-shine");s.classList.remove("go");void s.getBBox();s.classList.add("go")}}catch{}},1500);
-  window.qlNinja={say,act,expr,walkTo,throwStar,teleport,sitOnCard,confetti,show,hide,meditate,look,sfx};
+  window.qlNinja={say,act,expr,walkTo,throwStar,teleport,climbTo,climbSomething,hopDown,confetti,show,hide,meditate,look,sfx};
 })();
 </script>
 <style id="qlNinjaStyle">
-.ql-ninja{position:fixed;left:0;bottom:14px;z-index:9000;width:84px;height:119px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;transition:opacity .25s,transform .25s}
-@media (max-width:820px){.ql-ninja{bottom:80px;width:70px;height:99px}.ql-ninja.qn-quiz{bottom:104px}}
+.ql-ninja{position:fixed;left:0;bottom:14px;z-index:9000;width:72px;height:102px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;transition:opacity .25s,transform .25s}
+@media (max-width:820px){.ql-ninja{bottom:80px;width:60px;height:85px}.ql-ninja.qn-quiz{bottom:104px}}
 .ql-ninja.qn-dim{opacity:0;pointer-events:none}
 .ql-ninja.qn-gone{opacity:0;transform:scale(.4);transition:opacity .12s,transform .12s}
 .qn-body{width:100%;height:100%;transition:transform .15s}
@@ -19408,6 +19436,28 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
 .qn-point .qn-head{transform:rotate(-6deg)}.qn-point .qn-all{transform:rotate(-3deg)}
 .qn-hint{margin-left:auto;padding:3px 9px;border-radius:999px;font:800 12px/1.2 system-ui,sans-serif;color:#fff;background:#dc2626;white-space:nowrap;animation:qnHint .6s ease-in-out infinite alternate;pointer-events:none}
 @keyframes qnHint{from{transform:translateX(0) rotate(-2deg)}to{transform:translateX(-5px) rotate(2deg)}}
+/* climbing a rope */
+.qn-climb .qn-all{animation:qnClimbBob .5s ease-in-out infinite alternate}
+.qn-climb .qn-upperL{animation:qnClimbA .5s ease-in-out infinite alternate}.qn-climb .qn-upperR{animation:qnClimbB .5s ease-in-out infinite alternate}
+.qn-climb .qn-foreL,.qn-climb .qn-foreR{transform:rotate(0)}
+.qn-climb .qn-thighL{animation:qnClimbL .5s ease-in-out infinite alternate}.qn-climb .qn-thighR{animation:qnClimbL .5s ease-in-out infinite alternate-reverse}
+.qn-climb .qn-shinL,.qn-climb .qn-shinR{transform:rotate(55deg)}
+@keyframes qnClimbA{from{transform:rotate(168deg)}to{transform:rotate(135deg)}}
+@keyframes qnClimbB{from{transform:rotate(-135deg)}to{transform:rotate(-168deg)}}
+@keyframes qnClimbL{from{transform:rotate(-55deg)}to{transform:rotate(-8deg)}}
+@keyframes qnClimbBob{from{transform:translateY(0)}to{transform:translateY(-3px)}}
+.qn-rope{position:fixed;z-index:8999;width:0;border-left:3px dashed #92400e;pointer-events:none;transform:translateX(-1.5px)}
+.qn-rope::before{content:"";position:absolute;top:-6px;left:-7.5px;width:12px;height:8px;border:3px solid #64748b;border-bottom:0;border-radius:8px 8px 0 0}
+/* jump down + land */
+.qn-drop .qn-upperL{transform:rotate(140deg)}.qn-drop .qn-upperR{transform:rotate(-140deg)}.qn-drop .qn-thighL{transform:rotate(-20deg)}.qn-drop .qn-shinL{transform:rotate(40deg)}
+.qn-land .qn-all{animation:qnLand .26s ease-out}
+@keyframes qnLand{0%{transform:scaleY(.82) translateY(4px)}100%{transform:none}}
+/* standing on top of something */
+.qn-perch .qn-shadow,.qn-climb .qn-shadow,.qn-drop .qn-shadow{opacity:0}
+/* pointing down at the answer he is standing on */
+.qn-pointdown .qn-upperR{transform:rotate(-58deg)}.qn-pointdown .qn-foreR{transform:rotate(-28deg)}
+.qn-pointdown .qn-head{transform:rotate(9deg)}.qn-pointdown .qn-all{animation:qnPointBob .7s ease-in-out infinite alternate}
+@keyframes qnPointBob{from{transform:translateY(0)}to{transform:translateY(-2px) rotate(2deg)}}
 /* karate kick */
 .qn-kick .qn-thighR{transform:rotate(-100deg)}.qn-kick .qn-shinR{transform:rotate(0)}
 .qn-kick .qn-thighL{transform:rotate(12deg)}.qn-kick .qn-shinL{transform:rotate(16deg)}
@@ -19448,9 +19498,9 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
 .qn-puff i:nth-child(1){--px:-22px;--py:-10px}.qn-puff i:nth-child(2){--px:20px;--py:-14px}.qn-puff i:nth-child(3){--px:-10px;--py:16px}.qn-puff i:nth-child(4){--px:16px;--py:14px}.qn-puff i:nth-child(5){--px:0;--py:-26px}
 @keyframes qnPuff{0%{transform:translate(0,0) scale(.3);opacity:.95}100%{transform:translate(var(--px),var(--py)) scale(1.5);opacity:0}}
 /* speech bubble */
-.qn-bubble{position:absolute;left:62px;bottom:92px;width:max-content;max-width:min(240px,70vw);padding:8px 26px 9px 12px;border-radius:16px 16px 16px 4px;font:600 13.5px/1.35 system-ui,-apple-system,sans-serif;color:#1e293b;background:#fff;box-shadow:0 10px 26px rgba(15,23,42,.22);opacity:0;transform:translateY(8px) scale(.9);transform-origin:0 100%;transition:opacity .2s,transform .2s;pointer-events:none}
+.qn-bubble{position:absolute;left:calc(100% - 16px);bottom:calc(100% - 24px);width:max-content;max-width:min(240px,70vw);padding:8px 26px 9px 12px;border-radius:16px 16px 16px 4px;font:600 13.5px/1.35 system-ui,-apple-system,sans-serif;color:#1e293b;background:#fff;box-shadow:0 10px 26px rgba(15,23,42,.22);opacity:0;transform:translateY(8px) scale(.9);transform-origin:0 100%;transition:opacity .2s,transform .2s;pointer-events:none}
 .qn-bubble.show{opacity:1;transform:none;pointer-events:auto}
-.qn-bl .qn-bubble{left:auto;right:62px;border-radius:16px 16px 4px 16px;transform-origin:100% 100%}
+.qn-bl .qn-bubble{left:auto;right:calc(100% - 16px);border-radius:16px 16px 4px 16px;transform-origin:100% 100%}
 .qn-name{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#dc2626;margin-bottom:1px}
 .qn-x{position:absolute;top:4px;right:4px;width:20px;height:20px;border:0;border-radius:50%;background:#f1f5f9;color:#64748b;font-size:14px;line-height:1;cursor:pointer}
 .qn-conf{position:absolute;inset:-30px -10px 40px;pointer-events:none}
