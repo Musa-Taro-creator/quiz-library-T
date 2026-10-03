@@ -190,6 +190,11 @@ body.t-ocean .bars div{background:linear-gradient(180deg,#fdba74,#0e6377)}
 .sbar.warn i{background:linear-gradient(90deg,#f59e0b,#ef4444)}
 .srow{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:8px}.srow b{color:inherit;font-size:12px;display:inline}
 .danger-zone{margin-top:14px;padding:12px;border-radius:12px;border:1px solid rgba(239,68,68,.35);background:rgba(239,68,68,.05)}
+.msgwrap{display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:start}.msglist{padding:6px;max-height:70vh;overflow:auto}.msgrow{display:flex;gap:10px;align-items:center;width:100%;padding:10px;border:0;border-radius:12px;background:none;text-align:left;cursor:pointer;color:inherit;font:inherit}.msgrow:hover,.msgrow.on{background:rgba(99,102,241,.1)}.msgrow .av{flex:none}.msgrow .mx{flex:1;min-width:0;display:flex;flex-direction:column}.msgrow .mx small{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.msgrow .mr{display:flex;flex-direction:column;align-items:flex-end;gap:4px}.msgrow .mr small{color:var(--muted);font-size:11px}.msgrow .pill{display:inline-block;min-width:20px;padding:1px 7px;border-radius:999px;background:#ef4444;color:#fff;font-size:11px;font-weight:800;text-align:center}
+.msgthread{display:flex;flex-direction:column;gap:10px;min-height:60vh}.msghead{display:flex;align-items:center;gap:10px}.msghead small{display:block;color:var(--muted)}.msgback{display:none}.msgbox{flex:1;display:flex;flex-direction:column;gap:8px;min-height:300px;max-height:56vh;overflow:auto;padding:12px;border-radius:14px;background:rgba(99,102,241,.06)}
+.msgm{display:flex;flex-direction:column;max-width:78%}.msgm.me{align-self:flex-end;align-items:flex-end}.msgm .b{padding:9px 13px;border-radius:16px;line-height:1.45;overflow-wrap:anywhere}.msgm.me .b{color:#fff;background:linear-gradient(135deg,#6366f1,#8b5cf6)}.msgm.them .b{background:#fff;color:#1e293b;border:1px solid #e2e8f0}.msgm img{display:block;max-width:240px;max-height:240px;margin-top:6px;border-radius:10px;cursor:zoom-in}.msgm small{font-size:11px;color:var(--muted);margin-top:3px}
+.msgin{display:flex;gap:8px;align-items:flex-end}.msgin textarea{flex:1;min-width:0;resize:vertical}.msgpic{position:relative;width:fit-content}.msgpic img{max-height:80px;border-radius:10px}.msgpic button{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;border:0;background:#0f172a;color:#fff;cursor:pointer}
+@media(max-width:900px){.msgwrap{grid-template-columns:1fr}.msgwrap.has .msglist{display:none}.msgwrap:not(.has) .msgthread{display:none}.msgback{display:inline-flex}}
 </style>
 </head>
 <body class="t-white">
@@ -212,6 +217,7 @@ body.t-ocean .bars div{background:linear-gradient(180deg,#fdba74,#0e6377)}
     <button class="nav" data-v="users"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6 6 0 0 1 3.5 5.5"/></svg>Users</button>
     <button class="nav" data-v="plans"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8-4.3-4.1 5.9-.9z"/></svg>Plans &amp; Limits</button>
     <button class="nav" data-v="pay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg>Payments<span class="pill hidden" id="payPill">0</span></button>
+    <button class="nav" data-v="msgs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/><path d="M8.5 10.5h7M8.5 14h4.5"/></svg>Messages<span class="pill hidden" id="msgPill">0</span></button>
     <button class="nav" data-v="ctl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Website Control</button>
     <button class="nav" data-v="board"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="7" height="8" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.6"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.6"/><rect x="3.5" y="14.5" width="7" height="6" rx="1.6"/></svg>Student Dashboard<span class="pill hidden" id="boardPill">0</span></button>
     <button class="nav" data-v="news"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>Announcements</button>
@@ -228,7 +234,7 @@ const SUPABASE_KEY="sb_publishable_MLyLNla9gaM3r8EUM00hYg_Gyejrvbd";
 const STUDENT_SITE=new URL("./",location.href).toString();
 /* The switchable parts of the students' website. Keep in sync with index.html (qlPlans). */
 const FEATURES=[
- ["Left menu & tabs",[["nav_dashboard","Dashboard"],["nav_random","Random Quiz"],["nav_inbox","Shared with me"],["nav_favorites","Favorites"],["nav_recent","Recent"],["nav_shared_links","Shared Links"],["nav_trash","Trash"],["nav_install","Install app"]]],
+ ["Left menu & tabs",[["nav_dashboard","Dashboard"],["nav_random","Random Quiz"],["nav_inbox","Shared with me"],["nav_favorites","Favorites"],["nav_recent","Recent"],["nav_shared_links","Shared Links"],["nav_trash","Trash"],["nav_install","Install app"],["nav_support","Help & Support"]]],
  ["+ New menu",[["new_folder","Create Folder"],["new_link","Add Quiz Link"],["new_pdf","Upload PDF"],["new_quiz","Create Quiz"]]],
  ["⋮ menu on items",[["item_share_in","Share internally"],["item_share_ex","Share externally (link + QR)"],["item_duplicate","Duplicate"],["item_move","Move"],["item_edit","Edit"],["item_trash","Move to trash"],["item_share_dash","Post to Dashboard"]]],
  ["Dashboard",[["dash_menu","⋮ menu on Dashboard items"],["dash_save","Save to my library (full access, inside ⋮)"]]],
@@ -291,12 +297,13 @@ async function loadCommon(){
   const [p,cfg]=await Promise.all([rpc("ql_admin_plans").catch(()=>[]),sb.from("ql_site_settings").select("key,value")]);
   plans=p||[];settings={};(cfg.data||[]).forEach(r=>settings[r.key]=r.value||{});
   rpc("ql_admin_payments",{p_status:"waiting"}).then(r=>{const n=(r||[]).length;const pill=$("#payPill");pill.textContent=n;pill.classList.toggle("hidden",!n)}).catch(()=>{});
+  msgPill();
 }
 const planById=id=>plans.find(p=>p.id===id)||{id,name:id||"—",color:"#94a3b8"};
 const planTag=(id,extra="")=>{const p=planById(id);return `<span class="tag" style="background:${p.color}22;color:${p.color}">${h(p.name)}${extra}</span>`};
 function go(v){
-  const views={dash,users,plansView,pay,ctl,news,settingsView,board};
-  const map={dash:"dash",users:"users",plans:"plansView",pay:"pay",ctl:"ctl",news:"news",settings:"settingsView",board:"board"};
+  const views={dash,users,plansView,pay,ctl,news,settingsView,board,msgs};
+  const map={dash:"dash",users:"users",plans:"plansView",pay:"pay",ctl:"ctl",news:"news",settings:"settingsView",board:"board",msgs:"msgs"};
   if(!map[v])v="dash";const same=v===cur&&$("#view").children.length&&!$("#view .loading");const y=window.scrollY;cur=v;if(location.hash.slice(1)!==v)location.hash=v;
   $$(".nav").forEach(n=>n.classList.toggle("on",n.dataset.v===v));
   /* same page refreshing itself (filters, tabs, after saving): keep it on screen and keep the scroll position */
@@ -685,6 +692,7 @@ async function board(){
 async function settingsView(){
   await loadCommon();const p={bank:"",account_name:"",account_number:"",qr_image:"",note:"",receipts:true,...(settings.payment||{})};
   const sup={files_mb:1024,db_mb:500,warn_percent:90,...(settings.supabase||{})};
+  const ct=((settings.site||{}).contact)||{};
   const curTheme=(document.body.className.match(/t-(\w+)/)||[])[1]||"white";
   $("#view").innerHTML=head("Settings","How students pay you, your Supabase size and the admin look")+`
   <div class="card" style="max-width:760px;margin-bottom:16px"><h3>Your Supabase plan size</h3>
@@ -693,6 +701,12 @@ async function settingsView(){
    <div class="two"><div class="fld"><label>File storage (MB)</label><input id="spFiles" class="in" type="number" min="1" value="${sup.files_mb}"></div><div class="fld"><label>Database (MB)</label><input id="spDb" class="in" type="number" min="1" value="${sup.db_mb}"></div></div>
    <div class="fld"><label>Warn me when it's this full (%)</label><input id="spWarn" class="in small" type="number" min="50" max="100" value="${sup.warn_percent}"></div>
    <button class="btn p" id="spSave">Save Supabase size</button></div>
+  <div class="card" style="max-width:760px;margin-bottom:16px"><h3>💬 Contact info for students</h3>
+   <div class="note" style="margin:0 0 10px">Shown in the students' <b>Help &amp; Support</b> window as buttons. Leave a box empty to hide that button.</div>
+   <div class="two"><div class="fld"><label>Telegram username or link</label><input id="ctTg" class="in" placeholder="@yourname" value="${h(ct.telegram||"")}"></div><div class="fld"><label>Facebook page / Messenger link</label><input id="ctFb" class="in" placeholder="https://m.me/yourpage" value="${h(ct.facebook||"")}"></div></div>
+   <div class="two"><div class="fld"><label>Phone</label><input id="ctPh" class="in" placeholder="012 345 678" value="${h(ct.phone||"")}"></div><div class="fld"><label>Email</label><input id="ctEm" class="in" placeholder="you@gmail.com" value="${h(ct.email||"")}"></div></div>
+   <div class="fld"><label>Short note (optional)</label><input id="ctNote" class="in" maxlength="160" placeholder="e.g. We answer within 24 hours, 8am–8pm" value="${h(ct.note||"")}"></div>
+   <button class="btn p" id="ctSave">Save contact info</button></div>
   <div class="card" style="max-width:760px;margin-bottom:16px"><h3>Admin look</h3><div class="thpick">${[["white","White Glass","linear-gradient(135deg,#dbeafe,#fce7f3)"],["neon","Neon Lines","repeating-linear-gradient(60deg,#0b1220 0 8px,#00e5ff66 8px 9px,#0b1220 9px 16px,#ff2e9766 16px 17px)"],["ocean","Ocean Sunrise","linear-gradient(120deg,#0b3954,#0e6377 55%,#f08a4b)"]].map(([k,l,g])=>`<button type="button" data-th="${k}" class="${curTheme===k?"on":""}"><i style="background:${g}"></i>${l}</button>`).join("")}</div></div>`+`
   <div class="card" style="max-width:760px"><h3>Payment details shown to students</h3><div class="two"><div>
    <div class="fld"><label>Bank / wallet</label><input id="sBank" class="in" value="${h(p.bank)}" placeholder="e.g. ABA Bank"></div>
@@ -712,6 +726,7 @@ async function settingsView(){
     if(a.length<8)return alert("Use at least 8 characters.");if(a!==b2)return alert("The two passwords are not the same.");
     b.disabled=true;try{const {error}=await sb.auth.updateUser({password:a});if(error)throw error;$("#pw1").value=$("#pw2").value="";toast("Password changed")}catch(x){alert(errMsg(x))}finally{b.disabled=false}};
   $$("[data-sp]").forEach(b=>b.onclick=()=>{const [f,d]=b.dataset.sp.split(",");$("#spFiles").value=f;$("#spDb").value=d});
+  $("#ctSave").onclick=async()=>{const v=id=>$(id).value.trim();await saveSetting("site",{...(settings.site||{}),contact:{telegram:v("#ctTg"),facebook:v("#ctFb"),phone:v("#ctPh"),email:v("#ctEm"),note:v("#ctNote")}},"Contact info saved — students see it in Help & Support")};
   $("#spSave").onclick=()=>saveSetting("supabase",{files_mb:Number($("#spFiles").value||1024),db_mb:Number($("#spDb").value||500),warn_percent:Math.min(100,Math.max(50,Number($("#spWarn").value||90)))},"Supabase size saved");
   let qr=p.qr_image;
   $("#sQr").onchange=async e=>{const f=e.target.files[0];if(!f)return;qr=await resizeImage(f,700,.85);const i=$("#sQrImg");i.outerHTML=`<img class="qrprev" id="sQrImg" src="${qr}">`};
@@ -721,6 +736,39 @@ async function settingsView(){
 
 window.addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(v&&v!==cur&&!$("#app").classList.contains("hidden"))go(v)});
 boot().catch(e=>showLogin(errMsg(e)));
+
+/* ---------------- messages (Help & Support) ---------------- */
+let msgUser=null,msgChan=null;
+async function msgPill(){try{const n=await rpc("ql_admin_support_unread");const p=$("#msgPill");if(p){p.textContent=n>99?"99+":n;p.classList.toggle("hidden",!n)}}catch{}}
+setInterval(msgPill,60000);
+function msgListen(){if(msgChan)return;try{msgChan=sb.channel("ql-admin-support").on("postgres_changes",{event:"INSERT",schema:"public",table:"ql_support_msgs"},()=>{msgPill();if(cur==="msgs")go("msgs")}).subscribe()}catch{}}
+const msgWhen=t=>{const d=new Date(t);return d.toDateString()===new Date().toDateString()?d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}):d.toLocaleDateString([],{day:"numeric",month:"short"})};
+async function msgs(){
+  msgListen();
+  let list;try{list=await rpc("ql_admin_support_list")}catch(e){if(/ql_admin_support_list|PGRST202|42883|does not exist/.test(String(e.message||e))){$("#view").innerHTML=head("Messages","Questions from students")+`<div class="card"><div class="note" style="margin:0">Run <b>support_messages.sql</b> in Supabase first, then reload.</div></div>`;return}throw e}
+  if(msgUser&&!list.some(r=>r.user_id===msgUser))msgUser=null;
+  const wide=matchMedia("(min-width:901px)").matches;if(!msgUser&&wide&&list[0])msgUser=list[0].user_id;
+  const sel=list.find(r=>r.user_id===msgUser);
+  $("#view").innerHTML=head("Messages","Questions from students in Help & Support",`<button class="btn" onclick="go('msgs')">↻ Refresh</button>`)+`
+  <div class="msgwrap ${msgUser?"has":""}"><div class="card msglist">${list.length?list.map(r=>`<button type="button" class="msgrow ${r.user_id===msgUser?"on":""}" data-mu="${h(r.user_id)}"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div class="mx"><b>${h(r.name||r.email||"Student")}</b><small>${r.last_from_admin?"You: ":""}${h(String(r.last||"").slice(0,60))}</small></div><div class="mr"><small>${msgWhen(r.last_at)}</small>${r.unread?`<span class="pill">${r.unread}</span>`:""}</div></button>`).join(""):`<div class="empty">No messages yet. Students write from <b>Help &amp; Support</b>.</div>`}</div>
+  <div class="card msgthread">${sel?`<div class="msghead"><button type="button" class="btn msgback">‹</button><div><b>${h(sel.name||"Student")}</b><small>${h(sel.email||"")}</small></div><span class="sp"></span><button type="button" class="btn r" id="msgDel">Delete</button></div>
+   <div class="msgbox" id="msgBox"><div class="empty">Loading…</div></div>
+   <div class="msgpic hidden" id="msgPic"><img alt=""><button type="button">×</button></div>
+   <div class="msgin"><label class="btn" title="Add a photo">📷<input type="file" accept="image/*" hidden id="msgFile"></label><textarea id="msgText" class="in" rows="2" maxlength="2000" placeholder="Write your answer…"></textarea><button type="button" class="btn p" id="msgSend">Send</button></div>`:`<div class="empty">Pick a conversation.</div>`}</div></div>`;
+  $$("[data-mu]").forEach(b=>b.onclick=()=>{msgUser=b.dataset.mu;go("msgs")});
+  if(!sel)return msgPill();
+  $(".msgback").onclick=()=>{msgUser=null;go("msgs")};
+  const box=$("#msgBox");
+  const th=await rpc("ql_admin_support_thread",{p_user:sel.user_id});msgPill();
+  box.innerHTML=th.map(m=>`<div class="msgm ${m.from_admin?"me":"them"}"><div class="b">${m.body?h(m.body).replace(/\n/g,"<br>"):""}${m.image?`<img src="${h(m.image)}" alt="photo" data-big>`:""}</div><small>${new Date(m.created_at).toLocaleString([],{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${m.from_admin&&m.read_at?" · Seen":""}</small></div>`).join("")||`<div class="empty">No messages.</div>`;
+  box.querySelectorAll("[data-big]").forEach(i=>i.onclick=()=>window.open(i.src,"_blank"));box.scrollTop=box.scrollHeight;
+  let pic=null;const pv=$("#msgPic");
+  $("#msgFile").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1200/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);pic=c.toDataURL("image/jpeg",.72);pv.querySelector("img").src=pic;pv.classList.remove("hidden")};im.src=r.result};r.readAsDataURL(f)};
+  pv.querySelector("button").onclick=()=>{pic=null;pv.classList.add("hidden")};
+  const send=async()=>{const t=$("#msgText").value.trim();if(!t&&!pic)return;const b=$("#msgSend");b.disabled=true;try{await rpc("ql_admin_support_reply",{p_user:sel.user_id,p_body:t,p_image:pic});go("msgs")}catch(e){alert(errMsg(e));b.disabled=false}};
+  $("#msgSend").onclick=send;$("#msgText").onkeydown=e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();send()}};
+  $("#msgDel").onclick=async()=>{if(!confirm("Delete this whole conversation?"))return;try{await rpc("ql_admin_support_delete",{p_user:sel.user_id});msgUser=null;toast("Conversation deleted");go("msgs")}catch(e){alert(errMsg(e))}};
+}
 
 /* ---------------- install the admin page as an app ---------------- */
 (function(){

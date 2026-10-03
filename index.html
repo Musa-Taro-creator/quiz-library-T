@@ -18682,7 +18682,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     new_pdf:['#newMenu [data-new="pdf"]','#adminQuickActions [data-quick="pdf"]'],new_quiz:['#newMenu [data-quiz-new]','#adminQuickActions [data-quiz-quick]'],
     item_share_in:['#itemMenu [data-ql-feat="item_share_in"]'],item_share_ex:['#itemMenu [data-ql-feat="item_share_ex"]'],item_duplicate:['#itemMenu [data-ql-feat="item_duplicate"]'],
     item_move:['#itemMenu [data-ql-feat="item_move"]'],item_edit:['#itemMenu [data-ql-feat="item_edit"]'],item_trash:['#itemMenu [data-ql-feat="item_trash"]'],
-    nav_dashboard:['#qlDashNav'],item_share_dash:['#itemMenu [data-ql-feat="item_share_dash"]'],dash_menu:['.ql-dash-more'],dash_save:['.ql-dash-save'],
+    nav_dashboard:['#qlDashNav'],nav_support:['#qlSupportNav','.ql-sup-pf'],item_share_dash:['#itemMenu [data-ql-feat="item_share_dash"]'],dash_menu:['.ql-dash-more'],dash_save:['.ql-dash-save'],
     sel_share_in:['#selShareInBtn'],sel_share_ex:['#selShareExBtn'],sel_copy:['#copySelectedBtn'],sel_duplicate:['#duplicateSelectedBtn'],sel_move:['#moveSelectedBtn'],sel_trash:['#trashSelectedBtn'],
     quiz_autoadv:['#qzToolsAutoAdv','#qzBtnAutoAdvance'],quiz_shuffle:['#qzToolsShuffle','#qzBtnShuffle'],quiz_bookmark:['#qzBookmarkBtn','#qzFlagBtn'],quiz_summary:['#qzSummaryBtn'],quiz_results:['#qzBtnResults'],
     ed_addnew:['#qzBtnAddNew'],ed_images:['#qzBtnImageManager'],ed_move:['#qzBtnMoveQuestions'],ed_sections:['#qzBtnSessions'],ed_find:['#qzFindBar'],
@@ -18707,7 +18707,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   /* ---------- load ---------- */
   async function loadCfg(){
     const c=cli();if(!c)return;
-    try{const {data,error}=await c.rpc("ql_public_config");if(error)return;cfg=data;if(data&&data.server_time)skew=new Date(data.server_time)-Date.now();ready=true}catch{return}
+    try{const {data,error}=await c.rpc("ql_public_config");if(error)return;cfg=data;window.qlPublicCfg=data;if(data&&data.server_time)skew=new Date(data.server_time)-Date.now();ready=true}catch{return}
     applyAll();
   }
   async function loadMine(){
@@ -18944,7 +18944,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       nav_dashboard:"Dashboard",item_share_dash:"Post to Dashboard",dash_menu:"⋮ menu on Dashboard",dash_save:"Save from Dashboard to my library",sel_share_in:"Share many internally",sel_share_ex:"Share many externally",sel_copy:"Copy links of many",sel_duplicate:"Duplicate many",sel_move:"Move many",sel_trash:"Trash many",
       quiz_autoadv:"Auto-advance",quiz_shuffle:"Shuffle",quiz_bookmark:"Bookmark & Flag",quiz_summary:"Quiz Summary",quiz_results:"Quiz Results",
       ed_addnew:"Add New Questions",ed_images:"Image Manager",ed_move:"Move Questions",ed_sections:"Sections",ed_find:"Find & check problems",
-      pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list"};
+      pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list",nav_support:"Help & Support"};
     for(const k in names){if(!["new_quiz","new_pdf","new_link","new_folder"].includes(k)&&has(k))out.push([names[k],true])}
     if(p.features&&Array.isArray(p.features._others))p.features._others.forEach(t=>{if(String(t).trim())out.push([String(t),true])});
     return out;
@@ -19030,4 +19030,91 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   if(document.readyState==="loading")window.addEventListener("DOMContentLoaded",()=>setTimeout(start,300));else setTimeout(start,300);
 })();
 </script>
+<script id="qlSupport">
+/* Kuza: Help & Support. Students reach the admin from the left menu or My Profile:
+   - contact buttons (Telegram / Facebook / phone / email) the admin sets in admin → Settings
+   - messages inside the website (supabase/support_messages.sql); the admin answers in admin → Messages */
+(function(){
+  const cli=()=>typeof service!=="undefined"&&service.client;
+  const signedIn=()=>typeof state!=="undefined"&&state.user&&!state.user.__mock&&!state.isAdmin;
+  const H=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  let unread=0,chatOk=null,chan=null,chanUid=null,open=false,pic=null;
+  const icon='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/><path d="M8.5 10.5h7M8.5 14h4.5"/></svg>';
+  const contact=()=>{const c=((window.qlPublicCfg||{}).settings||{}).site;return (c&&c.contact)||{}};
+  function contactLinks(){const c=contact(),out=[];
+    if(c.telegram){const t=String(c.telegram).trim().replace(/^@/,"");out.push(["Telegram",/^https?:/i.test(t)?t:"https://t.me/"+t,"#229ED9","✈️"])}
+    if(c.facebook){const f=String(c.facebook).trim();out.push(["Facebook",/^https?:/i.test(f)?f:"https://m.me/"+f,"#1877F2","💬"])}
+    if(c.phone)out.push(["Call "+c.phone,"tel:"+String(c.phone).replace(/[^\d+]/g,""),"#16a34a","📞"]);
+    if(c.email)out.push(["Email","mailto:"+c.email,"#6366f1","✉️"]);
+    return out}
+  const when=t=>{const d=new Date(t),n=new Date();return d.toDateString()===n.toDateString()?d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}):d.toLocaleDateString([],{day:"numeric",month:"short"})+" "+d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})};
+  function badge(){document.querySelectorAll("#qlSupportNav .ql-sup-dot,.ql-sup-pf .ql-sup-dot").forEach(d=>{d.textContent=unread>9?"9+":unread;d.hidden=!unread})}
+  async function refreshUnread(){if(!signedIn()||!cli())return;try{const {data,error}=await cli().rpc("ql_support_unread");if(error){chatOk=false;return}chatOk=true;unread=Number(data||0);badge()}catch{}}
+  function place(){
+    if(!signedIn())return;
+    const nav=document.querySelector(".sidebar .nav");
+    if(nav&&!document.getElementById("qlSupportNav")){const b=document.createElement("button");b.id="qlSupportNav";b.type="button";b.className="student-workspace-allowed";
+      b.innerHTML=`<span class="nav-icon">${icon}</span><span>Help &amp; Support</span><span class="ql-sup-dot" hidden></span>`;
+      b.onclick=e=>{e.preventDefault();e.stopPropagation();const sb=document.getElementById("sidebar");if(sb&&sb.classList.contains("open")){try{closeSidebar()}catch{}}openSupport()};
+      nav.appendChild(b);badge()}
+    const acts=document.querySelector(".profile-actions");
+    if(acts&&!acts.querySelector(".ql-sup-pf")){const b=document.createElement("button");b.type="button";b.className="btn ql-sup-pf";b.innerHTML=`💬 Help &amp; Support <span class="ql-sup-dot" hidden></span>`;b.onclick=openSupport;acts.appendChild(b);badge()}
+  }
+  function listen(){const u=signedIn()?state.user.id:null;if(u===chanUid)return;
+    if(chan){try{cli().removeChannel(chan)}catch{}chan=null}chanUid=u;if(!u||!cli())return;
+    try{chan=cli().channel("ql-support-"+u).on("postgres_changes",{event:"*",schema:"public",table:"ql_support_msgs",filter:"user_id=eq."+u},()=>{if(open)loadChat();else refreshUnread()}).subscribe()}catch{}}
+  function shrink(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1200/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.72))};im.onerror=()=>rej(new Error("That file is not a photo."));im.src=r.result};r.onerror=rej;r.readAsDataURL(file)})}
+  async function loadChat(){
+    const box=document.getElementById("qlSupMsgs");if(!box)return;
+    try{const {data,error}=await cli().rpc("ql_support_mine");if(error)throw error;unread=0;badge();
+      box.innerHTML=(data||[]).length?data.map(m=>`<div class="ql-sup-m ${m.from_admin?"them":"me"}"><div class="b">${m.body?H(m.body).replace(/\n/g,"<br>"):""}${m.image?`<img src="${H(m.image)}" alt="photo" data-big>`:""}</div><small>${m.from_admin?"Admin · ":""}${H(when(m.created_at))}${!m.from_admin&&m.read_at?" · Seen":""}</small></div>`).join(""):`<div class="ql-sup-empty">👋 Hi! Ask anything — about plans, payments or how to use Quiz Library. The admin will answer here.</div>`;
+      box.querySelectorAll("[data-big]").forEach(i=>i.onclick=()=>window.open(i.src,"_blank"));
+      box.scrollTop=box.scrollHeight}
+    catch(e){box.innerHTML=`<div class="ql-sup-empty">Messages are not available right now.</div>`}
+  }
+  async function openSupport(){
+    if(!signedIn())return;if(chatOk===null)await refreshUnread();
+    const links=contactLinks();open=true;pic=null;
+    openModal("Help & Support",`<div class="ql-sup">
+      ${links.length?`<div class="ql-sup-ct"><div class="t">Contact the admin</div><div class="row">${links.map(([l,u,c,e])=>`<a href="${H(u)}" target="_blank" rel="noopener" style="--c:${c}">${e} ${H(l)}</a>`).join("")}</div>${contact().note?`<div class="n">${H(contact().note)}</div>`:""}</div>`:""}
+      ${chatOk?`<div class="t">${links.length?"Or send a message here":"Send a message to the admin"}</div>
+      <div class="ql-sup-msgs" id="qlSupMsgs"><div class="ql-sup-empty">Loading…</div></div>
+      <div class="ql-sup-pic hidden" id="qlSupPic"><img alt=""><button type="button" aria-label="Remove photo">×</button></div>
+      <div class="ql-sup-in"><label class="ql-sup-att" title="Add a screenshot">📷<input type="file" accept="image/*" hidden id="qlSupFile"></label><textarea id="qlSupText" rows="1" maxlength="2000" placeholder="Message…"></textarea><button type="button" id="qlSupSend">Send</button></div>`
+      :links.length?"":`<div class="ql-sup-empty">The admin hasn't added contact details yet.</div>`}</div>`);
+    const m=document.querySelector(".modal");if(m)m.style.width="min(560px,96vw)";
+    const close=document.querySelector(".modal .close,.modal [data-close],#modalClose");
+    const mo=new MutationObserver(()=>{if(!document.getElementById("qlSupMsgs")&&!document.querySelector(".ql-sup")){open=false;mo.disconnect()}});mo.observe(document.body,{childList:true,subtree:true});
+    if(!chatOk)return;
+    loadChat();
+    const txt=document.getElementById("qlSupText"),send=document.getElementById("qlSupSend"),file=document.getElementById("qlSupFile"),pv=document.getElementById("qlSupPic");
+    txt.oninput=()=>{txt.style.height="auto";txt.style.height=Math.min(140,txt.scrollHeight)+"px"};
+    file.onchange=async()=>{const f=file.files[0];file.value="";if(!f)return;try{pic=await shrink(f);pv.querySelector("img").src=pic;pv.classList.remove("hidden")}catch(e){toast(e.message||"Couldn't add that photo")}};
+    pv.querySelector("button").onclick=()=>{pic=null;pv.classList.add("hidden")};
+    const go=async()=>{const body=txt.value.trim();if(!body&&!pic)return txt.focus();send.disabled=true;send.textContent="Sending…";
+      try{const {error}=await cli().rpc("ql_support_send",{p_body:body,p_image:pic});if(error)throw error;txt.value="";txt.style.height="auto";pic=null;pv.classList.add("hidden");loadChat()}
+      catch(e){toast(String(e.message||e).replace(/^.*?:\s*(?=[A-Z])/,""))}finally{send.disabled=false;send.textContent="Send"}};
+    send.onclick=go;txt.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey&&matchMedia("(pointer:fine)").matches){e.preventDefault();go()}};
+  }
+  window.qlOpenSupport=openSupport;
+  setInterval(()=>{try{place();listen()}catch{}},1500);
+  setInterval(refreshUnread,60000);setTimeout(refreshUnread,3000);
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refreshUnread()});
+})();
+</script>
+<style id="qlSupportStyle">
+#qlSupportNav{position:relative}.ql-sup-dot{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;margin-left:auto;border-radius:999px;font-size:11px;font-weight:800;color:#fff;background:#ef4444}.ql-sup-dot[hidden]{display:none}
+.ql-sup-pf{display:inline-flex;align-items:center;gap:6px}
+.ql-sup{display:flex;flex-direction:column;gap:10px}.ql-sup .t{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#64748b}
+.ql-sup-ct .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}.ql-sup-ct a{flex:1 1 140px;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 12px;border-radius:14px;font-weight:800;font-size:14px;color:#fff;text-decoration:none;background:var(--c);box-shadow:0 6px 16px color-mix(in srgb,var(--c) 35%,transparent)}
+.ql-sup-ct .n{margin-top:6px;font-size:13px;color:#64748b}
+.ql-sup-msgs{display:flex;flex-direction:column;gap:8px;min-height:180px;max-height:min(46vh,380px);overflow-y:auto;padding:12px;border-radius:16px;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.14)}
+.ql-sup-m{display:flex;flex-direction:column;max-width:82%}.ql-sup-m.me{align-self:flex-end;align-items:flex-end}.ql-sup-m.them{align-self:flex-start}
+.ql-sup-m .b{padding:9px 13px;border-radius:16px;font-size:14.5px;line-height:1.45;overflow-wrap:anywhere}.ql-sup-m.me .b{color:#fff;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-bottom-right-radius:5px}.ql-sup-m.them .b{color:#1e293b;background:#fff;border:1px solid #e2e8f0;border-bottom-left-radius:5px}
+.ql-sup-m img{display:block;max-width:220px;max-height:220px;margin-top:6px;border-radius:10px;cursor:zoom-in}.ql-sup-m small{margin-top:3px;font-size:11px;color:#94a3b8}
+.ql-sup-empty{margin:auto;text-align:center;font-size:14px;color:#64748b;padding:16px}
+.ql-sup-in{display:flex;align-items:flex-end;gap:8px}.ql-sup-in textarea{flex:1;min-width:0;resize:none;height:44px;line-height:20px;padding:11px 13px;border-radius:14px;border:1px solid #cbd5e1;font:inherit;font-size:15px;max-height:140px}
+.ql-sup-in button,.ql-sup-att{height:44px;padding:0 16px;border:0;border-radius:14px;font-weight:800;cursor:pointer;color:#fff;background:linear-gradient(135deg,#6366f1,#8b5cf6)}.ql-sup-att{display:grid;place-items:center;padding:0 12px;font-size:19px;background:#eef2ff}
+.ql-sup-pic{position:relative;width:fit-content}.ql-sup-pic img{max-height:90px;border-radius:10px}.ql-sup-pic button{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;border:0;background:#0f172a;color:#fff;cursor:pointer}
+</style>
 </body></html>
