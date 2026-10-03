@@ -18682,7 +18682,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     new_pdf:['#newMenu [data-new="pdf"]','#adminQuickActions [data-quick="pdf"]'],new_quiz:['#newMenu [data-quiz-new]','#adminQuickActions [data-quiz-quick]'],
     item_share_in:['#itemMenu [data-ql-feat="item_share_in"]'],item_share_ex:['#itemMenu [data-ql-feat="item_share_ex"]'],item_duplicate:['#itemMenu [data-ql-feat="item_duplicate"]'],
     item_move:['#itemMenu [data-ql-feat="item_move"]'],item_edit:['#itemMenu [data-ql-feat="item_edit"]'],item_trash:['#itemMenu [data-ql-feat="item_trash"]'],
-    nav_dashboard:['#qlDashNav'],nav_support:['#qlSupportNav','.ql-sup-pf'],item_share_dash:['#itemMenu [data-ql-feat="item_share_dash"]'],dash_menu:['.ql-dash-more'],dash_save:['.ql-dash-save'],
+    nav_dashboard:['#qlDashNav'],nav_support:['#qlSupportNav','.ql-sup-pf'],mascot:['#qlPanda','.ql-panda-pf'],item_share_dash:['#itemMenu [data-ql-feat="item_share_dash"]'],dash_menu:['.ql-dash-more'],dash_save:['.ql-dash-save'],
     sel_share_in:['#selShareInBtn'],sel_share_ex:['#selShareExBtn'],sel_copy:['#copySelectedBtn'],sel_duplicate:['#duplicateSelectedBtn'],sel_move:['#moveSelectedBtn'],sel_trash:['#trashSelectedBtn'],
     quiz_autoadv:['#qzToolsAutoAdv','#qzBtnAutoAdvance'],quiz_shuffle:['#qzToolsShuffle','#qzBtnShuffle'],quiz_bookmark:['#qzBookmarkBtn','#qzFlagBtn'],quiz_summary:['#qzSummaryBtn'],quiz_results:['#qzBtnResults'],
     ed_addnew:['#qzBtnAddNew'],ed_images:['#qzBtnImageManager'],ed_move:['#qzBtnMoveQuestions'],ed_sections:['#qzBtnSessions'],ed_find:['#qzFindBar'],
@@ -18944,7 +18944,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       nav_dashboard:"Dashboard",item_share_dash:"Post to Dashboard",dash_menu:"⋮ menu on Dashboard",dash_save:"Save from Dashboard to my library",sel_share_in:"Share many internally",sel_share_ex:"Share many externally",sel_copy:"Copy links of many",sel_duplicate:"Duplicate many",sel_move:"Move many",sel_trash:"Trash many",
       quiz_autoadv:"Auto-advance",quiz_shuffle:"Shuffle",quiz_bookmark:"Bookmark & Flag",quiz_summary:"Quiz Summary",quiz_results:"Quiz Results",
       ed_addnew:"Add New Questions",ed_images:"Image Manager",ed_move:"Move Questions",ed_sections:"Sections",ed_find:"Find & check problems",
-      pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list",nav_support:"Help & Support"};
+      pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list",nav_support:"Help & Support",mascot:"Panda buddy 🐼"};
     for(const k in names){if(!["new_quiz","new_pdf","new_link","new_folder"].includes(k)&&has(k))out.push([names[k],true])}
     if(p.features&&Array.isArray(p.features._others))p.features._others.forEach(t=>{if(String(t).trim())out.push([String(t),true])});
     return out;
@@ -19122,5 +19122,146 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
 .ql-sup-in{display:flex;align-items:flex-end;gap:8px}.ql-sup-in textarea{flex:1;min-width:0;resize:none;height:44px;line-height:20px;padding:11px 13px;border-radius:14px;border:1px solid #cbd5e1;font:inherit;font-size:15px;max-height:140px}
 .ql-sup-in button,.ql-sup-att{height:44px;padding:0 16px;border:0;border-radius:14px;font-weight:800;cursor:pointer;color:#fff;background:linear-gradient(135deg,#6366f1,#8b5cf6)}.ql-sup-att{display:grid;place-items:center;padding:0 12px;font-size:19px;background:#eef2ff}
 .ql-sup-pic{position:relative;width:fit-content}.ql-sup-pic img{max-height:90px;border-radius:10px}.ql-sup-pic button{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;border:0;background:#0f172a;color:#fff;cursor:pointer}
+</style>
+<script id="qlPandaBuddy">
+/* Kuza: Panda buddy. A small full-body panda in the corner that makes students smile:
+   waves hello, dances on a right answer, facepalms on a wrong one, celebrates a finished quiz
+   or a claimed gift, giggles + tells a joke when tapped, and falls asleep when the app is idle.
+   Students can hide him (× in his speech bubble) and bring him back from My Profile.
+   The admin can switch him off / by plan in Website Control (key: mascot). */
+(function(){
+  const OFF_KEY="ql_panda_off";
+  const isOff=()=>{try{return localStorage.getItem(OFF_KEY)==="1"}catch{return false}};
+  const setOff=v=>{try{v?localStorage.setItem(OFF_KEY,"1"):localStorage.removeItem(OFF_KEY)}catch{}};
+  const signedIn=()=>typeof state!=="undefined"&&state.user&&!state.isAdmin;
+  const firstName=()=>{const u=state.user||{},m=u.user_metadata||{};return String(m.full_name||m.name||(u.email||"").split("@")[0]||"").split(" ")[0]};
+  const pick=a=>a[Math.floor(Math.random()*a.length)];
+  const JOKES=["Your brain is now 87% quiz 🧠","I only eat bamboo and correct answers 🎋","Studying makes you smarter. Napping makes me cuter 😴","Why did the panda pass the exam? He was bear-y prepared 🐼","Tickling me does not count as studying 🤭","One more quiz and I'll do a backflip! (I can't do backflips)","I'm black, white, and 100% proud of you 🖤🤍","Fun fact: pandas spend 14 hours a day eating. You spend it studying. We're both legends.","Stop poking me and go win that exam 😤","My bamboo, my rules: drink water and keep going 💧"];
+  const RIGHT=["YES! You're a genius! 🎉","Nailed it! 💪","Bamboo party! 🎋🎉","Big brain moment 🧠✨","Correct! I'm dancing for you 💃"];
+  const WRONG=["Oops! Next one is yours 💪","Even pandas fall from trees 🙈","Shake it off, try again!","Mistakes = learning. Keep going!","Ouch… but you got this! 🐼"];
+  const SVG=`<svg viewBox="0 0 120 160" class="qp-svg" aria-hidden="true">
+    <ellipse class="qp-shadow" cx="60" cy="154" rx="30" ry="5"/>
+    <g class="qp-all">
+      <g class="qp-legL"><rect x="38" y="126" width="18" height="26" rx="9" fill="#1f2328"/><ellipse cx="47" cy="150" rx="11" ry="5" fill="#1f2328"/></g>
+      <g class="qp-legR"><rect x="64" y="126" width="18" height="26" rx="9" fill="#1f2328"/><ellipse cx="73" cy="150" rx="11" ry="5" fill="#1f2328"/></g>
+      <ellipse cx="60" cy="112" rx="31" ry="30" fill="#fff" stroke="#e6e8ec" stroke-width="1.5"/>
+      <path d="M31 104 Q60 88 89 104 L89 96 Q60 80 31 96 Z" fill="#1f2328"/>
+      <ellipse cx="60" cy="118" rx="17" ry="16" fill="#f5f6f8"/>
+      <g class="qp-armL"><rect x="22" y="94" width="15" height="34" rx="7.5" fill="#1f2328"/></g>
+      <g class="qp-armR"><rect x="83" y="94" width="15" height="34" rx="7.5" fill="#1f2328"/></g>
+      <g class="qp-head">
+        <circle cx="31" cy="27" r="12" fill="#1f2328"/><circle cx="89" cy="27" r="12" fill="#1f2328"/>
+        <circle cx="31" cy="27" r="5.5" fill="#ffb3c7" opacity=".55"/><circle cx="89" cy="27" r="5.5" fill="#ffb3c7" opacity=".55"/>
+        <ellipse cx="60" cy="54" rx="34" ry="31" fill="#fff" stroke="#e6e8ec" stroke-width="1.5"/>
+        <ellipse cx="45" cy="54" rx="10" ry="12.5" fill="#1f2328" transform="rotate(-24 45 54)"/>
+        <ellipse cx="75" cy="54" rx="10" ry="12.5" fill="#1f2328" transform="rotate(24 75 54)"/>
+        <g class="qp-eyes"><circle cx="46" cy="53" r="4.6" fill="#fff"/><circle cx="74" cy="53" r="4.6" fill="#fff"/><circle class="qp-pupil" cx="47" cy="53.5" r="2.4" fill="#111"/><circle class="qp-pupil" cx="73" cy="53.5" r="2.4" fill="#111"/><circle cx="47.8" cy="52.2" r=".9" fill="#fff"/><circle cx="73.8" cy="52.2" r=".9" fill="#fff"/></g>
+        <g class="qp-closed"><path d="M40 54 Q46 59 52 54" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/><path d="M68 54 Q74 59 80 54" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/></g>
+        <g class="qp-happy"><path d="M40 56 Q46 49 52 56" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M68 56 Q74 49 80 56" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
+        <ellipse cx="60" cy="66" rx="5" ry="3.6" fill="#1f2328"/>
+        <path class="qp-smile" d="M53 71 Q56.5 75 60 71 Q63.5 75 67 71" stroke="#1f2328" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <ellipse class="qp-open" cx="60" cy="74" rx="5" ry="4" fill="#e2566f"/>
+        <circle cx="35" cy="68" r="5" fill="#ff8fab" opacity=".45"/><circle cx="85" cy="68" r="5" fill="#ff8fab" opacity=".45"/>
+      </g>
+    </g>
+  </svg>`;
+  let el=null,bubbleT=null,actT=null,idleT=null,greeted=false,mode="";
+  function act(name,ms){if(!el)return;clearTimeout(actT);el.classList.remove("qp-wave","qp-dance","qp-facepalm","qp-giggle","qp-cheer","qp-sleep");void el.offsetWidth;el.classList.add("qp-"+name);if(ms)actT=setTimeout(()=>el&&el.classList.remove("qp-"+name),ms);poke()}
+  function say(text,ms=4200){if(!el)return;const b=el.querySelector(".qp-bubble");b.querySelector(".qp-text").textContent=text;b.classList.add("show");clearTimeout(bubbleT);bubbleT=setTimeout(()=>b.classList.remove("show"),ms)}
+  function confetti(){if(!el)return;const box=el.querySelector(".qp-conf");box.innerHTML=Array.from({length:18},(_,i)=>`<i style="left:${10+Math.random()*80}%;background:${["#f43f5e","#f59e0b","#22c55e","#3b82f6","#a855f7","#ec4899"][i%6]};animation-delay:${(Math.random()*.3).toFixed(2)}s;--dx:${(Math.random()*80-40).toFixed(0)}px"></i>`).join("");setTimeout(()=>{if(box)box.innerHTML=""},1800)}
+  function poke(){clearTimeout(idleT);if(el&&el.classList.contains("qp-sleep")&&mode!=="sleeping"){}idleT=setTimeout(sleep,90000)}
+  function sleep(){if(!el)return;mode="sleeping";act("sleep");say("Zzz… wake me up when you study 😴",3500)}
+  function wake(){if(mode==="sleeping"){mode="";el.classList.remove("qp-sleep");act("wave",1800);say(pick(["I'm awake! I'm awake! 😳","Oh hi! Was I snoring? 🙈","Back to work! 💪"]))}poke()}
+  function build(){
+    if(el||!signedIn()||isOff())return;
+    el=document.createElement("div");el.id="qlPanda";el.className="ql-panda";el.setAttribute("role","button");el.setAttribute("aria-label","Panda buddy — tap me");
+    el.innerHTML=`<div class="qp-bubble"><span class="qp-text"></span><button type="button" class="qp-x" aria-label="Hide panda" title="Hide panda">×</button></div><div class="qp-conf"></div><div class="qp-zzz">z<span>z</span><span>Z</span></div>${SVG}`;
+    document.body.appendChild(el);
+    el.addEventListener("click",e=>{if(e.target.closest(".qp-x")){e.stopPropagation();hide();return}if(mode==="sleeping")return wake();act("giggle",1300);say(pick(JOKES))});
+    act("wave",2200);
+    setTimeout(()=>{if(!greeted){greeted=true;const n=firstName();say(n?`Hi ${n}! Ready to study? 🐼`:"Hi! Ready to study? 🐼",4500)}},500);
+    poke();
+  }
+  function hide(){setOff(true);if(el){el.classList.add("qp-bye");const x=el;setTimeout(()=>x.remove(),400);el=null}toast("Panda is hiding 🐼 — bring him back in My Profile");placePf()}
+  function show(){setOff(false);build();placePf();if(el){act("cheer",1500);confetti();say("I'm back! Did you miss me? 🐼")}}
+  function placePf(){const acts=document.querySelector(".profile-actions");if(!acts)return;let b=acts.querySelector(".ql-panda-pf");
+    if(!isOff()){if(b)b.remove();return}
+    if(!b){b=document.createElement("button");b.type="button";b.className="btn ql-panda-pf";b.textContent="🐼 Show Panda buddy";b.onclick=show;acts.appendChild(b)}}
+  /* react to what happens in the app */
+  const seen=new WeakSet();
+  new MutationObserver(()=>{
+    if(!el)return;
+    document.querySelectorAll(".qz-run-feedback.correct,.qz-run-feedback.incorrect").forEach(f=>{if(seen.has(f))return;seen.add(f);mode="";el.classList.remove("qp-sleep");
+      if(f.classList.contains("correct")){act("dance",1700);say(pick(RIGHT),2600)}else{act("facepalm",1900);say(pick(WRONG),2600)}});
+    document.querySelectorAll(".qz-results-hero,.ql-congrats,.qok .big").forEach(f=>{if(seen.has(f))return;seen.add(f);act("cheer",2200);confetti();say(f.classList.contains("qz-results-hero")?"Quiz done! I'm so proud of you 🎉":"Woohoo! Congratulations! 🎉",3500)});
+    const modalOpen=!!document.querySelector("#modalOverlay.show,#qlGiftPop,#qlKicked");el.classList.toggle("qp-dim",modalOpen);
+    const inQuiz=!!document.querySelector(".qz-run-option,.qz-runner-result");el.classList.toggle("qp-left",inQuiz);
+  }).observe(document.body,{childList:true,subtree:true});
+  ["pointerdown","keydown","scroll"].forEach(t=>addEventListener(t,()=>{if(el)wake()},{passive:true,capture:true}));
+  setInterval(()=>{try{if(signedIn()&&!isOff())build();else if(el&&!signedIn()){el.remove();el=null;greeted=false}placePf()}catch{}},1500);
+  window.qlPanda={say,act,show,hide};
+})();
+</script>
+<style id="qlPandaStyle">
+.ql-panda{position:fixed;right:14px;bottom:16px;z-index:9000;width:84px;height:112px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .3s,transform .35s,left .35s,right .35s;user-select:none}
+@media (max-width:820px){.ql-panda{bottom:84px;width:70px;height:94px;right:8px}}
+.ql-panda.qp-left{right:auto;left:10px}
+.ql-panda.qp-dim{opacity:0;pointer-events:none}
+.ql-panda.qp-bye{opacity:0;transform:translateY(40px) scale(.6)}
+.qp-svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 6px 10px rgba(0,0,0,.18))}
+.qp-shadow{fill:rgba(0,0,0,.12)}
+.qp-all,.qp-head,.qp-armL,.qp-armR,.qp-legL,.qp-legR,.qp-eyes{transform-box:fill-box}
+.qp-all{transform-origin:50% 100%;animation:qpBreath 3.2s ease-in-out infinite}
+.qp-head{transform-origin:50% 100%}
+.qp-armL,.qp-armR{transform-origin:50% 8%;transition:transform .25s}
+.qp-armL{transform:rotate(14deg)}.qp-armR{transform:rotate(-14deg)}
+.qp-eyes{transform-origin:50% 50%;animation:qpBlink 4.5s infinite}
+.qp-closed,.qp-happy,.qp-open{opacity:0}
+@keyframes qpBreath{0%,100%{transform:translateY(0) scaleY(1)}50%{transform:translateY(-1.5px) scaleY(1.012)}}
+@keyframes qpBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+/* wave */
+.qp-wave .qp-armR{animation:qpWave .45s ease-in-out 4 alternate}
+@keyframes qpWave{from{transform:rotate(-140deg)}to{transform:rotate(-168deg)}}
+.qp-wave .qp-head{animation:qpTilt .9s ease-in-out 2 alternate}
+@keyframes qpTilt{from{transform:rotate(-5deg)}to{transform:rotate(5deg)}}
+/* dance */
+.qp-dance .qp-all{animation:qpDance .42s ease-in-out 4 alternate}
+.qp-dance .qp-armL{animation:qpArmUpL .42s ease-in-out 4 alternate}
+.qp-dance .qp-armR{animation:qpArmUpR .42s ease-in-out 4 alternate}
+.qp-dance .qp-happy,.qp-cheer .qp-happy,.qp-giggle .qp-happy{opacity:1}.qp-dance .qp-eyes,.qp-cheer .qp-eyes,.qp-giggle .qp-eyes{opacity:0}
+.qp-dance .qp-open,.qp-cheer .qp-open,.qp-giggle .qp-open{opacity:1}
+@keyframes qpDance{from{transform:translateY(0) rotate(-9deg)}to{transform:translateY(-10px) rotate(9deg)}}
+@keyframes qpArmUpL{from{transform:rotate(150deg)}to{transform:rotate(110deg)}}
+@keyframes qpArmUpR{from{transform:rotate(-110deg)}to{transform:rotate(-150deg)}}
+/* facepalm */
+.qp-facepalm .qp-armR{transform:rotate(152deg)}
+.qp-facepalm .qp-head{animation:qpSad 1.8s ease-in-out forwards}
+.qp-facepalm .qp-closed{opacity:1}.qp-facepalm .qp-eyes{opacity:0}
+@keyframes qpSad{0%{transform:rotate(0)}30%,80%{transform:rotate(8deg) translateY(2px)}100%{transform:rotate(0)}}
+/* giggle */
+.qp-giggle .qp-all{animation:qpShake .12s linear 10 alternate}
+@keyframes qpShake{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}
+.qp-giggle .qp-armL{transform:rotate(-30deg)}.qp-giggle .qp-armR{transform:rotate(30deg)}
+/* cheer */
+.qp-cheer .qp-all{animation:qpJump .5s cubic-bezier(.3,1.6,.5,1) 3}
+.qp-cheer .qp-armL{transform:rotate(155deg)}.qp-cheer .qp-armR{transform:rotate(-155deg)}
+@keyframes qpJump{0%,100%{transform:translateY(0)}45%{transform:translateY(-22px) scale(1.04)}}
+/* sleep */
+.qp-sleep .qp-all{animation:qpBreath 4.5s ease-in-out infinite}
+.qp-sleep .qp-head{transform:rotate(12deg) translateY(3px)}
+.qp-sleep .qp-closed{opacity:1}.qp-sleep .qp-eyes{opacity:0}
+.qp-zzz{position:absolute;right:-4px;top:-6px;font:800 15px/1 system-ui,sans-serif;color:#64748b;opacity:0;pointer-events:none}
+.qp-zzz span{margin-left:2px;font-size:1.25em}
+.qp-sleep .qp-zzz{opacity:1;animation:qpZ 2.4s ease-in-out infinite}
+@keyframes qpZ{0%{transform:translate(0,6px);opacity:0}30%{opacity:1}100%{transform:translate(10px,-16px);opacity:0}}
+/* speech bubble */
+.qp-bubble{position:absolute;right:58px;bottom:84px;width:max-content;max-width:min(230px,70vw);padding:9px 26px 9px 12px;border-radius:16px 16px 4px 16px;font:600 13.5px/1.35 system-ui,-apple-system,sans-serif;color:#1e293b;background:#fff;box-shadow:0 10px 26px rgba(15,23,42,.2);opacity:0;transform:translateY(8px) scale(.9);transform-origin:100% 100%;transition:opacity .2s,transform .2s;pointer-events:none}
+.qp-bubble.show{opacity:1;transform:none;pointer-events:auto}
+.qp-left .qp-bubble{right:auto;left:58px;border-radius:16px 16px 16px 4px;transform-origin:0 100%}
+.qp-x{position:absolute;top:3px;right:4px;width:20px;height:20px;border:0;border-radius:50%;background:#f1f5f9;color:#64748b;font-size:14px;line-height:1;cursor:pointer}
+.qp-conf{position:absolute;inset:-30px -10px 40px;pointer-events:none}
+.qp-conf i{position:absolute;top:40%;width:7px;height:10px;border-radius:2px;opacity:0;animation:qpConf 1.4s ease-out forwards}
+@keyframes qpConf{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(var(--dx),-70px) rotate(420deg)}}
+@media (prefers-reduced-motion:reduce){.ql-panda *{animation:none!important}}
 </style>
 </body></html>
