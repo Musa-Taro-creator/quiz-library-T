@@ -780,7 +780,11 @@ async function settingsView(){
    <div class="two"><div class="fld"><label>Bakong ID</label><input id="kqId" class="in" placeholder="yourname@bkrt" autocomplete="off" spellcheck="false" value="${h(p.bakong_id||"")}"></div><div class="fld"><label>Name on the QR</label><input id="kqName" class="in" maxlength="25" placeholder="e.g. Quiz Library" value="${h(p.khqr_name||"")}"></div></div>
    <div class="fld"><label>City</label><input id="kqCity" class="in" style="max-width:260px" maxlength="15" placeholder="Phnom Penh" value="${h(p.khqr_city||"")}"></div>
    <div class="note" style="margin:0 0 10px">Find your Bakong ID in the Bakong app → <b>Receive</b> (it ends with <b>@bkrt</b> or your bank's code).</div>
-   <button class="btn p" id="kqSave">Save KHQR</button></div>
+   <button class="btn p" id="kqSave">Save KHQR</button>
+   <div class="sec-t" style="margin-top:16px">Test Bakong from this device</div>
+   <div class="note" style="margin:0 0 8px">Checks if this phone / iPad can talk to Bakong. Your token is kept <b>only on this device</b> (never in the website code or the database).</div>
+   <div class="inline" style="flex-wrap:wrap"><input id="kqTok" class="in" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Bakong token" style="flex:1;min-width:200px"><button class="btn" id="kqTest">🔌 Test Bakong</button></div>
+   <div id="kqRes" class="note" style="margin:8px 0 0"></div></div>
   <div class="card" style="max-width:760px"><h3>Payment details shown to students</h3><div class="two"><div>
    <div class="fld"><label>Bank / wallet</label><input id="sBank" class="in" value="${h(p.bank)}" placeholder="e.g. ABA Bank"></div>
    <div class="fld"><label>Account name</label><input id="sName" class="in" value="${h(p.account_name)}"></div>
@@ -805,6 +809,17 @@ async function settingsView(){
   let qr=p.qr_image;
   $("#sQr").onchange=async e=>{const f=e.target.files[0];if(!f)return;qr=await resizeImage(f,700,.85);const i=$("#sQrImg");i.outerHTML=`<img class="qrprev" id="sQrImg" src="${qr}">`};
   $("#sQrDel")&&($("#sQrDel").onclick=()=>{qr="";$("#sQrImg").outerHTML=`<div class="qrprev" id="sQrImg" style="display:grid;place-items:center;color:var(--muted);font-size:12px">No QR</div>`});
+  try{$("#kqTok").value=localStorage.getItem("ql_bakong_token")||""}catch{}
+  $("#kqTest").onclick=async e=>{const b=e.currentTarget,res=$("#kqRes"),tok=$("#kqTok").value.trim();
+    if(!tok)return $("#kqTok").focus();try{localStorage.setItem("ql_bakong_token",tok)}catch{}
+    b.disabled=true;res.style.color="";res.textContent="Asking Bakong…";const t0=Date.now();
+    try{const r=await fetch("https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok},body:JSON.stringify({md5:"00000000000000000000000000000000"})});
+      const txt=await r.text();let j=null;try{j=JSON.parse(txt)}catch{}
+      if(j&&"responseCode" in j){const okTok=!/token|unauthor/i.test(j.responseMessage||"")&&r.status!==401;
+        res.style.color=okTok?"#059669":"#d97706";res.innerHTML=(okTok?"✅ <b>It works!</b> This device can check Bakong payments.":"⚠️ Bakong answered, but the <b>token</b> looks wrong or expired.")+`<br><small>HTTP ${r.status} · ${Date.now()-t0} ms · Bakong says: ${h(String(j.responseMessage||"").slice(0,120))}</small>`}
+      else{res.style.color="#dc2626";res.innerHTML=`❌ Bakong refused this device (HTTP ${r.status}).<br><small>${h(txt.replace(/<[^>]+>/g," ").replace(/\s+/g," ").slice(0,120))}</small>`}}
+    catch(x){res.style.color="#dc2626";res.innerHTML=`❌ This device can't reach Bakong (the browser blocked it).<br><small>${h(String(x.message||x))}</small>`}
+    finally{b.disabled=false}};
   $("#kqSave").onclick=()=>{const id=$("#kqId").value.trim().toLowerCase();if(id&&!/^[a-z0-9._-]+@[a-z0-9]+$/.test(id))return alert("A Bakong ID looks like name@bkrt");
     saveSetting("payment",{...(settings.payment||{}),bakong_id:id,khqr_name:$("#kqName").value.trim(),khqr_city:$("#kqCity").value.trim()},id?"KHQR saved — students now pay with your KHQR":"KHQR turned off")};
   $("#sSave").onclick=()=>saveSetting("payment",{...(settings.payment||{}),bank:$("#sBank").value.trim(),account_name:$("#sName").value.trim(),account_number:$("#sNum").value.trim(),note:$("#sNote").value.trim(),qr_image:qr,receipts:$("#sRec").checked},"Payment details saved");
