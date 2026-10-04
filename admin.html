@@ -200,6 +200,8 @@ body.t-ocean .bars div{background:linear-gradient(180deg,#fdba74,#0e6377)}
 .rvchecks{margin-top:10px;display:flex;flex-direction:column;gap:6px}.rvc{margin-top:6px;padding:8px 11px;border-radius:10px;font-size:13.5px;background:rgba(100,116,139,.12)}.rvc.ok{background:rgba(16,185,129,.14);color:#059669}.rvc.warn{background:rgba(245,158,11,.16);color:#b45309}.rvc.bad{background:rgba(239,68,68,.15);color:#dc2626}
 .rvbtns{margin-top:14px}.rvbtns .btn{flex:1;justify-content:center;padding:13px;font-size:16px}.rvrej{margin-top:10px}
 @media(max-width:760px){.rvw{grid-template-columns:1fr}.rvimg img{max-height:46vh}}
+.kq-steps{margin-top:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:color-mix(in srgb,var(--card,#fff) 70%,transparent)}.kq-steps ol{margin:0 0 10px;padding-left:20px;line-height:1.7;font-size:13.5px}
+.kq-cmd{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}.kq-cmd code{flex:1;min-width:200px;padding:10px;border-radius:10px;background:#0f172a;color:#a7f3d0;font-size:12px;word-break:break-all;line-height:1.5}
 .kq-tag{display:inline-flex;flex-direction:column;align-items:center;padding:5px 8px;border-radius:10px;background:#e1251b;color:#fff;font-weight:800;font-size:11px;letter-spacing:1px;cursor:pointer;line-height:1.2}.kq-tag b{font-size:10px;letter-spacing:.3px;font-weight:600;opacity:.9}
 .kq-box{width:100%;border-radius:16px;background:#fff;color:#111;box-shadow:0 6px 20px rgba(15,23,42,.12);overflow:hidden;margin-bottom:8px}.kq-hd{background:#e1251b;color:#fff;text-align:center;font-weight:800;letter-spacing:2px;padding:9px}
 .kq-am{font-size:30px;font-weight:800;text-align:center;padding:12px 0 2px}.kq-bl{text-align:center;color:#6b7280;font-size:13px}.kq-bl b{color:#111;letter-spacing:.5px}.kq-box ol{font-size:13px;line-height:1.6;margin:10px 0 14px;padding:0 16px 0 34px}
@@ -556,7 +558,7 @@ async function pay(){
 async function receipts(tabs){
   const rows=await rpc("ql_admin_payments",{p_status:payStatus});
   $("#view").innerHTML=head("Payments","Approve a receipt, or give an activation code")+tabs+`
-  <div class="filters">${[["waiting","Waiting"],["approved","Approved"],["rejected","Rejected"]].map(([k,l])=>`<button class="btn ${payStatus===k?"on":""}" data-s="${k}">${l}</button>`).join("")}</div>
+  <div class="filters">${[["waiting","Waiting"],["approved","Approved"],["rejected","Rejected"]].map(([k,l])=>`<button class="btn ${payStatus===k?"on":""}" data-s="${k}">${l}</button>`).join("")}<span id="kqPayChip" style="margin-left:auto"></span></div>
   <div class="card"><div class="tbl"><table><tr><th>Receipt</th><th>User</th><th>Plan</th><th>Amount</th><th>Sent</th><th></th></tr>
   ${rows.length?rows.map(r=>`<tr><td>${r.receipt?`<img class="rec" src="${h(r.receipt)}" data-big="${r.id}" alt="receipt">`:r.method==="khqr"?`<span class="kq-tag" data-kq="${r.id}">KHQR<b>${h(r.bill||"")}</b></span>`:"—"}</td><td><div class="u"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div>${h(r.name)}<small>${h(r.email)}</small></div></div></td>
    <td>${planTag(r.plan_id," · "+(r.period==="month"?"1 month":r.period==="year"?"1 year":"lifetime"))}</td><td><b>${money(r.amount)}</b></td><td>${ago(r.created_at)}</td>
@@ -564,6 +566,7 @@ async function receipts(tabs){
   <div class="note">Approve = their plan switches on right away (1 month = 30 days, 1 year = 365 days), added on top of any time they still have.</div></div>`;
   $$("[data-t]").forEach(b=>b.onclick=()=>{payTab=b.dataset.t;go("pay")});
   $$("[data-s]").forEach(b=>b.onclick=()=>{payStatus=b.dataset.s;go("pay")});
+  kqStatus().then(c=>{const el=$("#kqPayChip");if(el)el.innerHTML=kqChip(c)});
   $$("[data-big]").forEach(i=>i.onclick=()=>modal("Receipt",`<img src="${i.src}" style="width:100%;border-radius:12px">`));
   $$("[data-kq]").forEach(i=>{const k=rows.findIndex(r=>r.id===i.dataset.kq);i.onclick=()=>payStatus==="waiting"&&k>=0?reviewPay(rows,k):0});
   const decide=async(id,ok)=>{let note="";if(!ok){note=prompt("Reason (the student sees this):","Payment not found")??null;if(note===null)return}
@@ -752,6 +755,39 @@ async function board(){
     modal("Preview · "+h(r.title||""),root?line(root,0):`<div class="empty">Empty</div>`)});
 }
 
+/* ---------------- KHQR auto-check (Android phone + Termux) ---------------- */
+const KQ_SCRIPT=STUDENT_SITE.replace(/\/?$/,"/")+"tools/khqr-checker.py";
+async function kqStatus(){try{return await rpc("ql_admin_khqr_checker")}catch(e){return {missing:/ql_admin_khqr_checker|PGRST202|42883/.test(String(e.message||e))}}}
+function kqOnline(c){return !!(c&&c.last_seen&&new Date(c.now||Date.now())-new Date(c.last_seen)<90000)}
+function kqChip(c){if(!c||c.missing||!c.has_secret)return "";const on=kqOnline(c),bad=on&&c.last_note&&c.last_note!=="ok";
+  return `<span class="tag ${on&&!bad?"ok":"no"}" title="${h(c.last_note||"")}">⚡ Auto-check ${on?(bad?"has a problem":"online"):"offline"}</span>`}
+async function kqAuto(){
+  const box=$("#kqAuto");if(!box)return;const c=await kqStatus();
+  if(c.missing){box.innerHTML=`<div class="note" style="margin:0">One-time setup first: run <b>khqr_autocheck.sql</b> in Supabase → SQL Editor.</div>`;return}
+  const on=kqOnline(c),bad=on&&c.last_note&&c.last_note!=="ok";
+  box.innerHTML=`<div class="inline" style="flex-wrap:wrap;margin-bottom:8px">${c.has_secret?kqChip(c):`<span class="tag no">Not set up</span>`}
+     ${c.has_secret&&c.last_seen?`<span class="note" style="margin:0">Last check ${ago(c.last_seen)}${c.device?" · "+h(c.device):""} · ${c.approved||0} approved automatically</span>`:""}</div>
+    ${bad?`<div class="note" style="margin:0 0 8px;color:#d97706">⚠️ ${h(c.last_note)}</div>`:""}
+    ${c.has_secret&&!on?`<div class="note" style="margin:0 0 8px">The phone isn't checking right now. Open <b>Termux</b> on it and type <b>python ~/khqr.py</b> then Enter. Payments wait (or approve them by hand) until it's back.</div>`:""}
+    <div class="inline" style="flex-wrap:wrap"><button class="btn ${c.has_secret?"":"p"}" id="kqSetup">📱 ${c.has_secret?"Set up a phone again (new key)":"Set up my Android phone"}</button><button class="btn" id="kqRefresh">↻ Refresh</button></div>
+    <div id="kqCmd"></div>`;
+  $("#kqRefresh").onclick=()=>kqAuto();
+  $("#kqSetup").onclick=async()=>{
+    if(c.has_secret&&!confirm("Make a new secret key? The phone that is set up now will stop checking until you set it up again."))return;
+    let key;try{key=await rpc("ql_admin_khqr_new_secret")}catch(e){return alert(errMsg(e))}
+    const cmd=`pkg install -y python curl && curl -fsSL ${KQ_SCRIPT} -o ~/khqr.py && python ~/khqr.py setup ${key}`;
+    $("#kqCmd").innerHTML=`<div class="kq-steps"><ol>
+      <li>On your <b>Android phone</b>, install <b>F-Droid</b> from <b>f-droid.org</b>, then install <b>Termux</b> from F-Droid. <small>(Not from the Play Store.)</small></li>
+      <li>Phone <b>Settings → Apps → Termux → Battery → Unrestricted</b>.</li>
+      <li>Open this admin page <b>on that phone</b>, tap <b>Copy command</b>, open <b>Termux</b>, long-press → <b>Paste</b>, press <b>Enter</b>.</li>
+      <li>When it asks, paste your <b>Bakong token</b> and press Enter. ✅ Done — leave Termux open (you can lock the screen).</li></ol>
+      <div class="kq-cmd"><code id="kqCode">${h(cmd)}</code><button class="btn p" id="kqCopy">📋 Copy command</button></div>
+      <div class="note" style="margin:6px 0 0">🔒 This command has a secret key — don't share it. After a phone restart: open Termux and type <b>python ~/khqr.py</b></div></div>`;
+    $("#kqCopy").onclick=async()=>{try{await navigator.clipboard.writeText(cmd);toast("Copied — paste it in Termux")}catch{const r=document.createRange();r.selectNodeContents($("#kqCode"));const sel=getSelection();sel.removeAllRanges();sel.addRange(r);document.execCommand("copy");toast("Copied")}};
+    const t0=Date.now(),poll=setInterval(async()=>{if(!$("#kqCmd")||Date.now()-t0>15*60000)return clearInterval(poll);const n=await kqStatus();if(n.last_seen){clearInterval(poll);toast("📱 Phone connected — auto-check is on");kqAuto()}},5000);
+  };
+}
+
 /* ---------------- settings ---------------- */
 async function settingsView(){
   await loadCommon();const p={bank:"",account_name:"",account_number:"",qr_image:"",note:"",receipts:true,...(settings.payment||{})};
@@ -776,15 +812,14 @@ async function settingsView(){
    <div id="pushBody"><div class="note">Checking…</div></div></div>
   <div class="card" style="max-width:760px;margin-bottom:16px"><h3>Admin look</h3><div class="thpick">${[["white","White Glass","linear-gradient(135deg,#dbeafe,#fce7f3)"],["neon","Neon Lines","repeating-linear-gradient(60deg,#0b1220 0 8px,#00e5ff66 8px 9px,#0b1220 9px 16px,#ff2e9766 16px 17px)"],["ocean","Ocean Sunrise","linear-gradient(120deg,#0b3954,#0e6377 55%,#f08a4b)"]].map(([k,l,g])=>`<button type="button" data-th="${k}" class="${curTheme===k?"on":""}"><i style="background:${g}"></i>${l}</button>`).join("")}</div></div>`+`
   <div class="card" style="max-width:760px;margin-bottom:16px"><h3>💳 KHQR (Bakong)</h3>
-   <div class="note" style="margin:0 0 10px">Students see <b>your KHQR with the exact price already filled in</b> and a bill number. They pay with any bank app and tap <b>I paid</b> — you approve it in Payments. Leave the Bakong ID empty to use the receipt upload below instead.</div>
+   <div class="note" style="margin:0 0 10px">Students see <b>your KHQR with the exact price already filled in</b> and a bill number. They pay with any bank app and tap <b>I paid</b> — the ⚡ auto-check below approves it by itself (or you approve it in Payments). Leave the Bakong ID empty to use the receipt upload below instead.</div>
    <div class="two"><div class="fld"><label>Bakong ID</label><input id="kqId" class="in" placeholder="yourname@bkrt" autocomplete="off" spellcheck="false" value="${h(p.bakong_id||"")}"></div><div class="fld"><label>Name on the QR</label><input id="kqName" class="in" maxlength="25" placeholder="e.g. Quiz Library" value="${h(p.khqr_name||"")}"></div></div>
    <div class="fld"><label>City</label><input id="kqCity" class="in" style="max-width:260px" maxlength="15" placeholder="Phnom Penh" value="${h(p.khqr_city||"")}"></div>
    <div class="note" style="margin:0 0 10px">Find your Bakong ID in the Bakong app → <b>Receive</b> (it ends with <b>@bkrt</b> or your bank's code).</div>
    <button class="btn p" id="kqSave">Save KHQR</button>
-   <div class="sec-t" style="margin-top:16px">Test Bakong from this device</div>
-   <div class="note" style="margin:0 0 8px">Checks if this phone / iPad can talk to Bakong. Your token is kept <b>only on this device</b> (never in the website code or the database).</div>
-   <div class="inline" style="flex-wrap:wrap"><input id="kqTok" class="in" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Bakong token" style="flex:1;min-width:200px"><button class="btn" id="kqTest">🔌 Test Bakong</button></div>
-   <div id="kqRes" class="note" style="margin:8px 0 0"></div></div>
+   <div class="sec-t" style="margin-top:18px">⚡ Auto-check with your Android phone</div>
+   <div class="note" style="margin:0 0 8px">Your Android phone (app <b>Termux</b>) asks Bakong if each KHQR was paid and switches the plan on by itself. Your Bakong token stays on that phone only.</div>
+   <div id="kqAuto"><div class="note">Checking…</div></div></div>
   <div class="card" style="max-width:760px"><h3>Payment details shown to students</h3><div class="two"><div>
    <div class="fld"><label>Bank / wallet</label><input id="sBank" class="in" value="${h(p.bank)}" placeholder="e.g. ABA Bank"></div>
    <div class="fld"><label>Account name</label><input id="sName" class="in" value="${h(p.account_name)}"></div>
@@ -809,17 +844,8 @@ async function settingsView(){
   let qr=p.qr_image;
   $("#sQr").onchange=async e=>{const f=e.target.files[0];if(!f)return;qr=await resizeImage(f,700,.85);const i=$("#sQrImg");i.outerHTML=`<img class="qrprev" id="sQrImg" src="${qr}">`};
   $("#sQrDel")&&($("#sQrDel").onclick=()=>{qr="";$("#sQrImg").outerHTML=`<div class="qrprev" id="sQrImg" style="display:grid;place-items:center;color:var(--muted);font-size:12px">No QR</div>`});
-  try{$("#kqTok").value=localStorage.getItem("ql_bakong_token")||""}catch{}
-  $("#kqTest").onclick=async e=>{const b=e.currentTarget,res=$("#kqRes"),tok=$("#kqTok").value.trim();
-    if(!tok)return $("#kqTok").focus();try{localStorage.setItem("ql_bakong_token",tok)}catch{}
-    b.disabled=true;res.style.color="";res.textContent="Asking Bakong…";const t0=Date.now();
-    try{const r=await fetch("https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok},body:JSON.stringify({md5:"00000000000000000000000000000000"})});
-      const txt=await r.text();let j=null;try{j=JSON.parse(txt)}catch{}
-      if(j&&"responseCode" in j){const okTok=!/token|unauthor/i.test(j.responseMessage||"")&&r.status!==401;
-        res.style.color=okTok?"#059669":"#d97706";res.innerHTML=(okTok?"✅ <b>It works!</b> This device can check Bakong payments.":"⚠️ Bakong answered, but the <b>token</b> looks wrong or expired.")+`<br><small>HTTP ${r.status} · ${Date.now()-t0} ms · Bakong says: ${h(String(j.responseMessage||"").slice(0,120))}</small>`}
-      else{res.style.color="#dc2626";res.innerHTML=`❌ Bakong refused this device (HTTP ${r.status}).<br><small>${h(txt.replace(/<[^>]+>/g," ").replace(/\s+/g," ").slice(0,120))}</small>`}}
-    catch(x){res.style.color="#dc2626";res.innerHTML=`❌ This device can't reach Bakong (the browser blocked it).<br><small>${h(String(x.message||x))}</small>`}
-    finally{b.disabled=false}};
+  try{localStorage.removeItem("ql_bakong_token")}catch{}
+  kqAuto();
   $("#kqSave").onclick=()=>{const id=$("#kqId").value.trim().toLowerCase();if(id&&!/^[a-z0-9._-]+@[a-z0-9]+$/.test(id))return alert("A Bakong ID looks like name@bkrt");
     saveSetting("payment",{...(settings.payment||{}),bakong_id:id,khqr_name:$("#kqName").value.trim(),khqr_city:$("#kqCity").value.trim()},id?"KHQR saved — students now pay with your KHQR":"KHQR turned off")};
   $("#sSave").onclick=()=>saveSetting("payment",{...(settings.payment||{}),bank:$("#sBank").value.trim(),account_name:$("#sName").value.trim(),account_number:$("#sNum").value.trim(),note:$("#sNote").value.trim(),qr_image:qr,receipts:$("#sRec").checked},"Payment details saved");
