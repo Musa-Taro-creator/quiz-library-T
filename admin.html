@@ -200,6 +200,9 @@ body.t-ocean .bars div{background:linear-gradient(180deg,#fdba74,#0e6377)}
 .rvchecks{margin-top:10px;display:flex;flex-direction:column;gap:6px}.rvc{margin-top:6px;padding:8px 11px;border-radius:10px;font-size:13.5px;background:rgba(100,116,139,.12)}.rvc.ok{background:rgba(16,185,129,.14);color:#059669}.rvc.warn{background:rgba(245,158,11,.16);color:#b45309}.rvc.bad{background:rgba(239,68,68,.15);color:#dc2626}
 .rvbtns{margin-top:14px}.rvbtns .btn{flex:1;justify-content:center;padding:13px;font-size:16px}.rvrej{margin-top:10px}
 @media(max-width:760px){.rvw{grid-template-columns:1fr}.rvimg img{max-height:46vh}}
+.kq-tag{display:inline-flex;flex-direction:column;align-items:center;padding:5px 8px;border-radius:10px;background:#e1251b;color:#fff;font-weight:800;font-size:11px;letter-spacing:1px;cursor:pointer;line-height:1.2}.kq-tag b{font-size:10px;letter-spacing:.3px;font-weight:600;opacity:.9}
+.kq-box{width:100%;border-radius:16px;background:#fff;color:#111;box-shadow:0 6px 20px rgba(15,23,42,.12);overflow:hidden;margin-bottom:8px}.kq-hd{background:#e1251b;color:#fff;text-align:center;font-weight:800;letter-spacing:2px;padding:9px}
+.kq-am{font-size:30px;font-weight:800;text-align:center;padding:12px 0 2px}.kq-bl{text-align:center;color:#6b7280;font-size:13px}.kq-bl b{color:#111;letter-spacing:.5px}.kq-box ol{font-size:13px;line-height:1.6;margin:10px 0 14px;padding:0 16px 0 34px}
 </style>
 </head>
 <body class="t-white">
@@ -555,13 +558,14 @@ async function receipts(tabs){
   $("#view").innerHTML=head("Payments","Approve a receipt, or give an activation code")+tabs+`
   <div class="filters">${[["waiting","Waiting"],["approved","Approved"],["rejected","Rejected"]].map(([k,l])=>`<button class="btn ${payStatus===k?"on":""}" data-s="${k}">${l}</button>`).join("")}</div>
   <div class="card"><div class="tbl"><table><tr><th>Receipt</th><th>User</th><th>Plan</th><th>Amount</th><th>Sent</th><th></th></tr>
-  ${rows.length?rows.map(r=>`<tr><td>${r.receipt?`<img class="rec" src="${h(r.receipt)}" data-big="${r.id}" alt="receipt">`:"—"}</td><td><div class="u"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div>${h(r.name)}<small>${h(r.email)}</small></div></div></td>
+  ${rows.length?rows.map(r=>`<tr><td>${r.receipt?`<img class="rec" src="${h(r.receipt)}" data-big="${r.id}" alt="receipt">`:r.method==="khqr"?`<span class="kq-tag" data-kq="${r.id}">KHQR<b>${h(r.bill||"")}</b></span>`:"—"}</td><td><div class="u"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div>${h(r.name)}<small>${h(r.email)}</small></div></div></td>
    <td>${planTag(r.plan_id," · "+(r.period==="month"?"1 month":r.period==="year"?"1 year":"lifetime"))}</td><td><b>${money(r.amount)}</b></td><td>${ago(r.created_at)}</td>
    <td>${r.status==="waiting"?`<span class="inline"><button class="btn p" data-rv="${r.id}">🔍 Review</button><button class="btn g" data-ok="${r.id}">Approve</button><button class="btn r" data-no="${r.id}">Reject</button></span>`:`<span class="tag ${r.status==="approved"?"ok":"no"}">${r.status}</span>${r.admin_note?`<div class="note" style="margin:4px 0 0">${h(r.admin_note)}</div>`:""}`}</td></tr>`).join(""):`<tr><td colspan="6" class="empty">No ${payStatus} payments</td></tr>`}</table></div>
   <div class="note">Approve = their plan switches on right away (1 month = 30 days, 1 year = 365 days), added on top of any time they still have.</div></div>`;
   $$("[data-t]").forEach(b=>b.onclick=()=>{payTab=b.dataset.t;go("pay")});
   $$("[data-s]").forEach(b=>b.onclick=()=>{payStatus=b.dataset.s;go("pay")});
   $$("[data-big]").forEach(i=>i.onclick=()=>modal("Receipt",`<img src="${i.src}" style="width:100%;border-radius:12px">`));
+  $$("[data-kq]").forEach(i=>{const k=rows.findIndex(r=>r.id===i.dataset.kq);i.onclick=()=>payStatus==="waiting"&&k>=0?reviewPay(rows,k):0});
   const decide=async(id,ok)=>{let note="";if(!ok){note=prompt("Reason (the student sees this):","Payment not found")??null;if(note===null)return}
     try{await rpc("ql_admin_decide_payment",{p_id:id,p_approve:ok,p_note:note});toast(ok?"Approved — plan is on":"Rejected");await loadCommon();go("pay")}catch(e){alert(errMsg(e))}};
   $$("[data-ok]").forEach(b=>b.onclick=()=>{b.disabled=true;decide(b.dataset.ok,true)});$$("[data-no]").forEach(b=>b.onclick=()=>decide(b.dataset.no,false));
@@ -583,7 +587,10 @@ async function readAmount(img,expect){
 function reviewPay(rows,i){
   const r=rows[i];if(!r)return;const left=rows.length-1-i;
   const len=r.period==="month"?"1 month":r.period==="year"?"1 year":"lifetime";
-  const o=modal("Review receipt",`<div class="rvw"><div class="rvimg"><img src="${h(r.receipt||"")}" alt="receipt" id="rvImg"><small>Tap the photo to zoom</small></div>
+  const kq=r.method==="khqr";
+  const o=modal(kq?"Review KHQR payment":"Review receipt",`<div class="rvw"><div class="rvimg">${kq?`<div class="kq-box"><div class="kq-hd">KHQR</div><div class="kq-am">${money(r.amount)}</div><div class="kq-bl">Bill <b>${h(r.bill||"—")}</b></div>
+     <ol><li>Open your <b>Bakong app</b> → history</li><li>Find a payment of <b>${money(r.amount)}</b> around ${h(new Date(r.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}))}</li><li>Bill number <b>${h(r.bill||"")}</b> shows in its details</li></ol></div>`:""}
+     ${r.receipt?`<img src="${h(r.receipt)}" alt="receipt" id="rvImg"><small>Tap the photo to zoom</small>`:""}</div>
    <div class="rvinfo"><div class="u" style="margin-bottom:10px"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div><b>${h(r.name||"Student")}</b><small>${h(r.email||"")}</small></div></div>
     <div class="rvrow"><span>Plan</span><b>${planTag(r.plan_id," · "+len)}</b></div>
     <div class="rvrow"><span>Should pay</span><b class="rvamt">${money(r.amount)}</b></div>
@@ -594,11 +601,11 @@ function reviewPay(rows,i){
     <div class="rvrej hidden" id="rvRej"><div class="note" style="margin:0 0 6px">Why? (the student sees this)</div><div class="seg">${REJECTS.map(t=>`<button type="button" data-rj="${h(t)}">${h(t)}</button>`).join("")}</div>
      <div class="inline" style="margin-top:8px"><input id="rvNote" class="in" style="flex:1;min-width:150px" placeholder="Other reason…" maxlength="200"><button class="btn r" id="rvNoGo">Reject</button></div></div>
     <div class="note" style="margin:10px 0 0">${left>0?`${left} more waiting after this one`:"This is the last one waiting"}</div></div></div>`,{wide:true});
-  o.querySelector("#rvImg").onclick=e=>window.open(e.target.src,"_blank");
+  o.querySelector("#rvImg")&&(o.querySelector("#rvImg").onclick=e=>window.open(e.target.src,"_blank"));
   rpc("ql_admin_payment_checks",{p_id:r.id}).then(c=>{const el=o.querySelector("#rvChecks");if(!c){el.innerHTML="";return}
     const w=[];if(c.same_photo_approved>0)w.push(`<div class="rvc bad">⚠️ This receipt photo was <b>already approved</b> before — probably used twice.</div>`);else if(c.same_photo>0)w.push(`<div class="rvc warn">⚠️ The same photo was sent ${c.same_photo} other time${c.same_photo>1?"s":""}.</div>`);
     if(c.other_waiting>0)w.push(`<div class="rvc warn">⚠️ This student has ${c.other_waiting} other receipt${c.other_waiting>1?"s":""} waiting.</div>`);
-    if(!w.length)w.push(`<div class="rvc ok">✓ New receipt photo (not used before)</div>`);
+    if(!w.length)w.push(kq&&!r.receipt?`<div class="rvc ok">✓ New KHQR bill (each QR can be sent only once)</div>`:`<div class="rvc ok">✓ New receipt photo (not used before)</div>`);
     if(c.paid_before>0)w.push(`<div class="rvc">ℹ️ Paid ${c.paid_before} time${c.paid_before>1?"s":""} before</div>`);el.innerHTML=w.join("")})
    .catch(e=>{o.querySelector("#rvChecks").innerHTML=/ql_admin_payment_checks|PGRST202|42883/.test(String(e.message||e))?`<div class="rvc">Run <b>payment_review.sql</b> for the duplicate-photo check.</div>`:""});
   const oc=o.querySelector("#rvOcr");
@@ -606,6 +613,7 @@ function reviewPay(rows,i){
     oc.className="rvc "+(x.usd||x.khr?"ok":"warn");
     oc.innerHTML=x.usd?`✓ Receipt shows <b>${money(x.usd)}</b> — matches (check the photo too)`:x.khr?`✓ Receipt shows <b>${Number(x.khr).toLocaleString()} ៛</b> — about ${money(r.amount)} (check the photo)`:`⚠️ Couldn't find ${money(r.amount)} on the receipt — please check the photo`;
   }).catch(()=>{oc.className="rvc";oc.textContent="🔍 Amount reader not available — please check the photo"});
+  else if(kq){oc.className="rvc";oc.innerHTML="ℹ️ Paid with KHQR — the amount was filled in automatically. Check it arrived in your Bakong app."}
   else{oc.className="rvc warn";oc.textContent="⚠️ No receipt photo"}
   const done=async(ok,note)=>{o.querySelectorAll("button").forEach(b=>b.disabled=true);
     try{await rpc("ql_admin_decide_payment",{p_id:r.id,p_approve:ok,p_note:note||""});toast(ok?"Approved — their plan is on":"Rejected — the student sees why");o.remove();
@@ -767,6 +775,12 @@ async function settingsView(){
    <div class="note" style="margin:0 0 10px">Get a notification on this phone / computer when a student sends a <b>Help &amp; Support message</b> or a <b>payment receipt</b> — even when the admin app is closed. Turn it on once on each device you use.</div>
    <div id="pushBody"><div class="note">Checking…</div></div></div>
   <div class="card" style="max-width:760px;margin-bottom:16px"><h3>Admin look</h3><div class="thpick">${[["white","White Glass","linear-gradient(135deg,#dbeafe,#fce7f3)"],["neon","Neon Lines","repeating-linear-gradient(60deg,#0b1220 0 8px,#00e5ff66 8px 9px,#0b1220 9px 16px,#ff2e9766 16px 17px)"],["ocean","Ocean Sunrise","linear-gradient(120deg,#0b3954,#0e6377 55%,#f08a4b)"]].map(([k,l,g])=>`<button type="button" data-th="${k}" class="${curTheme===k?"on":""}"><i style="background:${g}"></i>${l}</button>`).join("")}</div></div>`+`
+  <div class="card" style="max-width:760px;margin-bottom:16px"><h3>💳 KHQR (Bakong)</h3>
+   <div class="note" style="margin:0 0 10px">Students see <b>your KHQR with the exact price already filled in</b> and a bill number. They pay with any bank app and tap <b>I paid</b> — you approve it in Payments. Leave the Bakong ID empty to use the receipt upload below instead.</div>
+   <div class="two"><div class="fld"><label>Bakong ID</label><input id="kqId" class="in" placeholder="yourname@bkrt" autocomplete="off" spellcheck="false" value="${h(p.bakong_id||"")}"></div><div class="fld"><label>Name on the QR</label><input id="kqName" class="in" maxlength="25" placeholder="e.g. Quiz Library" value="${h(p.khqr_name||"")}"></div></div>
+   <div class="fld"><label>City</label><input id="kqCity" class="in" style="max-width:260px" maxlength="15" placeholder="Phnom Penh" value="${h(p.khqr_city||"")}"></div>
+   <div class="note" style="margin:0 0 10px">Find your Bakong ID in the Bakong app → <b>Receive</b> (it ends with <b>@bkrt</b> or your bank's code).</div>
+   <button class="btn p" id="kqSave">Save KHQR</button></div>
   <div class="card" style="max-width:760px"><h3>Payment details shown to students</h3><div class="two"><div>
    <div class="fld"><label>Bank / wallet</label><input id="sBank" class="in" value="${h(p.bank)}" placeholder="e.g. ABA Bank"></div>
    <div class="fld"><label>Account name</label><input id="sName" class="in" value="${h(p.account_name)}"></div>
@@ -791,7 +805,9 @@ async function settingsView(){
   let qr=p.qr_image;
   $("#sQr").onchange=async e=>{const f=e.target.files[0];if(!f)return;qr=await resizeImage(f,700,.85);const i=$("#sQrImg");i.outerHTML=`<img class="qrprev" id="sQrImg" src="${qr}">`};
   $("#sQrDel")&&($("#sQrDel").onclick=()=>{qr="";$("#sQrImg").outerHTML=`<div class="qrprev" id="sQrImg" style="display:grid;place-items:center;color:var(--muted);font-size:12px">No QR</div>`});
-  $("#sSave").onclick=()=>saveSetting("payment",{bank:$("#sBank").value.trim(),account_name:$("#sName").value.trim(),account_number:$("#sNum").value.trim(),note:$("#sNote").value.trim(),qr_image:qr,receipts:$("#sRec").checked},"Payment details saved");
+  $("#kqSave").onclick=()=>{const id=$("#kqId").value.trim().toLowerCase();if(id&&!/^[a-z0-9._-]+@[a-z0-9]+$/.test(id))return alert("A Bakong ID looks like name@bkrt");
+    saveSetting("payment",{...(settings.payment||{}),bakong_id:id,khqr_name:$("#kqName").value.trim(),khqr_city:$("#kqCity").value.trim()},id?"KHQR saved — students now pay with your KHQR":"KHQR turned off")};
+  $("#sSave").onclick=()=>saveSetting("payment",{...(settings.payment||{}),bank:$("#sBank").value.trim(),account_name:$("#sName").value.trim(),account_number:$("#sNum").value.trim(),note:$("#sNote").value.trim(),qr_image:qr,receipts:$("#sRec").checked},"Payment details saved");
 }
 
 window.addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(v&&v!==cur&&!$("#app").classList.contains("hidden"))go(v)});
