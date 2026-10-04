@@ -6,9 +6,8 @@
 # Supabase. Supabase switches the plan on only when the right amount went to
 # your Bakong ID.
 #
-# A free Bakong token allows only 100 checks a day, so all payments are asked
-# in ONE request, a QR is checked often in its first minutes and then less, and
-# "I paid" payments are checked at once.
+# A free Bakong token allows only 100 checks a day, so a payment is checked only
+# after the student taps "I paid" (at once, then a few retries if not found yet).
 #
 #   python ~/khqr.py setup <SECRET>   first time (asks for your Bakong token)
 #   python ~/khqr.py                  start checking (leave Termux open)
@@ -28,8 +27,8 @@ BAKONG_LIST = "https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5_list"
 DAILY = 100      # Bakong's limit per token per day
 KEEP = 15        # last checks kept for "I paid" payments when the day is almost used up
 # when to check (seconds after the QR was shown / after "I paid")
-QR_AT = [45, 90, 150, 240, 360, 540, 780, 1200, 1800, 2700, 7200]
-WAIT_AT = [0, 60, 300, 900, 1800, 3600, 7200, 14400, 28800, 43200, 86400, 129600, 172800]
+QR_AT = []      # a QR on screen is NOT checked — the student taps "I paid" (saves the daily limit)
+WAIT_AT = [0, 30, 90, 300, 1800, 7200, 43200, 86400]   # after "I paid": at once, then a few retries
 CONF = os.path.expanduser("~/.ql-khqr.json")
 EVERY = 8  # seconds between rounds (Supabase only — free)
 STUCK = 90  # no finished round for this long (e.g. the internet switched mid-check) → restart by itself
