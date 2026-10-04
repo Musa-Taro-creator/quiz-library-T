@@ -91,7 +91,7 @@ def bakong(token, md5):
     except Exception:
         j = None
     if code == 403 and not j:
-        return "error", "Bakong blocked this phone. Use Cambodian internet (Wi-Fi or 4G), no VPN."
+        return "error", "Bakong blocked this phone (HTTP 403). Use Cambodian internet (Wi-Fi or 4G), no VPN."
     if code == 401 or (j and j.get("errorCode") == 6):
         return "error", "Bakong token expired or wrong. Renew it, then run: python ~/khqr.py token"
     if code == 429 or limited(j):
@@ -117,8 +117,8 @@ def bakong_list(token, md5s):
         j = json.loads(text)
     except Exception:
         j = None
-    if code == 403 and not j:
-        return "error", "Bakong blocked this phone. Use Cambodian internet (Wi-Fi or 4G), no VPN."
+    if code in (400, 403, 404, 405) and not isinstance(j, dict):
+        return "nolist", f"HTTP {code}"
     if code == 401 or (j and j.get("errorCode") == 6):
         return "error", "Bakong token expired or wrong. Renew it, then run: python ~/khqr.py token"
     if code == 429 or limited(j):
@@ -130,6 +130,20 @@ def bakong_list(token, md5s):
         if isinstance(it, dict) and str(it.get("status", "")).upper() in ("SUCCESS", "PAID") and it.get("md5"):
             d = it.get("data")
             paid[it["md5"]] = d if isinstance(d, dict) and d.get("hash") else True
+    return "ok", paid
+
+
+def single_checks(c, items):
+    """Ask Bakong about each payment separately (counts each one)."""
+    paid = {}
+    for p in items:
+        st, d = bakong(c["token"], p["md5"])
+        if st in ("limit", "error"):
+            return st, d
+        if st == "paid":
+            paid[p["md5"]] = d
+        count_call(c)
+    count_call(c, -1)  # the caller counts one more
     return "ok", paid
 
 
@@ -189,7 +203,18 @@ def run():
             left = DAILY - used_today(c)
             todo = [p for p in items if due(p, done) and (left > KEEP or p.get("status") == "waiting")]
             if todo and time.time() >= pause and left > 0:
-                st, paid = bakong_list(c["token"], [p["md5"] for p in todo[:50]])
+                if c.get("single"):
+                    st, paid = single_checks(c, todo[:max(1, min(left, 10))])
+                    todo = todo[:max(1, min(left, 10))]
+                else:
+                    st, paid = bakong_list(c["token"], [p["md5"] for p in todo[:50]])
+                    if st == "nolist":  # this token can't use the list check → ask one by one from now on
+                        count_call(c)
+                        c["single"] = True
+                        save(c)
+                        say("ℹ️  Bakong's group check isn't available for this token — checking payments one by one.")
+                        st, paid = single_checks(c, todo[:max(1, min(left, 10))])
+                        todo = todo[:max(1, min(left, 10))]
                 used = count_call(c)
                 BEAT[0] = time.time()
                 if st == "limit":
@@ -249,6 +274,9 @@ def check_once():
     if not items:
         return
     st, paid = bakong_list(c["token"], [p["md5"] for p in items[:50]])
+    if st == "nolist":
+        print("(group check not available for this token — asking one by one)")
+        st, paid = single_checks(c, items[:10])
     count_call(c)
     if st != "ok":
         print("Bakong:", paid)
