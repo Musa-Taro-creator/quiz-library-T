@@ -18624,6 +18624,10 @@ body.ql-ocean .qs-acts button.g{background:rgba(255,255,255,.1);color:#fff7ed;bo
 .qk .banks{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 0}.qk .banks span{font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;background:#f1f5f9;color:#334155}
 .qk .up{display:block;margin-top:6px;padding:10px;border-radius:12px;border:2px dashed #cbd5e1;text-align:center;color:#475569;font-weight:700;font-size:12.5px;cursor:pointer}
 .qk .up img{max-height:90px;border-radius:8px;display:block;margin:0 auto 6px}
+.qk-wait{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:14px;background:#ecfdf5;color:#065f46;font-weight:700;font-size:13.5px;margin:4px 0 6px}
+.qk-wait.off{background:#f1f5f9;color:#334155}.qk-wait.off .qk-dot{display:none}
+.qk-dot{width:12px;height:12px;border-radius:50%;background:#10b981;flex:none;animation:qkPulse 1.4s ease-in-out infinite}
+@keyframes qkPulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.55)}70%{box-shadow:0 0 0 10px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
 .qk-alt{display:inline-block;margin-top:10px;font-size:12.5px;opacity:.8;text-decoration:underline;cursor:pointer;background:none;border:0;color:inherit;padding:0}
 @media(max-width:640px){.qk{grid-template-columns:1fr}}
 .ql-gift-dot{position:relative}.ql-gift-dot::after{content:"";position:absolute;top:0;right:0;width:13px;height:13px;border-radius:50%;background:#ef4444;border:2px solid #fff;box-shadow:0 0 0 0 rgba(239,68,68,.6);animation:qlGiftDot 1.6s infinite}
@@ -19054,26 +19058,47 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       <div><ol><li><b>Scan</b> the QR with your bank app.<div class="banks"><span>ABA</span><span>ACLEDA</span><span>Wing</span><span>Bakong</span><span>+ any KHQR bank</span></div></li>
         <li>On a phone? Tap <b>⬇ Save QR</b>, then in your bank app choose <b>Scan → from photo / gallery</b>.</li>
         <li>The amount <b>${money(amount)}</b> is already filled in — just confirm and pay.</li>
-        <li>Come back and tap <b>✅ I paid</b>.</li></ol>
+        <li id="qkStep4">That's it — <b>${h(p.name)} switches on by itself</b> a few seconds after you pay ⚡</li></ol>
+      <div class="qk-wait" id="qkWait"><span class="qk-dot"></span><span id="qkWaitT">Waiting for your payment…</span></div>
       ${pay.note?`<div class="status" style="margin:0 0 8px">${h(pay.note)}</div>`:""}
-      <label class="up" id="qkUp">📎 Add receipt screenshot <span style="font-weight:500;opacity:.8">(optional · faster approval)</span><input type="file" accept="image/*" hidden id="qkFile"></label>
+      <div id="qkBackup" class="hidden"><div class="note" style="margin:8px 0 4px;font-size:12.5px;opacity:.8" id="qkBackupT">Paid but it didn't switch on? Tap <b>I paid</b> and we'll check it by hand.</div>
+      <label class="up" id="qkUp">📎 Add receipt screenshot <span style="font-weight:500;opacity:.8">(optional · faster approval)</span><input type="file" accept="image/*" hidden id="qkFile"></label></div>
       <div id="qkSt" class="status hidden" style="margin-top:8px"></div>
       ${pay.qr_image&&pay.receipts!==false?`<button type="button" class="qk-alt" id="qkAlt">Pay another way (upload a receipt)</button>`:""}</div></div>
-      <div class="form-actions"><button class="btn" type="button" id="qkBack">Back</button><button class="btn primary" type="button" id="qkPaid">✅ I paid</button></div>`);
+      <div class="form-actions"><button class="btn" type="button" id="qkBack">Back</button><button class="btn primary hidden" type="button" id="qkPaid">✅ I paid</button></div>`);
     const m=document.querySelector(".modal");if(m)m.style.width="min(720px,96vw)";
     const $=id=>document.getElementById(id),st=$("qkSt"),send=$("qkPaid");
-    const draw=()=>{khqrDraw($("qkCv"),text);$("qkBill").textContent=bill;$("qkCard").classList.remove("old");send.disabled=false};
+    let reqId=null,auto=false,pollT=0,backupT=0,done=false;
+    const backup=msg=>{$("qkBackup")?.classList.remove("hidden");send.classList.remove("hidden");if(msg&&$("qkBackupT"))$("qkBackupT").innerHTML=msg};
+    const success=async()=>{if(done)return;done=true;stop();try{await loadMine()}catch{}
+      const p2=curPlan(),s2=sub(),end=s2&&s2.ends_at?new Date(s2.ends_at).getTime():null;
+      const conf=Array.from({length:30},(_,i)=>`<i style="left:${Math.round(Math.random()*100)}%;background:${["#f43f5e","#f59e0b","#22c55e","#3b82f6","#a855f7","#ec4899"][i%6]};animation-delay:${(Math.random()*.8).toFixed(2)}s"></i>`).join("");
+      openModal("",`<div class="qok" style="position:relative"><div class="ql-gp-conf">${conf}</div><div class="big ql-congrats">🎉</div><h3 style="margin:0 0 4px">Payment received!</h3><p style="margin:0 0 6px;font-weight:700">${h((p2||p).name)} is now active. Thank you!</p>
+        ${end?`<div class="qs-cd" data-end="${end}">${cdHtml(end-now())}</div><p style="opacity:.7;font-size:13px;margin:14px 0 0">Until ${new Date(end).toLocaleDateString([], {day:"numeric",month:"short",year:"numeric"})}</p>`:""}</div>
+        <div class="form-actions"><button class="btn primary" type="button" onclick="closeModal()">Start using ${h((p2||p).name)}</button></div>`);
+      document.querySelector(".qs-wrap")&&(document.querySelector(".qs-wrap").dataset.sig="");placeCard()};
+    function stop(){clearInterval(qkTimer);clearInterval(pollT);clearTimeout(backupT)}
+    const poll=()=>{clearInterval(pollT);pollT=setInterval(async()=>{if(!$("qkCv")){stop();return}if(!reqId||done)return;
+      try{const {data}=await cli().rpc("ql_khqr_state",{p_id:reqId});if(data==="approved")success();else if(data==="waiting"){stop();$("qkWaitT").textContent="We're checking your payment — it switches on as soon as it's confirmed."}}catch{}},4000)};
+    const register=async()=>{reqId=null;
+      try{const r=await cli().rpc("ql_khqr_open",{p_plan:p.id,p_period:per,p_qr:text});if(r.error)throw r.error;reqId=r.data;
+        try{const a=await cli().rpc("ql_khqr_auto_on");auto=!!a.data}catch{auto=false}
+        if(!auto){manual()}
+        else{clearTimeout(backupT);backupT=setTimeout(()=>backup(),90000);poll()}}
+      catch(e){manual()}};
+    const manual=()=>{$("qkWait").classList.add("off");$("qkWaitT").textContent="After paying, tap ✅ I paid below.";$("qkStep4").innerHTML="Come back and tap <b>✅ I paid</b>.";backup("Add a receipt screenshot if you have one (optional).")};
+    const draw=()=>{khqrDraw($("qkCv"),text);$("qkBill").textContent=bill;$("qkCard").classList.remove("old");send.disabled=false;register()};
     const tick=()=>{const el=$("qkTm");if(!el){clearInterval(qkTimer);return}const left=until-Date.now();
       if(left<=0){el.textContent="";$("qkCard").classList.add("old");send.disabled=true;return}
       el.textContent=`QR works for ${Math.floor(left/60000)}:${String(Math.floor(left/1000)%60).padStart(2,"0")}`};
     draw();clearInterval(qkTimer);qkTimer=setInterval(tick,1000);tick();
     $("qkNew").onclick=()=>{bill=newBill();text=khqrText(pay.bakong_id,name,pay.khqr_city,amount,bill,MINS);until=Date.now()+MINS*60000;draw();tick()};
     $("qkSave").onclick=()=>khqrSave(text,name,amount,bill).catch(e=>{st.className="status error";st.textContent="Couldn't save the picture — take a screenshot instead."});
-    $("qkBack").onclick=()=>{clearInterval(qkTimer);openUpgrade()};
-    $("qkAlt")&&($("qkAlt").onclick=()=>{clearInterval(qkTimer);openPayReceipt(p,per)});
+    $("qkBack").onclick=()=>{stop();openUpgrade()};
+    $("qkAlt")&&($("qkAlt").onclick=()=>{stop();openPayReceipt(p,per)});
     $("qkFile").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{receipt=await shrink(f);const up=$("qkUp");up.querySelector("img")?.remove();up.insertAdjacentHTML("afterbegin",`<img src="${receipt}" alt="">`)}catch(x){st.className="status error";st.textContent="That picture couldn't be opened."}};
     send.onclick=async()=>{send.disabled=true;st.className="status";st.textContent="Sending…";
-      try{const {error}=await cli().rpc("ql_submit_khqr",{p_plan:p.id,p_period:per,p_qr:text,p_receipt:receipt});if(error)throw error;clearInterval(qkTimer);
+      try{const {error}=reqId?await cli().rpc("ql_khqr_i_paid",{p_id:reqId,p_receipt:receipt}):await cli().rpc("ql_submit_khqr",{p_plan:p.id,p_period:per,p_qr:text,p_receipt:receipt});if(error)throw error;stop();
         openModal("Payment sent",`<div class="qok"><div class="big" style="background:linear-gradient(135deg,#e1251b,#f97316)">⏳</div><h3 style="margin:0 0 6px">Thank you!</h3><p style="margin:0;opacity:.75">We're checking your KHQR payment <b>${h(bill)}</b> (${money(amount)}). ${h(p.name)} switches on as soon as it's confirmed — you'll see it here automatically.</p></div><div class="form-actions"><button class="btn primary" type="button" onclick="closeModal()">OK</button></div>`);
         document.querySelector(".qs-wrap")&&(document.querySelector(".qs-wrap").dataset.sig="");placeCard()}
       catch(e){send.disabled=false;st.className="status error";st.textContent=String(e.message||e).replace(/^.*?:\s*/,"")}};
@@ -19099,7 +19124,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   }
   async function openHistory(){
     openModal("Payment history",`<div id="qhBody"><div class="status">Loading…</div></div>`);
-    try{const {data,error}=await cli().rpc("ql_my_payments");if(error)throw error;const b=document.getElementById("qhBody");
+    try{let {data,error}=await cli().rpc("ql_my_payments");if(error)throw error;const b=document.getElementById("qhBody");data=(data||[]).filter(r=>r.status!=="qr"&&r.status!=="expired");
       b.innerHTML=(data||[]).length?(data||[]).map(r=>{const p=plans().find(x=>x.id===r.plan_id);return `<div class="qh-row"><span><b>${h(p?p.name:r.plan_id)}</b> · ${r.period==="year"?"1 year":r.period==="lifetime"?"lifetime":"1 month"} · ${money(r.amount)}<br><small style="opacity:.7">${new Date(r.created_at).toLocaleString()}${r.admin_note?" · "+h(r.admin_note):""}</small></span><span class="qh-tag ${r.status}">${r.status==="waiting"?"Waiting":r.status==="approved"?"Approved":"Rejected"}</span></div>`}).join(""):`<div class="status">No payments yet.</div>`}
     catch(e){document.getElementById("qhBody").innerHTML=`<div class="status error">${h(String(e.message||e))}</div>`}
   }
