@@ -161,6 +161,26 @@ def run():
         time.sleep(EVERY)
 
 
+def check_once():
+    """python ~/khqr.py check — show every payment the phone is watching and Bakong's answer."""
+    c = load()
+    res = rpc("ql_khqr_pending", {"p_secret": c["secret"], "p_note": "ok", "p_device": "Android · Termux"}) or {}
+    print("Your Bakong ID in admin:", res.get("bakong_id"))
+    items = res.get("pending") or []
+    print(f"Payments being watched: {len(items)}")
+    for p in items:
+        code, text = post(BAKONG, {"md5": p["md5"]}, {"Authorization": "Bearer " + c["token"]})
+        try:
+            j = json.loads(text)
+            d = j.get("data") if isinstance(j.get("data"), dict) else {}
+            ans = f"code {j.get('responseCode')} · {j.get('responseMessage')}"
+            if d:
+                ans += f" · {d.get('amount')} {d.get('currency')} to {d.get('toAccountId')}"
+        except Exception:
+            ans = f"HTTP {code} · {text[:80]!r}"
+        print(f"- {p.get('bill')} · ${p.get('amount')} · {int(age_minutes(p['created_at']))} min ago → Bakong: {ans}")
+
+
 def ask_token(c):
     t = getpass.getpass("Paste your Bakong token (it stays hidden), then press Enter: ").strip()
     if len(t) < 20:
@@ -181,6 +201,8 @@ if __name__ == "__main__":
         print("✅ Connected to Quiz Library.")
         ask_token(c)
         run()
+    elif a[:1] == ["check"]:
+        check_once()
     elif a[:1] == ["token"]:
         c = load()
         ask_token(c)
