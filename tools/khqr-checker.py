@@ -147,7 +147,8 @@ def single_checks(c, items):
 
 
 def today():
-    return time.strftime("%Y-%m-%d")
+    # Bakong's daily limit seems to reset at midnight UTC (7:00 AM in Cambodia), so count by UTC day
+    return time.strftime("%Y-%m-%d", time.gmtime())
 
 
 def count_call(c, n=1):
