@@ -13,7 +13,7 @@
 # Your Bakong token stays in ~/.ql-khqr.json on this phone only. It can only
 # CHECK payments — it cannot send or move money.
 
-import getpass, json, os, shutil, subprocess, sys, time, urllib.error, urllib.request
+import getpass, json, os, shutil, socket, subprocess, sys, threading, time, urllib.error, urllib.request
 from datetime import datetime, timezone
 
 SUPABASE = "https://hcultemyohiljypthtyb.supabase.co"
@@ -21,6 +21,18 @@ PUBLIC_KEY = "sb_publishable_MLyLNla9gaM3r8EUM00hYg_Gyejrvbd"  # public, same on
 BAKONG = "https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5"
 CONF = os.path.expanduser("~/.ql-khqr.json")
 EVERY = 8  # seconds between rounds
+STUCK = 90  # no finished round for this long (e.g. the internet switched mid-check) → restart by itself
+socket.setdefaulttimeout(25)
+BEAT = [time.time()]
+
+
+def watchdog():
+    while True:
+        time.sleep(15)
+        if time.time() - BEAT[0] > STUCK:
+            say("🔄 No answer for a while (internet changed?) — restarting the checker by itself…")
+            sys.stdout.flush()
+            os.execv(sys.executable, [sys.executable, os.path.abspath(__file__)])
 
 
 def say(msg):
@@ -103,16 +115,23 @@ def run():
         subprocess.run(["termux-wake-lock"], check=False)  # keep running while the screen is off
     device = "Android · Termux"
     say("⚡ Quiz Library KHQR auto-check is running. Leave Termux open (you can lock the screen).")
-    last_check, told, note, approved = {}, set(), "ok", 0
+    last_check, told, note, approved, problem = {}, set(), "ok", 0, False
+    BEAT[0] = time.time()
+    threading.Thread(target=watchdog, daemon=True).start()
     while True:
+        BEAT[0] = time.time()
         try:
             res = rpc("ql_khqr_pending", {"p_secret": c["secret"], "p_note": note, "p_device": device}) or {}
+            if problem:
+                say("✅ Connection back — checking payments again.")
+                problem = False
             note = "ok"
             for p in res.get("pending") or []:
                 if not p.get("md5") or not due(p, last_check):
                     continue
                 last_check[p["id"]] = time.time()
                 st, d = bakong(c["token"], p["md5"])
+                BEAT[0] = time.time()
                 if st == "error":
                     note = d
                     if d not in told:
@@ -134,6 +153,7 @@ def run():
         except SystemExit:
             raise
         except Exception as e:
+            problem = True
             note = f"Network problem: {str(e)[:120]}"
             if note not in told:
                 say("⚠️  " + note + " (retrying)")
