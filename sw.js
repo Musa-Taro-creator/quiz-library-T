@@ -14,8 +14,11 @@ self.addEventListener("push", (event) => {
   event.waitUntil(self.registration.showNotification(d.title || "Quiz Library", {
     body: d.body || "",
     icon: "icons/admin-192.png",
-    badge: "icons/admin-192.png",
+    badge: "icons/admin-badge.png",   /* Android status bar: white shape on clear background */
     tag: d.tag || undefined,
+    renotify: !!d.tag,                /* a 2nd message with the same tag still rings and vibrates */
+    vibrate: [200, 100, 200],
+    timestamp: Date.now(),
     data: { url: d.url || "admin.html" }
   }));
 });

@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
   const gone: string[] = [], errors: string[] = [];
   for (const s of cfg.subs ?? []) {
     try {
-      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(msg), { TTL: 86400 });
+      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(msg), { TTL: 86400, urgency: "high" }); // high = Android delivers it at once, even in battery saver
       sent++;
     } catch (e) {
       const err = e as { statusCode?: number; body?: string; message?: string };
