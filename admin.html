@@ -270,6 +270,8 @@ const bytes=b=>{b=Number(b||0);if(b<1048576)return(b/1024).toFixed(0)+" KB";if(b
 const mb=v=>v==null?"Unlimited":v>=1024?(v/1024).toFixed(v%1024?1:0)+" GB":v+" MB";
 const avColor=s=>COLORS[[...String(s||"?")].reduce((a,c)=>a+c.charCodeAt(0),0)%COLORS.length];
 const errMsg=e=>{const m=String(e&&(e.message||e.error_description||e)||"Something went wrong");if(/function .* does not exist|schema cache|PGRST202|42883/i.test(m))return "Run plans_admin.sql in Supabase first, then reload.";return m};
+/* Security: open only real pictures in a new tab (a hacker could send a "javascript:" link instead of a photo) */
+function openPic(src){if(!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(String(src)))return;const w=window.open("","_blank");if(w){w.opener=null;w.document.body.style.cssText="margin:0;background:#111;display:grid;place-items:center;min-height:100vh";const im=w.document.createElement("img");im.src=src;im.style.cssText="max-width:100%;max-height:100vh";w.document.body.appendChild(im)}}
 function toast(t){const d=document.createElement("div");d.className="toast";d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2400)}
 async function rpc(name,args){const {data,error}=await sb.rpc(name,args||{});if(error)throw error;return data}
 function modal(title,body,{wide,foot}={}){
@@ -604,7 +606,7 @@ function reviewPay(rows,i){
     <div class="rvrej hidden" id="rvRej"><div class="note" style="margin:0 0 6px">Why? (the student sees this)</div><div class="seg">${REJECTS.map(t=>`<button type="button" data-rj="${h(t)}">${h(t)}</button>`).join("")}</div>
      <div class="inline" style="margin-top:8px"><input id="rvNote" class="in" style="flex:1;min-width:150px" placeholder="Other reason…" maxlength="200"><button class="btn r" id="rvNoGo">Reject</button></div></div>
     <div class="note" style="margin:10px 0 0">${left>0?`${left} more waiting after this one`:"This is the last one waiting"}</div></div></div>`,{wide:true});
-  o.querySelector("#rvImg")&&(o.querySelector("#rvImg").onclick=e=>window.open(e.target.src,"_blank"));
+  o.querySelector("#rvImg")&&(o.querySelector("#rvImg").onclick=e=>openPic(e.target.src));
   rpc("ql_admin_payment_checks",{p_id:r.id}).then(c=>{const el=o.querySelector("#rvChecks");if(!c){el.innerHTML="";return}
     const w=[];if(c.same_photo_approved>0)w.push(`<div class="rvc bad">⚠️ This receipt photo was <b>already approved</b> before — probably used twice.</div>`);else if(c.same_photo>0)w.push(`<div class="rvc warn">⚠️ The same photo was sent ${c.same_photo} other time${c.same_photo>1?"s":""}.</div>`);
     if(c.other_waiting>0)w.push(`<div class="rvc warn">⚠️ This student has ${c.other_waiting} other receipt${c.other_waiting>1?"s":""} waiting.</div>`);
@@ -878,7 +880,7 @@ async function msgs(){
   const box=$("#msgBox");
   const th=await rpc("ql_admin_support_thread",{p_user:sel.user_id});msgPill();
   box.innerHTML=th.map(m=>`<div class="msgm ${m.from_admin?"me":"them"}"><div class="b">${m.body?h(m.body).replace(/\n/g,"<br>"):""}${m.image?`<img src="${h(m.image)}" alt="photo" data-big>`:""}</div><small>${new Date(m.created_at).toLocaleString([],{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${m.from_admin&&m.read_at?" · Seen":""}</small></div>`).join("")||`<div class="empty">No messages.</div>`;
-  box.querySelectorAll("[data-big]").forEach(i=>i.onclick=()=>window.open(i.src,"_blank"));box.scrollTop=box.scrollHeight;
+  box.querySelectorAll("[data-big]").forEach(i=>i.onclick=()=>openPic(i.src));box.scrollTop=box.scrollHeight;
   let pic=null;const pv=$("#msgPic");
   $("#msgFile").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1200/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);pic=c.toDataURL("image/jpeg",.72);pv.querySelector("img").src=pic;pv.classList.remove("hidden")};im.src=r.result};r.readAsDataURL(f)};
   pv.querySelector("button").onclick=()=>{pic=null;pv.classList.add("hidden")};

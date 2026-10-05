@@ -3700,6 +3700,8 @@ select.qz-sec-chip-add{width:72px;flex:0 0 auto;padding:0 10px;background:transp
 "use strict";
 const SUPABASE_URL="https://hcultemyohiljypthtyb.supabase.co";
 const SUPABASE_KEY="sb_publishable_MLyLNla9gaM3r8EUM00hYg_Gyejrvbd";
+/* Security: only real web links may be saved or opened (blocks "javascript:" links that could run a hacker's code) */
+function qlSafeUrl(u){try{const x=new URL(String(u||"").trim());return /^(https?|mailto|tel):$/i.test(x.protocol)?x.href:""}catch{return ""}}
 const LIBRARY_ID="2953b6bf-e205-4924-ba7b-df87d48de03a";
 const STUDENT_ONLY_BUILD=true;
 const QUIZ_LIBRARY_BUILD="student";
@@ -4461,7 +4463,7 @@ function openEditor(input){
   $("#editorSave").onclick=async()=>{
     const title=$("#editorTitle").value.trim();if(!title)return alert("Enter a title.");
     const payload={title,parent_id:$("#editorParent").value||null,icon:"",color:isPdf?"#e94b4b":"#18a66a"};
-    if(!isPdf){const url=$("#editorUrl").value.trim();try{new URL(url)}catch{return alert("Enter a valid URL.")}payload.url=url;payload.description=$("#editorDesc").value.trim()}
+    if(!isPdf){const url=$("#editorUrl").value.trim();if(!qlSafeUrl(url))return alert("Enter a valid web link (starting with https://).");payload.url=url;payload.description=$("#editorDesc").value.trim()}
     try{
       const row=existing?await service.updateItem(existing.id,payload):await service.insertItem({id:uid(),library_id:LIBRARY_ID,kind:"link",parent_id:payload.parent_id,title:payload.title,url:payload.url,description:payload.description||null,color:payload.color,icon:"",position:Date.now(),is_trashed:false,admin_favorite:false,created_at:nowIso(),updated_at:nowIso()});
       replaceLocal(row);closeModal();render();toast(existing?"Saved":"Created")
@@ -5302,7 +5304,7 @@ openEditor=function(input){
   if(!qlCanMutate())return toast("Sign in to edit your library");const existing=typeof input==="object"?input:null,kind=existing?existing.kind:input;if(kind==="folder"){openFolderEditor(existing);return}const isPdf=kind==="pdf";
   openModal(existing?"Edit Item":"Add Quiz Link",`<div class="preview-wrap"><div id="editorPreview">${iconMarkup({kind:isPdf?"pdf":"link",url:existing?.url||"",title:existing?.title||"",description:existing?.description||""},true)}</div></div><div class="form-grid"><label>Title<input id="editorTitle" value="${esc(existing?.title||"")}"></label>${!isPdf?`<label>Quiz URL<input id="editorUrl" type="url" value="${esc(existing?.url||"")}"></label><label>Description<textarea id="editorDesc">${esc(existing?.description||"")}</textarea></label>`:""}<label>Position<select id="editorParent">${folderOptions()}</select></label></div><div class="form-actions"><button id="editorCancel" class="btn">Cancel</button><button id="editorSave" class="btn primary">Save</button></div>`);
   $("#editorParent").value=existing?(existing.parent_id||""):(state.folderId||"");$("#editorCancel").onclick=closeModal;
-  $("#editorSave").onclick=async()=>{const title=$("#editorTitle").value.trim();if(!title)return alert("Enter a title.");const payload={title,parent_id:$("#editorParent").value||null,icon:"",color:isPdf?"#e94b4b":"#18a66a"};if(!isPdf){const url=$("#editorUrl").value.trim();try{new URL(url)}catch{return alert("Enter a valid URL.")}payload.url=url;payload.description=$("#editorDesc").value.trim()}try{const row=existing?await service.updateItem(existing.id,payload):await service.insertItem({id:uid(),library_id:LIBRARY_ID,kind:"link",parent_id:payload.parent_id,title:payload.title,url:payload.url,description:payload.description||null,color:payload.color,icon:"",position:Date.now(),is_trashed:false,admin_favorite:false,created_at:nowIso(),updated_at:nowIso()});replaceLocal(row);closeModal();render();await logActivity(existing?"edit_item":"create_link",{item:row});toast(existing?"Saved":"Created")}catch(error){alert(friendlyError(error))}}
+  $("#editorSave").onclick=async()=>{const title=$("#editorTitle").value.trim();if(!title)return alert("Enter a title.");const payload={title,parent_id:$("#editorParent").value||null,icon:"",color:isPdf?"#e94b4b":"#18a66a"};if(!isPdf){const url=$("#editorUrl").value.trim();if(!qlSafeUrl(url))return alert("Enter a valid web link (starting with https://).");payload.url=url;payload.description=$("#editorDesc").value.trim()}try{const row=existing?await service.updateItem(existing.id,payload):await service.insertItem({id:uid(),library_id:LIBRARY_ID,kind:"link",parent_id:payload.parent_id,title:payload.title,url:payload.url,description:payload.description||null,color:payload.color,icon:"",position:Date.now(),is_trashed:false,admin_favorite:false,created_at:nowIso(),updated_at:nowIso()});replaceLocal(row);closeModal();render();await logActivity(existing?"edit_item":"create_link",{item:row});toast(existing?"Saved":"Created")}catch(error){alert(friendlyError(error))}}
 };
 
 openUpload=function(){
@@ -5836,7 +5838,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
       else{URL.revokeObjectURL(url);throw new Error("The browser blocked the PDF tab. Allow pop-ups for this website and try again.")}
     }catch(error){try{tab?.close()}catch{};qlSetWorkflowError("Open PDF","Retrieve PDF from Supabase Storage",error)}
   };
-  openExternal=async function(item){if(item?.kind==="pdf")return openPdfInBrowser(item);let tab=null;try{tab=window.open(item.url,"_blank","noopener");if(!tab)throw new Error("The browser blocked the new tab. Allow pop-ups and try again.")}catch(error){qlSetWorkflowError("Open externally","Open browser tab",error)}};
+  openExternal=async function(item){if(item?.kind==="pdf")return openPdfInBrowser(item);let tab=null;try{tab=window.open(qlSafeUrl(item.url)||"about:blank","_blank","noopener");if(!tab)throw new Error("The browser blocked the new tab. Allow pop-ups and try again.")}catch(error){qlSetWorkflowError("Open externally","Open browser tab",error)}};
 
   async function qlMissingPdfDecision(missing){
     return await new Promise(resolve=>{
@@ -6028,7 +6030,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
     const path=ql61ExpectedPdfPath(item);openModal("Open PDF",`<div class="status error"><strong>PDF file is missing from Supabase Storage.</strong></div><div class="settings-card" style="margin-top:12px"><strong>${esc(item.title)}</strong><div class="item-sub">Bucket: ${esc(BUCKET)}<br>Saved path: ${esc(path)}<br>${esc(friendlyError(error))}</div></div><div class="form-actions repair-actions"><button id="missingPdfReupload" class="btn primary">Re-upload PDF</button><button id="missingPdfRelink" class="btn">Relink Storage Object</button><button id="missingPdfRemove" class="btn danger-text">Remove broken record</button><button id="missingPdfClose" class="btn">Close</button></div>`);$("#missingPdfClose").onclick=closeModal;$("#missingPdfReupload").onclick=async()=>{closeModal();if(await ql61RepairReupload(item))retry?.()};$("#missingPdfRelink").onclick=async()=>{closeModal();if(await ql61RepairRelink(item))retry?.()};$("#missingPdfRemove").onclick=async()=>{closeModal();await ql61RemoveBroken(item)}
   }
   openPdfInBrowser=async function(item){let tab=null;try{if(location.protocol==="file:"&&!MOCK_MODE)throw new Error(ql61HttpsRequiredMessage("Opening PDFs"));tab=window.open("about:blank","_blank");const blob=await service.fetchPdfBlob(item),url=URL.createObjectURL(blob);if(tab){tab.opener=null;tab.location.replace(url);setTimeout(()=>URL.revokeObjectURL(url),120000)}else{URL.revokeObjectURL(url);throw new Error("The browser blocked the PDF tab. Allow pop-ups for this website and try again.")}}catch(error){try{tab?.close()}catch{};if(ql61MissingError(error))ql61ShowUnavailable(item,error,()=>openPdfInBrowser(item));else ql61SetWorkflowError("Open PDF","Retrieve PDF from Supabase Storage",error)}};
-  openExternal=async function(item){if(item?.kind==="pdf")return openPdfInBrowser(item);let tab=null;try{tab=window.open(item.url,"_blank","noopener");if(!tab)throw new Error("The browser blocked the new tab. Allow pop-ups and try again.")}catch(error){ql61SetWorkflowError("Open externally","Open browser tab",error)}};
+  openExternal=async function(item){if(item?.kind==="pdf")return openPdfInBrowser(item);let tab=null;try{tab=window.open(qlSafeUrl(item.url)||"about:blank","_blank","noopener");if(!tab)throw new Error("The browser blocked the new tab. Allow pop-ups and try again.")}catch(error){ql61SetWorkflowError("Open externally","Open browser tab",error)}};
 
   async function ql61FindMissingPdfs(onProgress=()=>{}){const pdfs=state.items.filter(x=>x.kind==="pdf");const missing=[];for(let i=0;i<pdfs.length;i++){const item=pdfs[i],path=ql61CleanPath(item.storage_path);if(!path)missing.push({item,error:new Error("No Storage path saved")});else{try{if(!(await service.storageObjectExists(path)))missing.push({item,error:new Error(`Object not found in ${BUCKET}: ${path}`)})}catch(error){throw ql61StorageError(error,item,"check PDF Storage")}}onProgress((i+1)/Math.max(1,pdfs.length),item)}return missing}
   async function ql61ExportMissingDecision(missing){return await new Promise(resolve=>{openModal("Repair missing PDFs before Export NEW",`<div class="status error"><strong>${missing.length} missing PDF${missing.length===1?"":"s"} found before cloning.</strong><br>No new library has been created yet.</div><div class="manage-list">${missing.map(x=>`<div class="manage-row export-broken-row"><div class="manage-row-copy"><strong>${esc(x.item.title)}</strong><span>Bucket: ${esc(BUCKET)}<br>Path: ${esc(ql61ExpectedPdfPath(x.item))}</span></div><div class="export-broken-actions"><button class="btn" data-export-reupload="${x.item.id}">Re-upload</button><button class="btn" data-export-relink="${x.item.id}">Relink</button><button class="btn danger-text" data-export-remove="${x.item.id}">Remove broken record</button></div></div>`).join("")}</div><div class="form-actions"><button id="exportMissingCancel" class="btn">Cancel export</button><button id="exportMissingContinue" class="btn primary">Continue without missing PDFs</button></div>`);$("#exportMissingCancel").onclick=()=>{closeModal();resolve({type:"cancel"})};$("#exportMissingContinue").onclick=()=>{closeModal();resolve({type:"continue"})};$("#modalBody").onclick=e=>{const r=e.target.closest("[data-export-reupload]"),l=e.target.closest("[data-export-relink]"),d=e.target.closest("[data-export-remove]");if(r){closeModal();resolve({type:"reupload",item:itemById(r.dataset.exportReupload)})}else if(l){closeModal();resolve({type:"relink",item:itemById(l.dataset.exportRelink)})}else if(d){closeModal();resolve({type:"remove",item:itemById(d.dataset.exportRemove)})}}})}
@@ -6049,7 +6051,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
   };
 
   function ql65LinksHtml(rows,title="Quiz Library Links"){
-    const cards=rows.map(x=>`<article><div class="path">${esc(x.path||"Documents")}</div><a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.title)}</a></article>`).join("");
+    const cards=rows.map(x=>`<article><div class="path">${esc(x.path||"Documents")}</div><a href="${esc(qlSafeUrl(x.url)||"#")}" target="_blank" rel="noopener noreferrer">${esc(x.title)}</a></article>`).join("");
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;margin:0;background:#f4f7fb;color:#172033;padding:20px}main{max-width:720px;margin:auto}h1{font-size:24px}article{background:#fff;border:1px solid #dde4ee;border-radius:14px;padding:14px;margin:10px 0}.path{font-size:12px;color:#738096;margin-bottom:7px}a{display:block;padding:12px 14px;border-radius:10px;background:#1470f5;color:#fff;text-decoration:none;font-weight:700;word-break:break-word}</style>
 </head><body><main><h1>${esc(title)}</h1>${cards||"<p>No links.</p>"}</main>
 </body></html>`
@@ -6457,7 +6459,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
   function openLinkExternallyDirect(item){
     let tab=null;
     try{
-      tab=window.open(item.url,"_blank","noopener");
+      tab=window.open(qlSafeUrl(item.url)||"about:blank","_blank","noopener");
       if(!tab)toast("Allow pop-ups to open this link in a new tab.");
       logActivity("link_open",{item,details:{external:true,reason:"third_party_or_no_bridge"}}).catch(()=>{});
     }catch(error){try{tab?.close()}catch{};alert(friendlyError(error))}
@@ -6621,7 +6623,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
     if(!hasGesture74())return false; // never replay from history/render/pageshow
     try{
       /* Must execute synchronously inside the original user action. No await, modal, retry, or delayed reopening. */
-      window.open(item.url,"_blank","noopener");
+      window.open(qlSafeUrl(item.url)||"about:blank","_blank","noopener");
       return true;
     }catch(error){
       console.debug("External link could not be opened by the browser",error?.message||error);
@@ -6746,6 +6748,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
   const PDF_TTL_MS=8*60*1000;
 
   function directExternal76(url){
+    url=qlSafeUrl(url);
     if(!url)return false;
     try{
       window.open(url,"_blank","noopener");
@@ -18397,7 +18400,7 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     if(!root){v.innerHTML=frame(`<div class="ql-iv-msg err">This shared link is empty.</div>`);return}
     const kids=ref=>nodes.filter(x=>x.parent_ref===ref).sort((a,b)=>(a.kind==="folder"?0:1)-(b.kind==="folder"?0:1)||String(a.title).localeCompare(String(b.title)));
     const countIn=ref=>{let c=0;const w=r=>kids(r).forEach(x=>{c++;if(x.kind==="folder")w(x.ref)});w(ref);return c};
-    const open=x=>{if(x.kind==="link"&&x.url)window.open(x.url,"_blank","noopener");else if(x.kind==="pdf"&&x.pdf_url)window.open(x.pdf_url,"_blank","noopener");else if(x.kind==="quiz"&&x.quiz_link){if(opt.inApp)window.open(x.quiz_link,"_blank","noopener");else location.href=x.quiz_link}else alert("This item can't be opened.")};
+    const open=x=>{if(x.kind==="link"&&qlSafeUrl(x.url))window.open(qlSafeUrl(x.url),"_blank","noopener");else if(x.kind==="pdf"&&qlSafeUrl(x.pdf_url))window.open(qlSafeUrl(x.pdf_url),"_blank","noopener");else if(x.kind==="quiz"&&qlSafeUrl(x.quiz_link)){if(opt.inApp)window.open(qlSafeUrl(x.quiz_link),"_blank","noopener");else location.href=qlSafeUrl(x.quiz_link)}else alert("This item can't be opened.")};
     const sub=x=>x.kind==="folder"?plural(kids(x.ref).length,"item"):x.kind==="pdf"?(x.file_size?fmtBytes(x.file_size)+" · PDF":"PDF"):x.kind==="quiz"?"Quiz":String(x.url||"Link").replace(/^https?:\/\//,"").slice(0,48);
     const go={folder:"Open",pdf:"View",link:"Open",quiz:"Start"};
     const rowHtml=x=>opt.inApp&&typeof iconMarkup==="function"?`<article tabindex="0" class="item-card qd-item" data-ref="${h(x.ref)}">${iconMarkup({kind:x.kind,id:"v_"+x.ref,title:x.title,color:x.color||null,icon:x.icon||""})}<div class="item-title">${h(x.title||KN[x.kind])}</div><div class="item-sub">${h(sub(x))}</div></article>`:`<button type="button" class="ql-iv-row" data-ref="${h(x.ref)}">${kIco(x.kind)}<span><b>${h(x.title||KN[x.kind])}</b><small>${h(sub(x))}</small></span><span class="ql-iv-go">${go[x.kind]}</span></button>`;
@@ -18489,7 +18492,7 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
   async function openPost(r){
     const load=async()=>{const {data,error}=await service.client.rpc("ql_dash_open",{p_id:r.id});if(error)throw error;return {payload:data.payload}};
     if(r.kind==="quiz"){
-      try{const x=await load();const n=(x.payload.nodes||[])[0];if(n&&n.quiz_link){window.open(n.quiz_link,"_blank","noopener");return}throw new Error("This quiz can't be opened.")}catch(e){return alert(friendlyError(e))}
+      try{const x=await load();const n=(x.payload.nodes||[])[0];if(n&&qlSafeUrl(n.quiz_link)){window.open(qlSafeUrl(n.quiz_link),"_blank","noopener");return}throw new Error("This quiz can't be opened.")}catch(e){return alert(friendlyError(e))}
     }
     await openViewer(null,{inApp:true,load,sub:`by ${r.author_name||"a student"}`,
       extra:`<button type="button" class="row-btn ql-dash-more ql-iv-more" aria-label="More">⋮</button>`,
@@ -19200,7 +19203,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     const box=document.getElementById("qlSupMsgs");if(!box)return;
     try{const {data,error}=await cli().rpc("ql_support_mine");if(error)throw error;unread=0;badge();
       box.innerHTML=(data||[]).length?data.map(m=>`<div class="ql-sup-m ${m.from_admin?"them":"me"}"><div class="b">${m.body?H(m.body).replace(/\n/g,"<br>"):""}${m.image?`<img src="${H(m.image)}" alt="photo" data-big>`:""}</div><small>${m.from_admin?"Admin · ":""}${H(when(m.created_at))}${!m.from_admin&&m.read_at?" · Seen":""}</small></div>`).join(""):`<div class="ql-sup-empty">👋 Hi! Ask anything — about plans, payments or how to use Quiz Library. The admin will answer here.</div>`;
-      box.querySelectorAll("[data-big]").forEach(i=>i.onclick=()=>window.open(i.src,"_blank"));
+      box.querySelectorAll("[data-big]").forEach(i=>i.onclick=()=>{if(/^data:image\//i.test(i.src))window.open(i.src,"_blank","noopener")});
       box.scrollTop=box.scrollHeight}
     catch(e){box.innerHTML=`<div class="ql-sup-empty">Messages are not available right now.</div>`}
   }
