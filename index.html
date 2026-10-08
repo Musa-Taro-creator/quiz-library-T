@@ -19565,7 +19565,8 @@ html.ql-offline #qlDashNav,html.ql-offline #studentSharedQuizInbox,html.ql-offli
     }else if(offShown){offShown=false;clearTimeout(barTimer);try{const hs=$("#headerModeStatus");if(hs&&hs.classList.contains("ql-off-status")){hs.textContent="Live";hs.classList.remove("ql-off-status")}}catch(e){}if(!b){b=document.createElement("div");b.id="qlOffBar";b.setAttribute("role","status");document.body.appendChild(b)}b.style.opacity="";b.className="ok";b.innerHTML="<span>✅ Back online</span>";barTimer=setTimeout(()=>b.remove(),3000)}
   }
   let decoT=0;
-  function decorate(){clearTimeout(decoT);decoT=setTimeout(()=>{
+  function decorate(){clearTimeout(decoT);decoT=setTimeout(decorateNow,60)}
+  function decorateNow(){{
     const root=document.getElementById("content");if(!root)return;
     root.querySelectorAll("[data-id]").forEach(el=>{
       const x=itemById(el.dataset.id);if(!x)return;
@@ -19576,12 +19577,13 @@ html.ql-offline #qlDashNav,html.ql-offline #studentSharedQuizInbox,html.ql-offli
       el.classList.toggle("ql-off-dim",off.active&&isStudent()&&x.kind!=="folder"&&!savedNow(x));
     });
     profileCard();paintAuto();
-  },60)}
+  }}
   window.addEventListener("ql-offline-change",()=>{bar();decorate()});
   window.addEventListener("ql-back-online",()=>{bar();decorate();qlOffQueue.flush()});
   window.addEventListener("online",()=>setTimeout(()=>qlOffQueue.flush(),2500));
   const content=document.getElementById("content");
-  if(content)new MutationObserver(()=>decorate()).observe(content,{childList:true,subtree:true});
+  /* run right away (before the screen is painted) so the marks never flicker */
+  if(content)new MutationObserver(()=>decorateNow()).observe(content,{childList:true,subtree:true});
   let lastUid="";
   setInterval(()=>{const u=uid();if(u&&u!==lastUid){lastUid=u;loadMeta()}if(off.active)bar()},1000);
   setTimeout(()=>{bar();qlOffQueue.flush()},3000);
