@@ -19328,6 +19328,8 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
 #qlOffBar.ok{color:#065f46;background:#d1fae5;border-color:#6ee7b7;box-shadow:0 10px 26px rgba(6,95,70,.18)}
 #qlOffBar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @keyframes qlOffIn{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
+.item-card>.ql-off-mark{position:absolute;top:-10px;left:50%;transform:translateX(-50%);margin:0;z-index:4;box-shadow:0 3px 8px rgba(6,95,70,.18)}
+.item-card.ql-has-mark{overflow:visible}
 .ql-off-mark{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:0 7px;border-radius:999px;font:800 10.5px/1.6 system-ui,sans-serif;color:#065f46;background:#d1fae5;border:1px solid #a7f3d0;vertical-align:1px;white-space:nowrap;pointer-events:none}
 html.ql-offline .ql-off-dim{opacity:.42;filter:grayscale(.6)}
 html.ql-offline #qlDashNav,html.ql-offline #studentSharedQuizInbox,html.ql-offline .nav [data-section="shared"],html.ql-offline #qlSupportNav,html.ql-offline [data-quick],html.ql-offline [data-quiz-quick],html.ql-offline #newBtn{opacity:.45}
@@ -19566,8 +19568,8 @@ html.ql-offline #qlDashNav,html.ql-offline #studentSharedQuizInbox,html.ql-offli
     root.querySelectorAll("[data-id]").forEach(el=>{
       const x=itemById(el.dataset.id);if(!x)return;
       const show=isStudent()&&(x.kind==="pdf"||x.kind==="quiz")&&!!saved[x.id];
-      const sub=el.querySelector(".item-sub")||el;let m=el.querySelector(".ql-off-mark");
-      if(show&&!m){m=document.createElement("span");m.className="ql-off-mark";m.textContent="✓ Saved";sub.appendChild(m)}
+      const card=el.classList.contains("item-card"),sub=card?el:(el.querySelector(".item-sub")||el);let m=el.querySelector(".ql-off-mark");
+      if(show&&!m){m=document.createElement("span");m.className="ql-off-mark";m.textContent="✓ Saved";if(card){el.classList.add("ql-has-mark");if(getComputedStyle(el).position==="static")el.style.position="relative"}sub.appendChild(m)}
       if(!show&&m)m.remove();
       el.classList.toggle("ql-off-dim",off.active&&isStudent()&&x.kind!=="folder"&&!savedNow(x));
     });
