@@ -19331,6 +19331,14 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
 .ql-off-mark{position:absolute;left:50%;top:10px;transform:translateX(-50%);white-space:nowrap;z-index:3;display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;font:800 11px/1.5 system-ui,sans-serif;color:#065f46;background:#d1fae5;border:1px solid #a7f3d0;pointer-events:none}
 html.ql-offline .ql-off-dim{opacity:.42;filter:grayscale(.6)}
 html.ql-offline #qlDashNav,html.ql-offline #studentSharedQuizInbox,html.ql-offline .nav [data-section="shared"],html.ql-offline #qlSupportNav,html.ql-offline [data-quick],html.ql-offline [data-quiz-quick],html.ql-offline #newBtn{opacity:.45}
+.ql-off-auto{margin-top:16px;padding:14px 16px;border-radius:18px;border:1px solid var(--line,#e2e8f0);background:color-mix(in srgb,var(--panel,#fff) 82%,transparent)}
+.ql-off-auto-row{display:flex;align-items:center;gap:12px;justify-content:space-between}
+.ql-off-auto-row b{display:block;font-size:15px}.ql-off-auto-row small{display:block;margin-top:2px;font-size:12.5px;opacity:.72;line-height:1.35}
+.ql-off-sw{flex:none;position:relative;width:50px;height:30px;border-radius:99px;border:0;background:#cbd5e1;cursor:pointer;transition:background .2s}
+.ql-off-sw i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.25);transition:left .2s}
+.ql-off-sw.on{background:#10b981}.ql-off-sw.on i{left:23px}
+.ql-off-auto-st{margin-top:10px;font-size:13px;font-weight:700;color:#047857}
+.ql-off-clear{margin-top:8px;border:0;background:none;padding:0;font-size:12.5px;text-decoration:underline;opacity:.65;cursor:pointer;color:inherit}
 #qlOffPdf{position:fixed;inset:0;z-index:2147482100;display:flex;flex-direction:column;background:#334155}
 #qlOffPdf .hd{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 8px) 10px 8px;background:#0f172a;color:#fff}
 #qlOffPdf .hd b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:700 15px system-ui,sans-serif}
@@ -19391,6 +19399,51 @@ html.ql-offline #qlDashNav,html.ql-offline #studentSharedQuizInbox,html.ql-offli
     await saveMeta();decorate();toast("Removed from this device");
   }
   window.qlSaveForOffline=saveForOffline;
+
+  /* ---------- automatic saving (Kuza: one by one is too slow) ----------
+     While online, PDFs and quizzes are saved in the background, one at a time,
+     so the whole library is ready for offline. On by default; switch in My Profile.
+     Skips very big PDFs, Data Saver, and stops when the phone's storage is nearly full. */
+  const AUTO_KEY=()=>`ql_off_auto_${uid()}`,MAX_PDF=60*1024*1024;
+  const autoOn=()=>{try{return localStorage.getItem(AUTO_KEY())!=="0"}catch(e){return true}};
+  let autoBusy=false,autoNote="",autoT=0;
+  const sizeOf=x=>Number(x.file_size||x.size_bytes||x.size||0);
+  function wanted(){return (state.items||[]).filter(x=>!x.is_trashed&&((x.kind==="pdf"&&x.storage_path&&sizeOf(x)<=MAX_PDF)||(x.kind==="quiz"&&(x.quiz_settings?.question_count||0)>0)))}
+  function stats(){const w=wanted();let n=0,bytes=0;w.forEach(x=>{if(savedNow(x))n++});Object.values(saved).forEach(v=>bytes+=v.size||0);return {n,total:w.length,bytes}}
+  async function autoStep(){
+    clearTimeout(autoT);
+    if(autoBusy||!autoOn()||off.active||navigator.onLine===false||!isStudent()||!state.studentWorkspaceReady||!service.client){autoT=setTimeout(autoStep,30000);return}
+    if(navigator.connection&&navigator.connection.saveData){autoNote="Paused: Data Saver is on";paintAuto();autoT=setTimeout(autoStep,60000);return}
+    try{const e=await navigator.storage?.estimate?.();if(e&&e.quota&&e.usage/e.quota>0.85){autoNote="Paused: phone storage is almost full";paintAuto();autoT=setTimeout(autoStep,300000);return}}catch(e){}
+    /* forget copies of items that were deleted */
+    const ids=new Set((state.items||[]).map(x=>x.id));let gone=false;
+    for(const id of Object.keys(saved))if(!ids.has(id)){if(saved[id].kind==="pdf")try{(await caches.open(PDFC())).delete(pdfKey(id))}catch(e){}delete saved[id];gone=true}
+    if(gone)await saveMeta();
+    const next=wanted().find(x=>!savedNow(x)&&!(failedIds.get(x.id)>2));
+    if(!next){autoNote="";paintAuto();autoT=setTimeout(autoStep,60000);return}
+    autoBusy=true;autoNote=`Saving “${next.title||"item"}”…`;paintAuto();
+    try{if(next.kind==="pdf")await savePdf(next);else await saveQuiz(next);await saveMeta();decorate()}
+    catch(e){failedIds.set(next.id,(failedIds.get(next.id)||0)+1)}
+    finally{autoBusy=false;autoNote="";paintAuto();autoT=setTimeout(autoStep,1500)}
+  }
+  const failedIds=new Map();
+  function paintAuto(){
+    const box=document.getElementById("qlOffAuto");if(!box)return;
+    const st=stats(),on=autoOn();
+    box.querySelector("[data-sw]").classList.toggle("on",on);
+    box.querySelector("[data-st]").textContent=!on?"Off — use ⋮ → Save for offline for single items":autoNote||(st.total?`${st.n} of ${st.total} saved on this phone${st.bytes?` · ${(st.bytes/1048576).toFixed(1)} MB`:""}${st.n<st.total&&navigator.onLine!==false?" · saving…":st.n>=st.total?" ✓":""}`:"Nothing to save yet");
+  }
+  function profileCard(){
+    const th=document.querySelector(".ql-theme-switch");if(!th||!isStudent()||document.getElementById("qlOffAuto"))return;
+    const box=document.createElement("div");box.id="qlOffAuto";box.className="ql-off-auto";
+    box.innerHTML=`<div class="ql-off-auto-row"><div><b>📥 Offline library</b><small>Save my PDFs and quizzes automatically, so they open without internet</small></div><button type="button" class="ql-off-sw" data-sw aria-label="Save automatically"><i></i></button></div><div class="ql-off-auto-st" data-st></div><button type="button" class="ql-off-clear" data-clear>Remove offline copies</button>`;
+    th.after(box);
+    box.querySelector("[data-sw]").onclick=()=>{const on=!autoOn();try{localStorage.setItem(AUTO_KEY(),on?"1":"0")}catch(e){}paintAuto();if(on)autoStep()};
+    box.querySelector("[data-clear]").onclick=async()=>{if(!confirm("Remove all PDFs and quizzes saved on this phone? (They stay in your library.)"))return;try{await caches.delete(PDFC())}catch(e){}saved={};await saveMeta();try{localStorage.setItem(AUTO_KEY(),"0")}catch(e){}decorate();paintAuto();toast("Offline copies removed")};
+    paintAuto();
+  }
+  setTimeout(autoStep,6000);
+  window.addEventListener("ql-back-online",()=>setTimeout(autoStep,3000));
 
   /* quizzes taken online stay on the device: mark them saved */
   const prevTake=service.getQuizForTaking;
@@ -19515,6 +19568,7 @@ html.ql-offline #qlDashNav,html.ql-offline #studentSharedQuizInbox,html.ql-offli
       if(!show&&m)m.remove();
       el.classList.toggle("ql-off-dim",off.active&&isStudent()&&x.kind!=="folder"&&!savedNow(x));
     });
+    profileCard();paintAuto();
   },60)}
   window.addEventListener("ql-offline-change",()=>{bar();decorate()});
   window.addEventListener("ql-back-online",()=>{bar();decorate();qlOffQueue.flush()});
