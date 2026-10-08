@@ -19576,7 +19576,8 @@ body.ql-neon .ql-off-sw.on{background:#00c8a0;box-shadow:0 0 12px rgba(0,229,255
     const root=document.getElementById("content");if(!root)return;
     root.querySelectorAll("[data-id]").forEach(el=>{
       const x=itemById(el.dataset.id);if(!x)return;
-      const show=isStudent()&&(x.kind==="pdf"||x.kind==="quiz")&&!!saved[x.id];
+      /* Kuza picked A: the Saved mark only shows while offline */
+      const show=off.active&&isStudent()&&(x.kind==="pdf"||x.kind==="quiz")&&savedNow(x);
       const card=el.classList.contains("item-card"),sub=card?el:(el.querySelector(".item-sub")||el);let m=el.querySelector(".ql-off-mark");
       if(show&&!m){m=document.createElement("span");m.className="ql-off-mark";m.textContent="✓ Saved";if(card){el.classList.add("ql-has-mark");if(getComputedStyle(el).position==="static")el.style.position="relative"}sub.appendChild(m)}
       if(!show&&m)m.remove();
