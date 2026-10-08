@@ -19548,14 +19548,17 @@ html.ql-offline #qlDashNav,html.ql-offline #studentSharedQuizInbox,html.ql-offli
   };
 
   /* ---------- the bar + marks ---------- */
-  let barTimer=0;
+  let barTimer=0,offShown=false;
   function bar(){
-    clearTimeout(barTimer);let b=document.getElementById("qlOffBar");
+    let b=document.getElementById("qlOffBar");
     if(off.active&&isStudent()){
+      try{$("#syncText").textContent="OFFLINE";$("#syncDot").style.color="#d84b5e"}catch(e){}
+      /* Kuza picked B: show it for 5 seconds, then hide it (faded items still show it) */
+      if(offShown)return;offShown=true;clearTimeout(barTimer);
       if(!b){b=document.createElement("div");b.id="qlOffBar";b.setAttribute("role","status");document.body.appendChild(b)}
       b.className="";b.innerHTML=innerWidth<560?"<span>📴 You're offline · saved library</span>":"<span>📴 You're offline — showing your saved library</span>";
-      try{$("#syncText").textContent="OFFLINE";$("#syncDot").style.color="#d84b5e"}catch(e){}
-    }else if(b&&!b.classList.contains("ok")){b.className="ok";b.innerHTML="<span>✅ Back online</span>";barTimer=setTimeout(()=>b.remove(),3000)}
+      barTimer=setTimeout(()=>{b.style.transition="opacity .4s";b.style.opacity="0";setTimeout(()=>b.remove(),450)},5000);
+    }else if(offShown){offShown=false;clearTimeout(barTimer);if(!b){b=document.createElement("div");b.id="qlOffBar";b.setAttribute("role","status");document.body.appendChild(b)}b.style.opacity="";b.className="ok";b.innerHTML="<span>✅ Back online</span>";barTimer=setTimeout(()=>b.remove(),3000)}
   }
   let decoT=0;
   function decorate(){clearTimeout(decoT);decoT=setTimeout(()=>{
