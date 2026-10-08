@@ -4053,7 +4053,7 @@ function createSupabaseService(){
      one-at-a-time guarantee inside this page, no cross-tab waiting). */
   const qlAuthLocks={};
   const qlAuthLock=async(name,acquireTimeout,fn)=>{const prev=qlAuthLocks[name]||Promise.resolve();let release;const mine=new Promise(r=>release=r);qlAuthLocks[name]=prev.then(()=>mine,()=>mine);try{await prev}catch(e){}try{return await fn()}finally{release()}};
-  const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,lock:qlAuthLock}});
+  const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,lock:qlAuthLock},global:{fetch:(...a)=>window.qlOffFetch?window.qlOffFetch(...a):fetch(...a)}});
   return {
     client,
     async getLibrary(){const {data,error}=await client.from("libraries").select("*").eq("id",LIBRARY_ID).maybeSingle();if(error)throw error;if(!data)throw new Error("Library setup is missing.");return data},
@@ -4899,6 +4899,67 @@ function bindStatic(){
   window.addEventListener("online",()=>{setConnection(true);loadAll().catch(()=>setConnection(false))});window.addEventListener("offline",()=>setConnection(false))
 }
 
+/* ---------------- Offline mode (Kuza, Oct 2026) ----------------
+   While online, a copy of the student's library is kept on this device
+   (IndexedDB "ql_offline"). With no internet the app starts from that copy:
+   the saved session is used, the library list shows as last seen, saved PDFs
+   and quizzes open, and quiz results wait in a queue until the internet is
+   back. Everything that needs the server (pay, share, upload, messages…)
+   says "Needs internet". The service worker (sw.js) keeps the app itself. */
+const qlOff=(function(){
+  const SB_KEY="sb-"+SUPABASE_URL.replace(/^https:\/\//,"").split(".")[0]+"-auth-token";
+  const api={active:false,from:null};
+  api.isNetError=e=>navigator.onLine===false||/Failed to fetch|NetworkError|Load failed|network ?error|ERR_INTERNET|ERR_NETWORK|fetch failed|could not reach|timed? ?out|AuthRetryableFetchError/i.test(`${e?.name||""} ${e?.message||e||""}`);
+  let dbp=null;
+  function db(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{try{const r=indexedDB.open("ql_offline",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}}).catch(e=>{dbp=null;throw e});return dbp}
+  api.get=async k=>{try{const d=await db();return await new Promise(res=>{const q=d.transaction("kv","readonly").objectStore("kv").get(k);q.onsuccess=()=>res(q.result??null);q.onerror=()=>res(null)})}catch(e){return null}};
+  api.put=async(k,v)=>{try{const d=await db();await new Promise(res=>{const t=d.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=res;t.onerror=res;t.onabort=res})}catch(e){}};
+  api.storedSession=()=>{try{const raw=JSON.parse(localStorage.getItem(SB_KEY)||"null");const s=raw?.currentSession||raw;return s&&s.user?s:null}catch(e){return null}};
+  const uidNow=()=>state.user?.id||api.storedSession()?.user?.id||"";
+  api.key=()=>`lib:${uidNow()}:${LIBRARY_ID}`;
+  api.goOffline=why=>{if(!api.active){api.active=true;api.from=why||"offline";document.documentElement.classList.add("ql-offline");window.dispatchEvent(new Event("ql-offline-change"))}};
+  api.goOnline=()=>{if(api.active){api.active=false;document.documentElement.classList.remove("ql-offline");window.dispatchEvent(new Event("ql-offline-change"))}};
+  /* wrap a service method; later scripts that replace it still get wrapped */
+  function wrap(name,make){const fix=fn=>{const w=make(()=>fn);w.__qlOff=true;return w};let cur=fix(service[name]);Object.defineProperty(service,name,{configurable:true,enumerable:true,get(){return cur},set(v){cur=v&&v.__qlOff?v:fix(v)}})}
+  wrap("getSession",inner=>async function(...a){try{return await inner().apply(this,a)}catch(e){if(!api.isNetError(e))throw e;const s=api.storedSession();if(s){api.goOffline("session");return s}throw e}});
+  wrap("getLibrary",inner=>async function(...a){try{const lib=await inner().apply(this,a);if(lib)api.put(`libinfo:${LIBRARY_ID}`,lib);return lib}catch(e){if(!api.isNetError(e))throw e;const lib=await api.get(`libinfo:${LIBRARY_ID}`);if(lib){api.goOffline("library");return lib}throw e}});
+  wrap("getItems",inner=>async function(...a){try{return await inner().apply(this,a)}catch(e){if(!api.isNetError(e))throw e;const snap=await api.get(api.key());if(snap&&Array.isArray(snap.items)){api.goOffline("items");return snap.items}throw e}});
+  /* offline start: show the student's saved library (the app first loads the shared
+     library and only then the student's own copy, which needs the server) */
+  let restoring=false;
+  api.restore=async()=>{
+    if(restoring||!api.active||!state.user||state.isAdmin)return;
+    if((state.items||[]).some(x=>x&&x._student_private))return;
+    restoring=true;
+    try{const snap=await api.get(api.key());if(snap&&Array.isArray(snap.items)&&api.active){state.items=snap.items;state.studentWorkspaceReady=true;state.studentWorkspaceError=null;document.body.classList.add("student-edit-mode");try{render()}catch(e){}}}
+    finally{restoring=false}
+  };
+  setInterval(()=>{if(api.active)api.restore()},700);
+  /* keep the copy fresh while online (only the student's own library) */
+  let lastItems=null,lastAt=0;
+  setInterval(()=>{
+    if(api.active||navigator.onLine===false||!state.user||state.isAdmin||!state.studentWorkspaceReady)return;
+    if(state.items===lastItems&&Date.now()-lastAt<120000)return;
+    lastItems=state.items;lastAt=Date.now();
+    const items=(state.items||[]).map(x=>{const y={...x};if(Array.isArray(y._student_questions)&&y._student_questions.length>3000)delete y._student_questions;return y});
+    api.put(api.key(),{items,at:Date.now(),user:{id:state.user.id,email:state.user.email}});
+  },4000);
+  /* while offline, calls to the server fail at once (no 7-second retries), and
+     every 20 s one tiny request checks if the internet is back */
+  window.qlOffFetch=(input,init)=>{
+    if(api.active||navigator.onLine===false){const e=new Error("Failed to fetch (offline)");e.name="AbortError";return Promise.reject(e)}
+    return fetch(input,init);
+  };
+  setInterval(()=>{
+    if(!api.active||navigator.onLine===false)return;
+    fetch(SUPABASE_URL+"/auth/v1/health",{headers:{apikey:SUPABASE_KEY},cache:"no-store"}).then(r=>{if(r.status<500)window.dispatchEvent(new Event("online"))}).catch(()=>{});
+  },20000);
+  /* back online: leave offline mode and reload fresh data */
+  window.addEventListener("online",()=>{if(!api.active)return;setTimeout(async()=>{try{const s=await service.getSession();if(!s||api.isNetError({}))return;api.goOnline();state.studentWorkspaceRefreshing=false;try{await loadAll()}catch(e){}window.dispatchEvent(new Event("ql-back-online"))}catch(e){}},1200)});
+  window.addEventListener("offline",()=>{if(state.user&&!state.isAdmin)api.goOffline("event")});
+  return api;
+})();
+window.qlOff=qlOff;
 window.__quizTest={state,service,navigate,openAdmin,exitAdmin,openUpload,openEditor,openMove,duplicateItems,trashItems,restoreItems,deletePermanent,render,visibleItems,exportHtml};
 (async()=>{try{
   bindStatic();
@@ -15905,7 +15966,7 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
       if(error)throw error;
       const max=(data&&data[0]&&data[0].updated_at)||"",n=Number(count??0);
       if(c.stamp?(c.stamp.max===max&&c.stamp.count===n):n===c.list.length){const was=c.stamp;c.stamp={max,count:n};if(!was)qzDiskCachePut(itemId);return c.list}
-    }catch(e){}
+    }catch(e){if(window.qlOff&&qlOff.isNetError(e))return c.list}
     return await loadSplitQuestions(itemId);
   }
   async function cachedSplitQuestions(itemId){const c=splitCache.get(String(itemId));return c?c.list:await loadSplitQuestions(itemId)}
@@ -15988,8 +16049,9 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
     }
     const submitted=nowIso();
     const attempt={id:uid(),item_id:itemId,taker_name:takerName||null,taker_identifier:takerIdentifier||null,answers,detail:result.detail,score:result.score,max_score:result.max_score,percent:result.percent,passed:result.passed,started_at:startedAt||null,submitted_at:submitted,session_name:meta?.session_name||null,identity_mode:meta?.identity_mode||null,normalized_name:meta?.normalized_name||null,participant_id:meta?.participant_id||null,user_id:meta?.user_id||null,is_owner:meta?.is_owner===true};
-    const {error}=await service.client.from(ATABLE).insert({user_id:state.user.id,library_id:String(LIBRARY_ID),item_id:String(itemId),id:attempt.id,submitted_at:submitted,data:attempt});
-    if(error)throw error;
+    const attemptRow={user_id:state.user.id,library_id:String(LIBRARY_ID),item_id:String(itemId),id:attempt.id,submitted_at:submitted,data:attempt};
+    const {error}=await service.client.from(ATABLE).insert(attemptRow);
+    if(error){if(window.qlOff&&qlOff.isNetError(error)&&window.qlOffQueue){await qlOffQueue.add(attemptRow);result.queued=true;return result}throw error}
     return result;
   };
   service.listQuizAttempts=async itemId=>{
@@ -17889,7 +17951,7 @@ body.ql-installed .ql-install-row,body.ql-installed #qlInstallNav{display:none!i
   }
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferred=e});
   window.addEventListener("appinstalled",()=>{deferred=null;setTimeout(mark,300)});
-  if("serviceWorker"in navigator&&location.protocol==="https:"){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})})}
+  if("serviceWorker"in navigator&&(location.protocol==="https:"||location.hostname==="localhost")){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})})}
   if(document.readyState==="loading")window.addEventListener("DOMContentLoaded",place);else place();
   if(typeof render==="function"){const prev=render;render=function(){const r=prev.apply(this,arguments);try{place()}catch(e){}return r}}
 })();
@@ -18735,12 +18797,20 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   /* ---------- load ---------- */
   async function loadCfg(){
     const c=cli();if(!c)return;
-    try{const {data,error}=await c.rpc("ql_public_config");if(error)return;cfg=data;window.qlPublicCfg=data;if(data&&data.server_time)skew=new Date(data.server_time)-Date.now();ready=true}catch{return}
+    try{let {data,error}=await c.rpc("ql_public_config");
+      /* offline mode: use the copy saved last time */
+      if(error){if(!(window.qlOff&&qlOff.isNetError(error)))return;try{data=JSON.parse(localStorage.getItem("ql_off_cfg")||"null")}catch{data=null}if(!data)return;data={...data,server_time:null}}
+      else{try{localStorage.setItem("ql_off_cfg",JSON.stringify(data))}catch{}}
+      cfg=data;window.qlPublicCfg=data;if(data&&data.server_time)skew=new Date(data.server_time)-Date.now();ready=true}catch{return}
     applyAll();
   }
   async function loadMine(){
     const c=cli();if(!c||!signedIn()){mine=null;return applyAll()}
-    try{const {data,error}=await c.rpc("ql_my_plan");if(error)return;const before=mine&&mine.plan&&mine.plan.id;mine=data;
+    try{let {data,error}=await c.rpc("ql_my_plan");
+      const offKey="ql_off_mine_"+state.user.id;
+      if(error){if(!(window.qlOff&&qlOff.isNetError(error)))return;try{data=JSON.parse(localStorage.getItem(offKey)||"null")}catch{data=null}if(!data)return}
+      else{try{localStorage.setItem(offKey,JSON.stringify(data))}catch{}}
+      const before=mine&&mine.plan&&mine.plan.id;mine=data;
       const key="ql_plan_seen_"+state.user.id,seen=(()=>{try{return localStorage.getItem(key)}catch{return null}})();
       const p=mine.plan,s=mine.subscription;
       if(p&&!p.is_default&&s&&seen!==p.id+"|"+s.ends_at){try{localStorage.setItem(key,p.id+"|"+s.ends_at)}catch{}if(seen!==null||before)showActivated()}
@@ -19252,4 +19322,208 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
 .ql-sup-in button,.ql-sup-att{height:44px;padding:0 16px;border:0;border-radius:14px;font-weight:800;cursor:pointer;color:#fff;background:linear-gradient(135deg,#6366f1,#8b5cf6)}.ql-sup-att{display:grid;place-items:center;padding:0 12px;font-size:19px;background:#eef2ff}
 .ql-sup-pic{position:relative;width:fit-content}.ql-sup-pic img{max-height:90px;border-radius:10px}.ql-sup-pic button{position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;border:0;background:#0f172a;color:#fff;cursor:pointer}
 </style>
+<style id="qlOfflineStyle">
+/* Offline mode (Kuza, Oct 2026) */
+#qlOffBar{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 10px);transform:translateX(-50%);z-index:2147482000;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 24px);padding:9px 16px;border-radius:999px;font:700 14px/1.3 system-ui,sans-serif;color:#7c2d12;background:#ffedd5;border:1px solid #fdba74;box-shadow:0 10px 26px rgba(124,45,18,.18);animation:qlOffIn .25s ease-out}
+#qlOffBar.ok{color:#065f46;background:#d1fae5;border-color:#6ee7b7;box-shadow:0 10px 26px rgba(6,95,70,.18)}
+#qlOffBar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes qlOffIn{from{opacity:0;transform:translate(-50%,-8px)}to{opacity:1;transform:translate(-50%,0)}}
+.ql-off-mark{position:absolute;left:50%;top:10px;transform:translateX(-50%);white-space:nowrap;z-index:3;display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;font:800 11px/1.5 system-ui,sans-serif;color:#065f46;background:#d1fae5;border:1px solid #a7f3d0;pointer-events:none}
+html.ql-offline .ql-off-dim{opacity:.42;filter:grayscale(.6)}
+html.ql-offline #qlDashNav,html.ql-offline #studentSharedQuizInbox,html.ql-offline .nav [data-section="shared"],html.ql-offline #qlSupportNav,html.ql-offline [data-quick],html.ql-offline [data-quiz-quick],html.ql-offline #newBtn{opacity:.45}
+#qlOffPdf{position:fixed;inset:0;z-index:2147482100;display:flex;flex-direction:column;background:#334155}
+#qlOffPdf .hd{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 8px) 10px 8px;background:#0f172a;color:#fff}
+#qlOffPdf .hd b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:700 15px system-ui,sans-serif}
+#qlOffPdf .hd button{border:0;border-radius:10px;min-width:40px;height:38px;padding:0 12px;font:700 15px system-ui,sans-serif;color:#fff;background:rgba(255,255,255,.12);cursor:pointer}
+#qlOffPdf .pg{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px 0}
+#qlOffPdf canvas{display:block;margin:0 auto 12px;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.35);max-width:none}
+#qlOffPdf .ph{margin:0 auto 12px;background:#e2e8f0}
+</style>
+<script id="qlOfflineMode">
+"use strict";
+/* Offline mode, part 2 (part 1 = qlOff, next to the app start-up):
+   • "Save for offline" in every ⋮ menu (PDF, quiz, folder = everything inside)
+   • quizzes the student has taken are kept on the device automatically
+   • offline: an orange bar, "Saved" marks, faded items that need internet,
+     saved PDFs open in a built-in viewer, quiz results wait and are sent later */
+(function(){
+  const off=window.qlOff;if(!off)return;
+  const uid=()=>state.user?.id||off.storedSession()?.user?.id||"";
+  const PDFC=()=>`ql-off-pdf-${uid()}`,pdfKey=id=>`https://ql-offline.invalid/${LIBRARY_ID}/${encodeURIComponent(id)}.pdf`;
+  const metaKey=()=>`saved:${uid()}:${LIBRARY_ID}`;
+  let saved={};
+  const isStudent=()=>!!(state.user&&!state.isAdmin);
+  async function loadMeta(){saved=(await off.get(metaKey()))||{};decorate()}
+  const saveMeta=()=>off.put(metaKey(),saved);
+  function savedNow(x){
+    if(!x)return false;
+    if(x.kind==="folder")return true;
+    if(x.kind==="quiz")return !!saved[x.id]||(Array.isArray(x._student_questions)&&x._student_questions.length>0);
+    if(x.kind==="pdf")return !!saved[x.id];
+    return false;
+  }
+  const needNet=msg=>toast(msg||"🌐 Needs internet — please connect and try again.");
+  const tree=id=>{const out=[];const walk=p=>(state.items||[]).filter(i=>i.parent_id===p&&!i.is_trashed).forEach(i=>{out.push(i);if(i.kind==="folder")walk(i.id)});walk(id);return out};
+
+  /* ---------- saving ---------- */
+  async function savePdf(x){
+    const url=await service.signedUrl(x,300),r=await fetch(url);if(!r.ok)throw new Error("PDF download failed");
+    const blob=await r.blob(),c=await caches.open(PDFC());
+    await c.put(pdfKey(x.id),new Response(blob,{headers:{"Content-Type":"application/pdf"}}));
+    saved[x.id]={kind:"pdf",title:x.title,size:blob.size,at:Date.now()};
+  }
+  async function saveQuiz(x){await service.getQuizForTaking(x.id);saved[x.id]={kind:"quiz",title:x.title,at:Date.now()}}
+  async function saveForOffline(x){
+    if(off.active||navigator.onLine===false)return needNet();
+    const list=x.kind==="folder"?tree(x.id).filter(i=>i.kind==="pdf"||i.kind==="quiz"):[x];
+    if(!list.length)return toast("Nothing to save in this folder");
+    let done=0,failed=0;
+    for(const i of list){
+      if(list.length>1)toast(`📥 Saving for offline… ${done+1}/${list.length}`);
+      try{if(i.kind==="pdf")await savePdf(i);else if(i.kind==="quiz")await saveQuiz(i);done++}catch(e){failed++}
+    }
+    await saveMeta();decorate();
+    toast(failed?`📥 Saved ${done} of ${list.length} for offline`:list.length>1?`📥 Saved ${done} items for offline`:"📥 Saved for offline");
+  }
+  async function removeOffline(x){
+    const list=x.kind==="folder"?tree(x.id):[x];const c=await caches.open(PDFC());
+    for(const i of list){if(saved[i.id]){if(saved[i.id].kind==="pdf")await c.delete(pdfKey(i.id));delete saved[i.id]}}
+    await saveMeta();decorate();toast("Removed from this device");
+  }
+  window.qlSaveForOffline=saveForOffline;
+
+  /* quizzes taken online stay on the device: mark them saved */
+  const prevTake=service.getQuizForTaking;
+  if(prevTake)service.getQuizForTaking=async function(id){
+    const r=await prevTake.apply(this,arguments);
+    if(isStudent()&&!off.active&&!saved[id]&&r&&Array.isArray(r.questions)&&r.questions.length){const it=itemById(id);if(it){saved[id]={kind:"quiz",title:it.title,at:Date.now()};saveMeta();decorate()}}
+    return r;
+  };
+
+  /* ---------- ⋮ menu ---------- */
+  const prevMenu=openItemMenu;
+  openItemMenu=function(x,anchor){
+    prevMenu.apply(this,arguments);
+    const m=document.getElementById("itemMenu");if(!m||!x||!isStudent()||state.section==="trash")return;
+    if(off.active){m.querySelectorAll("button").forEach(b=>{if(/^(Open|Save for offline|Remove offline copy)$/.test(b.textContent.trim()))return;b.classList.add("ql-im-off");b.onclick=ev=>{ev.stopPropagation();closeMenus();needNet()}})}
+    if(!["pdf","quiz","folder"].includes(x.kind))return;
+    const has=x.kind==="folder"?tree(x.id).some(i=>saved[i.id]):!!saved[x.id];
+    const b=document.createElement("button");b.type="button";
+    const rm=has&&x.kind!=="folder";
+    b.innerHTML=`<span class="ql-mi" style="--mc:${rm?"#64748b":"#059669"}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${rm?'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>':'<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/>'}</svg></span><span class="ql-mi-label">${rm?"Remove offline copy":"Save for offline"}</span>`;
+    b.onclick=ev=>{ev.stopPropagation();closeMenus();(has&&x.kind!=="folder"?removeOffline(x):saveForOffline(x)).catch(e=>alert(friendlyError(e)))};
+    const first=m.querySelector(".ql-im-sep");m.insertBefore(b,first||null);
+  };
+
+  /* ---------- offline PDF viewer ---------- */
+  async function pdfBlob(x){try{const c=await caches.open(PDFC()),r=await c.match(pdfKey(x.id));return r?await r.blob():null}catch(e){return null}}
+  async function viewPdf(x){
+    const blob=await pdfBlob(x);
+    if(!blob)return needNet("📄 This PDF isn't saved on this device. Next time, tap ⋮ → Save for offline.");
+    const lib=window.pdfjsLib;
+    if(!lib){const u=URL.createObjectURL(blob);window.open(u,"_blank");return}
+    try{lib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"}catch(e){}
+    document.getElementById("qlOffPdf")?.remove();
+    const v=document.createElement("div");v.id="qlOffPdf";
+    v.innerHTML=`<div class="hd"><button type="button" data-a="close">←</button><b></b><button type="button" data-a="out">−</button><button type="button" data-a="in">+</button></div><div class="pg"></div>`;
+    v.querySelector("b").textContent=x.title||"PDF";document.body.appendChild(v);
+    const pg=v.querySelector(".pg");let zoom=1,doc=null,io=null;
+    const close=()=>{io&&io.disconnect();v.remove();try{doc&&doc.destroy()}catch(e){}};
+    v.querySelector('[data-a="close"]').onclick=close;
+    async function draw(){
+      if(!doc)return;io&&io.disconnect();pg.innerHTML="";
+      const first=await doc.getPage(1),base=first.getViewport({scale:1});
+      const w=Math.min(pg.clientWidth-16,1000)*zoom,scale=w/base.width,dpr=Math.min(2,window.devicePixelRatio||1);
+      io=new IntersectionObserver(es=>es.forEach(async e=>{if(!e.isIntersecting||e.target.dataset.done)return;e.target.dataset.done="1";const n=+e.target.dataset.n,page=await doc.getPage(n),vp=page.getViewport({scale:scale*dpr}),c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;c.style.width=vp.width/dpr+"px";c.style.height=vp.height/dpr+"px";await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;e.target.replaceWith(c)}),{root:pg,rootMargin:"600px 0px"});
+      for(let n=1;n<=doc.numPages;n++){const ph=document.createElement("div");ph.className="ph";ph.dataset.n=n;ph.style.width=base.width*scale+"px";ph.style.height=base.height*scale+"px";pg.appendChild(ph);io.observe(ph)}
+    }
+    v.querySelector('[data-a="in"]').onclick=()=>{zoom=Math.min(3,zoom*1.25);draw()};
+    v.querySelector('[data-a="out"]').onclick=()=>{zoom=Math.max(.5,zoom/1.25);draw()};
+    try{doc=await lib.getDocument({data:new Uint8Array(await blob.arrayBuffer())}).promise;await draw()}
+    catch(e){console.warn("Offline PDF viewer",e);close();const u=URL.createObjectURL(blob);window.open(u,"_blank")}
+  }
+  window.qlOfflineViewPdf=viewPdf;
+
+  /* ---------- opening items while offline ---------- */
+  const prevOpen=openItem;
+  openItem=async function(x){
+    if(off.active&&x&&isStudent()){
+      if(x.kind==="pdf"){recordRecent?.(x);return viewPdf(x)}
+      if(x.kind==="link")return needNet("🔗 Web links need internet.");
+      if(x.kind==="quiz"&&!savedNow(x))return needNet("📝 This quiz isn't saved on this device. Open it once with internet, or tap ⋮ → Save for offline.");
+    }
+    return prevOpen.apply(this,arguments);
+  };
+
+  /* ---------- places that need internet ---------- */
+  document.addEventListener("click",ev=>{
+    if(!off.active||!isStudent()||!ev.target.closest?.("#profileLogoutBtn"))return;
+    if(!confirm("You're offline. If you log out now, you can't sign in again until you have internet. Log out anyway?")){ev.preventDefault();ev.stopImmediatePropagation()}
+  },true);
+  const NEEDS='#qlDashNav,.ql-tab[data-tab="inbox"],#studentSharedQuizInbox,.nav [data-section="shared"],#qlSupportNav,.ql-sup-pf,[data-quick],[data-quiz-quick],#newBtn,[data-new],[data-star],.ql-install-btn';
+  document.addEventListener("click",ev=>{
+    if(!off.active||!isStudent())return;
+    const t=ev.target.closest?.(NEEDS);
+    if(t){ev.preventDefault();ev.stopImmediatePropagation();closeMenus?.();needNet();return}
+  },true);
+  const prevModal=openModal;
+  openModal=function(title){
+    if(off.active&&isStudent()&&/choose your plan|pay for|help|support|share|upload|dashboard|shared with me|save to my library|promo|gift|payment|device|edit profile|new folder|add quiz link|create quiz|move|rename/i.test(String(title||""))){needNet();return}
+    return prevModal.apply(this,arguments);
+  };
+
+  /* ---------- quiz results made offline: send later ---------- */
+  const QKEY=()=>`queue:${uid()}:${LIBRARY_ID}`;
+  window.qlOffQueue={
+    async add(row){const q=(await off.get(QKEY()))||[];q.push(row);await off.put(QKEY(),q);toast("✅ Score saved. It will be sent when you're back online.")},
+    async list(){return (await off.get(QKEY()))||[]},
+    async flush(){
+      if(off.active||navigator.onLine===false||!service.client||!state.user)return;
+      const q=(await off.get(QKEY()))||[];if(!q.length)return;
+      const left=[];let sent=0;
+      for(const row of q){try{const {error}=await service.client.from("student_quiz_attempts").insert(row);if(error&&!/duplicate|23505/i.test(`${error.code} ${error.message}`))throw error;sent++}catch(e){left.push(row)}}
+      await off.put(QKEY(),left);
+      if(sent)toast(`✅ ${sent} quiz result${sent>1?"s":""} sent`);
+    }
+  };
+  const prevList=service.listQuizAttempts;
+  if(prevList)service.listQuizAttempts=async function(id){
+    const k=`att:${uid()}:${LIBRARY_ID}:${id}`;
+    const queued=(await qlOffQueue.list()).filter(r=>String(r.item_id)===String(id)).map(r=>({...(r.data||{}),id:r.id}));
+    try{const r=await prevList.apply(this,arguments);off.put(k,r);const ids=new Set(r.map(a=>a.id));return [...queued.filter(a=>!ids.has(a.id)),...r]}
+    catch(e){if(!off.isNetError(e))throw e;const old=(await off.get(k))||[];return [...queued,...old].sort((a,b)=>new Date(b.submitted_at)-new Date(a.submitted_at))}
+  };
+
+  /* ---------- the bar + marks ---------- */
+  let barTimer=0;
+  function bar(){
+    clearTimeout(barTimer);let b=document.getElementById("qlOffBar");
+    if(off.active&&isStudent()){
+      if(!b){b=document.createElement("div");b.id="qlOffBar";b.setAttribute("role","status");document.body.appendChild(b)}
+      b.className="";b.innerHTML=innerWidth<560?"<span>📴 You're offline · saved library</span>":"<span>📴 You're offline — showing your saved library</span>";
+      try{$("#syncText").textContent="OFFLINE";$("#syncDot").style.color="#d84b5e"}catch(e){}
+    }else if(b&&!b.classList.contains("ok")){b.className="ok";b.innerHTML="<span>✅ Back online</span>";barTimer=setTimeout(()=>b.remove(),3000)}
+  }
+  let decoT=0;
+  function decorate(){clearTimeout(decoT);decoT=setTimeout(()=>{
+    const root=document.getElementById("content");if(!root)return;
+    root.querySelectorAll("[data-id]").forEach(el=>{
+      const x=itemById(el.dataset.id);if(!x)return;
+      const show=isStudent()&&(x.kind==="pdf"||x.kind==="quiz")&&!!saved[x.id];
+      let m=el.querySelector(":scope > .ql-off-mark");
+      if(show&&!m){m=document.createElement("span");m.className="ql-off-mark";m.textContent="📥 Saved";if(getComputedStyle(el).position==="static")el.style.position="relative";el.appendChild(m)}
+      if(!show&&m)m.remove();
+      el.classList.toggle("ql-off-dim",off.active&&isStudent()&&x.kind!=="folder"&&!savedNow(x));
+    });
+  },60)}
+  window.addEventListener("ql-offline-change",()=>{bar();decorate()});
+  window.addEventListener("ql-back-online",()=>{bar();decorate();qlOffQueue.flush()});
+  window.addEventListener("online",()=>setTimeout(()=>qlOffQueue.flush(),2500));
+  const content=document.getElementById("content");
+  if(content)new MutationObserver(()=>decorate()).observe(content,{childList:true,subtree:true});
+  let lastUid="";
+  setInterval(()=>{const u=uid();if(u&&u!==lastUid){lastUid=u;loadMeta()}if(off.active)bar()},1000);
+  setTimeout(()=>{bar();qlOffQueue.flush()},3000);
+})();
+</script>
 </body></html>
