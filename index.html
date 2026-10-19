@@ -7643,6 +7643,9 @@ html,body{overscroll-behavior-y:none}
 .qz-addq-wide .qz-answerkey-panel{border:1.5px solid #6b7280}
 .qz-addq-wide .qz-letter-badge:not(.correct){border-color:#6b7280}
 .qz-addq-wide .qz-addq-upload-btn{border:none;background:linear-gradient(135deg,#a86bea,#5fd6e0);color:#fff;font-weight:600}
+.qz-addq-wide .qz-addq-dropzone{border:2px dashed var(--blue,#0369a1);border-radius:12px;padding:12px;margin-bottom:10px}
+.qz-addq-wide .qz-addq-dropzone.is-dragover{background:var(--blue-soft,#e0f2fe);border-style:solid}
+.qz-addq-wide .qz-addq-dropzone .qz-sa-label-row{margin-bottom:6px}
 #qzSubDialogBox.qz-addq-wide .qz-addq-title{font-size:20px!important;font-weight:760!important;display:inline-block;background:linear-gradient(135deg,#a86bea,#5fd6e0);color:#fff!important;padding:6px 16px;border-radius:10px}
 .qz-addq-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .qz-addq-close{flex:0 0 auto}
@@ -10225,6 +10228,7 @@ html,body{overscroll-behavior-y:none}
     let pickerQuery="";
     let bulkParsed=[];
     let bulkText=presetOpts.bulkText||"";
+    let bulkFileReadId=0;
     let keyText="";
     let bulkMissingCursor=0;
     let bulkProblemCursor=0;
@@ -10413,10 +10417,13 @@ Answer: B">${esc(sPrompt)}</textarea></label>
     }
     function bulkTabHtml(submitLabel,submitDisabled){
       const guideIcon=`<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M12 7v6.2"/><circle cx="12" cy="16.7" r="0.9" fill="currentColor" stroke="none"/></svg>`;
-      return `<div class="qz-sa-label-row" style="margin-bottom:10px">
+      return `<div id="qzAqDropZone" class="qz-addq-dropzone" role="group" aria-label="Upload question file">
+        <div class="qz-sa-label-row">
           <input type="file" id="qzAqUploadFile" accept=".txt,.csv,text/plain,text/csv" style="display:none">
           <button type="button" id="qzAqUploadBtn" class="btn qz-addq-upload-btn">Upload file txt</button>
           <button type="button" class="qz-guide-toggle-btn" id="qzUploadGuideBtn" aria-label="Show format guide">${guideIcon}</button>
+        </div>
+        <div>Drag one .txt or .csv file here, or use the upload button.</div>
         </div>
         <div class="qz-format-guide" id="qzUploadGuide" style="margin:-4px 0 10px"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.01"/></svg><span>
 <div class="qz-format-line">Upload a .txt or .csv file formatted just like the Bulk paste questions box below — it's loaded straight in, so the same rules apply. Example:</div>
@@ -10661,13 +10668,13 @@ Q5 Answer B
          when click all question"), so it's wired here instead of the
          shared wire(). It loads straight into the bulk questions box, same
          as before. */
-      document.getElementById("qzAqUploadBtn").onclick=()=>document.getElementById("qzAqUploadFile").click();
-      document.getElementById("qzAqUploadFile").onchange=event=>{
-        const file=event.target.files&&event.target.files[0];
-        event.target.value="";
+      const fileInput=document.getElementById("qzAqUploadFile"),dropZone=document.getElementById("qzAqDropZone");
+      const loadFile=file=>{
         if(!file)return;
+        const readId=++bulkFileReadId;
         const reader=new FileReader();
         reader.onload=()=>{
+          if(readId!==bulkFileReadId||!fileInput.isConnected)return;
           bulkText=String(reader.result||"");
           const k=document.getElementById("qzAqKeyArea");if(k)keyText=k.value;
           bulkParsed=qzParseBulkText(bulkText);
@@ -10676,8 +10683,22 @@ Q5 Answer B
           render();
           if(applied)toast(`Answer key applied to ${applied} question${applied===1?"":"s"}`);
         };
-        reader.onerror=()=>toast("Couldn't read that file");
+        reader.onerror=()=>{if(readId===bulkFileReadId&&fileInput.isConnected)toast("Couldn't read that file")};
         reader.readAsText(file);
+      };
+      document.getElementById("qzAqUploadBtn").onclick=()=>fileInput.click();
+      fileInput.onchange=event=>{const file=event.target.files&&event.target.files[0];event.target.value="";loadFile(file)};
+      const hasFiles=event=>Array.from(event.dataTransfer?.types||[]).includes("Files");
+      let dragDepth=0;
+      dropZone.ondragenter=event=>{if(!hasFiles(event))return;event.preventDefault();event.stopPropagation();dragDepth++;dropZone.classList.add("is-dragover")};
+      dropZone.ondragover=event=>{if(!hasFiles(event))return;event.preventDefault();event.stopPropagation();event.dataTransfer.dropEffect="copy"};
+      dropZone.ondragleave=()=>{dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)dropZone.classList.remove("is-dragover")};
+      dropZone.ondrop=event=>{
+        if(!hasFiles(event))return;
+        event.preventDefault();event.stopPropagation();dragDepth=0;dropZone.classList.remove("is-dragover");
+        const files=Array.from(event.dataTransfer.files||[]);
+        if(files.length!==1||!/\.(txt|csv)$/i.test(files[0].name))return toast("Drop one .txt or .csv file.");
+        loadFile(files[0]);
       };
       document.getElementById("qzUploadGuideBtn").onclick=event=>{event.preventDefault();document.getElementById("qzUploadGuide").classList.toggle("show")};
       /* Kuza: the Bulk paste questions guide and the Bulk paste answer key
