@@ -9506,7 +9506,7 @@ html,body{overscroll-behavior-y:none}
     for(const lines of blocks){
       if(!lines.length)continue;
       let promptLine=lines[0].replace(/^(?:q\d*[\.\):]|question\s*\d*[\.\):]|\d+[\.\)])\s*/i,"").trim();
-      const options=[];let answerLetter=null,answerText=null,markedIndex=null;
+      const options=[],optionLetters=[];let answerLetter=null,answerText=null,markedIndex=null;
       for(let i=1;i<lines.length;i++){
         const line=lines[i];
         const ansMatch=line.match(/^(?:answer|correct(?:\s*answer)?)\s*[:\-]\s*(.+)$/i);
@@ -9524,6 +9524,7 @@ html,body{overscroll-behavior-y:none}
           const cleanText=optMatch[3].replace(/\s*\(correct\)\s*$/i,"").trim();
           if(marked)markedIndex=options.length;
           options.push(cleanText);
+          optionLetters.push(optMatch[2].toUpperCase());
           continue;
         }
         /* Keep a line break the user typed/pasted between sentences (so the
@@ -9531,20 +9532,22 @@ html,body{overscroll-behavior-y:none}
            sentence (e.g. copied from a PDF) is still joined with a space. */
         promptLine+=(/[.!?:]["'”’)\]]?$/.test(promptLine.trim())&&/^["'“‘(]?[A-Z0-9]/.test(line)?"\n":" ")+line;
       }
+      const answerIndex=optionLetters.indexOf(answerLetter);
+      const validAnswerLetter=answerIndex>=0&&answerIndex===optionLetters.lastIndexOf(answerLetter);
       if(options.length===2&&options.every(o=>/^true$/i.test(o)||/^false$/i.test(o))){
         let correct=true;
         if(markedIndex!=null)correct=/^true$/i.test(options[markedIndex]);
-        else if(answerLetter)correct=/^true$/i.test(options[answerLetter.charCodeAt(0)-65]||"");
+        else if(answerLetter&&validAnswerLetter)correct=/^true$/i.test(options[answerIndex]);
         else if(answerText)correct=/^true$/i.test(answerText);
-        out.push({type:"true_false",prompt:promptLine.trim(),options:null,correct_answer:correct,points:1,_needsReview:markedIndex==null&&!answerLetter&&!answerText});
+        out.push({type:"true_false",prompt:promptLine.trim(),options:null,correct_answer:correct,points:1,_needsReview:markedIndex==null&&(answerLetter?!validAnswerLetter:!answerText)});
         continue;
       }
       if(options.length>=2){
         let correctIndex=markedIndex;
-        if(correctIndex==null&&answerLetter)correctIndex=answerLetter.charCodeAt(0)-65;
+        if(correctIndex==null&&answerLetter)correctIndex=validAnswerLetter?answerIndex:-1;
         if(correctIndex==null&&answerText){const idx=options.findIndex(o=>o.trim().toLowerCase()===answerText.trim().toLowerCase());if(idx>=0)correctIndex=idx}
         const needsReview=correctIndex==null||correctIndex<0||correctIndex>=options.length;
-        out.push({type:"mcq",prompt:promptLine.trim(),options:options.map(o=>({text:o,image:null})),correct_answer:needsReview?0:correctIndex,points:1,allow_multiple:false,_needsReview:needsReview});
+        out.push({type:"mcq",prompt:promptLine.trim(),options:options.map(o=>({text:o,image:null})),correct_answer:needsReview?0:correctIndex,points:1,allow_multiple:false,_needsReview:needsReview,_optionLetters:optionLetters});
         continue;
       }
       out.push({type:"short_answer",prompt:promptLine.trim(),options:null,correct_answer:answerText?[answerText]:[],points:1,_needsReview:!answerText});
@@ -10358,9 +10361,10 @@ Answer: B">${esc(sPrompt)}</textarea></label>
       let body="";
       if(item.type==="mcq"){
         const opts=(item.options||[]).map(qzNormOpt);
-        const optsList=opts.map((o,oi)=>`<div class="qz-preview-opt ${qzIsMultiIdx(item,oi)?"is-correct":""}"><span class="qz-preview-opt-letter">${qzLetter(oi)}.</span> ${esc(o.text)}</div>`).join("");
+        const isCorrect=oi=>!item._needsReview&&qzIsMultiIdx(item,oi);
+        const optsList=opts.map((o,oi)=>`<div class="qz-preview-opt ${isCorrect(oi)?"is-correct":""}"><span class="qz-preview-opt-letter">${qzLetter(oi)}.</span> ${esc(o.text)}</div>`).join("");
         const answerControl=item.allow_multiple?
-          `<div class="qz-bp-tick-list">${opts.map((o,oi)=>`<label class="qz-bp-tick-row"><input type="checkbox" class="qz-bp-tick" data-bulk-index="${index}" data-opt-index="${oi}" ${qzIsMultiIdx(item,oi)?"checked":""}>${qzLetter(oi)} — ${esc(o.text)}</label>`).join("")}</div>`
+          `<div class="qz-bp-tick-list">${opts.map((o,oi)=>`<label class="qz-bp-tick-row"><input type="checkbox" class="qz-bp-tick" data-bulk-index="${index}" data-opt-index="${oi}" ${isCorrect(oi)?"checked":""}>${qzLetter(oi)} — ${esc(o.text)}</label>`).join("")}</div>`
           :`<select class="qz-bp-answer-select" data-bulk-index="${index}"><option value="" ${item._needsReview?"selected":""} disabled hidden>Choose the correct option…</option>${opts.map((o,oi)=>`<option value="${oi}" ${!item._needsReview&&Number(item.correct_answer)===oi?"selected":""}>${qzLetter(oi)} — ${esc(o.text)}</option>`).join("")}</select>`;
         body=`${optsList}<label class="qz-bp-multi-row"><input type="checkbox" class="qz-bp-multi-toggle" data-bulk-index="${index}" ${item.allow_multiple?"checked":""}>More than one correct answer</label>${answerControl}`;
       }else if(item.type==="true_false"){
@@ -10645,8 +10649,14 @@ Q5 Answer B
         const indices=key.get(i+1);
         if(!indices||q.type!=="mcq")return;
         const normOpts=(q.options||[]).map(qzNormOpt);
-        const valid=indices.filter(idx=>idx>=0&&idx<normOpts.length);
-        if(!valid.length)return;
+        // Keys refer to the source letters, even when the preview relabels options.
+        const mapped=indices.map(idx=>{
+          if(!q._optionLetters)return idx;
+          const letter=qzLetter(idx),at=q._optionLetters.indexOf(letter);
+          return at===q._optionLetters.lastIndexOf(letter)?at:-1;
+        });
+        const valid=mapped.filter(idx=>idx>=0&&idx<normOpts.length);
+        if(!valid.length||valid.length!==indices.length)return;
         q.correct_answer=valid.length>1?valid.sort((a,b)=>a-b):valid[0];
         q.allow_multiple=valid.length>1;
         q._needsReview=false;
@@ -10800,6 +10810,7 @@ Q5 Answer B
       const inserted=bulkParsed.map(q=>{
         const clean={...q};
         delete clean._needsReview;
+        delete clean._optionLetters;
         return qzSetSess({...clean,id:uid(),image:null,images:[],explanation:""},destination?[destination]:[]);
       });
       const insertAt=qzComputeInsertIndex(questions,destination,position,refId);
