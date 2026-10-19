@@ -10719,6 +10719,19 @@ Q5 Answer B
       document.getElementById("qzAqParse").onclick=qzParseAndApplyKey;
       wireBulkPreview();
     }
+    function refreshBulkPreview(focusSelector){
+      const positions=["#qzSubDialogBox","#qzAqPreview .qz-preview-list","#qzAqBulkArea","#qzAqKeyArea"].map(selector=>{
+        const el=document.querySelector(selector);
+        return el?{selector,top:el.scrollTop,left:el.scrollLeft}:null;
+      }).filter(Boolean);
+      syncFieldsFromDom();
+      render();
+      document.querySelector(focusSelector)?.focus({preventScroll:true});
+      positions.forEach(({selector,top,left})=>{
+        const el=document.querySelector(selector);
+        if(el){el.scrollTop=top;el.scrollLeft=left}
+      });
+    }
     function wireBulkPreview(){
       document.querySelectorAll(".qz-bp-qtext").forEach(t=>{
         t.oninput=()=>{
@@ -10738,7 +10751,7 @@ Q5 Answer B
             item._needsReview=!arr.length;
             item.correct_answer=arr.length?arr[0]:0;
           }
-          render();
+          refreshBulkPreview(`.qz-bp-multi-toggle[data-bulk-index="${cb.dataset.bulkIndex}"]`);
         };
       });
       document.querySelectorAll(".qz-bp-answer-select").forEach(sel=>{
@@ -10746,7 +10759,7 @@ Q5 Answer B
           const item=bulkParsed[Number(sel.dataset.bulkIndex)];
           item.correct_answer=Number(sel.value);
           item._needsReview=false;
-          render();
+          refreshBulkPreview(`.qz-bp-answer-select[data-bulk-index="${sel.dataset.bulkIndex}"]`);
         };
       });
       document.querySelectorAll(".qz-bp-tick").forEach(cb=>{
@@ -10757,7 +10770,7 @@ Q5 Answer B
           if(cb.checked)set.add(oi);else set.delete(oi);
           item.correct_answer=[...set].sort((a,b)=>a-b);
           item._needsReview=!item.correct_answer.length;
-          render();
+          refreshBulkPreview(`.qz-bp-tick[data-bulk-index="${cb.dataset.bulkIndex}"][data-opt-index="${cb.dataset.optIndex}"]`);
         };
       });
       document.querySelectorAll(".qz-bp-tf-btn").forEach(btn=>{
@@ -10765,7 +10778,7 @@ Q5 Answer B
           const item=bulkParsed[Number(btn.dataset.bulkTf)];
           item.correct_answer=btn.dataset.val==="true";
           item._needsReview=false;
-          render();
+          refreshBulkPreview(`.qz-bp-tf-btn[data-bulk-tf="${btn.dataset.bulkTf}"][data-val="${btn.dataset.val}"]`);
         };
       });
       document.querySelectorAll(".qz-bp-sa-input").forEach(inp=>{
