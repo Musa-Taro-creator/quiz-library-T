@@ -303,7 +303,7 @@ function showLogin(msg){$("#app").classList.add("hidden");$("#login").classList.
 $("#loginForm").onsubmit=async ev=>{ev.preventDefault();const b=$("#lBtn");b.disabled=true;b.textContent="Signing in…";
   const {error}=await sb.auth.signInWithPassword({email:$("#lEmail").value.trim(),password:$("#lPass").value});
   b.disabled=false;b.textContent="Sign in";if(error)return showLogin(error.message);boot()};
-$("#signOut").onclick=async()=>{await sb.auth.signOut();location.hash="";showLogin()};
+$("#signOut").onclick=async()=>{await sb.auth.signOut();msgDrafts.clear();msgUser=null;me=null;location.hash="";showLogin()};
 $$(".nav").forEach(n=>n.onclick=()=>go(n.dataset.v));
 async function loadCommon(){
   const [p,cfg]=await Promise.all([rpc("ql_admin_plans").catch(()=>[]),sb.from("ql_site_settings").select("key,value")]);
@@ -314,6 +314,7 @@ async function loadCommon(){
 const planById=id=>plans.find(p=>p.id===id)||{id,name:id||"—",color:"#94a3b8"};
 const planTag=(id,extra="")=>{const p=planById(id);return `<span class="tag" style="background:${p.color}22;color:${p.color}">${h(p.name)}${extra}</span>`};
 function go(v){
+  msgCaptureDraft();
   const views={dash,users,plansView,pay,ctl,news,settingsView,board,msgs};
   const map={dash:"dash",users:"users",plans:"plansView",pay:"pay",ctl:"ctl",news:"news",settings:"settingsView",board:"board",msgs:"msgs"};
   if(v==="review"){autoReview=true;payTab="receipts";payStatus="waiting";v="pay"}
@@ -857,14 +858,25 @@ window.addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(v&&v
 boot().catch(e=>showLogin(errMsg(e)));
 
 /* ---------------- messages (Help & Support) ---------------- */
-let msgUser=null,msgChan=null;
+let msgUser=null,msgChan=null,msgRenderGeneration=0;
+const msgDrafts=new Map();
+const msgDraftKey=user=>`${me?.id||""}:${user}`;
+function msgCaptureDraft(){
+  const input=document.getElementById("msgText");
+  if(!input?.dataset.thread)return;
+  const key=msgDraftKey(input.dataset.thread),draft=msgDrafts.get(key)||{text:"",pic:null};
+  draft.text=input.value;msgDrafts.set(key,draft);
+}
 async function msgPill(){try{const n=await rpc("ql_admin_support_unread");const p=$("#msgPill");if(p){p.textContent=n>99?"99+":n;p.classList.toggle("hidden",!n)}}catch{}}
 setInterval(msgPill,60000);
 function msgListen(){if(msgChan)return;try{msgChan=sb.channel("ql-admin-support").on("postgres_changes",{event:"INSERT",schema:"public",table:"ql_support_msgs"},()=>{msgPill();if(cur==="msgs")go("msgs")}).subscribe()}catch{}}
 const msgWhen=t=>{const d=new Date(t);return d.toDateString()===new Date().toDateString()?d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}):d.toLocaleDateString([],{day:"numeric",month:"short"})};
 async function msgs(){
+  const generation=++msgRenderGeneration;
   msgListen();
   let list;try{list=await rpc("ql_admin_support_list")}catch(e){if(/ql_admin_support_list|PGRST202|42883|does not exist/.test(String(e.message||e))){$("#view").innerHTML=head("Messages","Questions from students")+`<div class="card"><div class="note" style="margin:0">Run <b>support_messages.sql</b> in Supabase first, then reload.</div></div>`;return}throw e}
+  if(cur!=="msgs"||generation!==msgRenderGeneration)return;
+  msgCaptureDraft();
   if(msgUser&&!list.some(r=>r.user_id===msgUser))msgUser=null;
   const wide=matchMedia("(min-width:901px)").matches;if(!msgUser&&wide&&list[0])msgUser=list[0].user_id;
   const sel=list.find(r=>r.user_id===msgUser);
@@ -877,14 +889,20 @@ async function msgs(){
   $$("[data-mu]").forEach(b=>b.onclick=()=>{msgUser=b.dataset.mu;go("msgs")});
   if(!sel)return msgPill();
   $(".msgback").onclick=()=>{msgUser=null;go("msgs")};
+  const input=$("#msgText"),draftKey=msgDraftKey(sel.user_id);
+  const draft=msgDrafts.get(draftKey)||{text:"",pic:null};msgDrafts.set(draftKey,draft);
+  input.dataset.thread=sel.user_id;input.value=draft.text;
+  input.oninput=()=>{draft.text=input.value};
   const box=$("#msgBox");
   const th=await rpc("ql_admin_support_thread",{p_user:sel.user_id});msgPill();
+  if(cur!=="msgs"||generation!==msgRenderGeneration)return;
   box.innerHTML=th.map(m=>`<div class="msgm ${m.from_admin?"me":"them"}"><div class="b">${m.body?h(m.body).replace(/\n/g,"<br>"):""}${m.image?`<img src="${h(m.image)}" alt="photo" data-big>`:""}</div><small>${new Date(m.created_at).toLocaleString([],{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${m.from_admin&&m.read_at?" · Seen":""}</small></div>`).join("")||`<div class="empty">No messages.</div>`;
   box.querySelectorAll("[data-big]").forEach(i=>i.onclick=()=>openPic(i.src));box.scrollTop=box.scrollHeight;
-  let pic=null;const pv=$("#msgPic");
-  $("#msgFile").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1200/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);pic=c.toDataURL("image/jpeg",.72);pv.querySelector("img").src=pic;pv.classList.remove("hidden")};im.src=r.result};r.readAsDataURL(f)};
-  pv.querySelector("button").onclick=()=>{pic=null;pv.classList.add("hidden")};
-  const send=async()=>{const t=$("#msgText").value.trim();if(!t&&!pic)return;const b=$("#msgSend");b.disabled=true;try{await rpc("ql_admin_support_reply",{p_user:sel.user_id,p_body:t,p_image:pic});go("msgs")}catch(e){alert(errMsg(e));b.disabled=false}};
+  let pic=draft.pic;const pv=$("#msgPic");
+  if(pic){pv.querySelector("img").src=pic;pv.classList.remove("hidden")}
+  $("#msgFile").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1200/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);pic=c.toDataURL("image/jpeg",.72);draft.pic=pic;pv.querySelector("img").src=pic;pv.classList.remove("hidden")};im.src=r.result};r.readAsDataURL(f)};
+  pv.querySelector("button").onclick=()=>{pic=null;draft.pic=null;pv.classList.add("hidden")};
+  const send=async()=>{const raw=input.value,t=raw.trim(),sentPic=pic;if(!t&&!sentPic)return;const b=$("#msgSend");b.disabled=true;try{await rpc("ql_admin_support_reply",{p_user:sel.user_id,p_body:t,p_image:sentPic});if(draft.text===raw){draft.text="";input.value=""}if(draft.pic===sentPic){draft.pic=null;pic=null}go("msgs")}catch(e){alert(errMsg(e));b.disabled=false}};
   $("#msgSend").onclick=send;$("#msgText").onkeydown=e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();send()}};
   $("#msgDel").onclick=async()=>{if(!confirm("Delete this whole conversation?"))return;try{await rpc("ql_admin_support_delete",{p_user:sel.user_id});msgUser=null;toast("Conversation deleted");go("msgs")}catch(e){alert(errMsg(e))}};
 }

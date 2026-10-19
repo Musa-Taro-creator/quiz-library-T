@@ -1,0 +1,11 @@
+-- READ ONLY. Run this first; send schema_review for compatibility review.
+-- This returns definitions, not student records or credentials.
+SELECT jsonb_build_object(
+ 'columns',(SELECT jsonb_agg(to_jsonb(c)) FROM information_schema.columns c WHERE table_schema='public' AND table_name IN ('student_library_items','student_quiz_questions','student_quiz_attempts','ql_item_shares','ql_external_item_shares','ql_dash_posts','quiz_external_shares','ql_subscriptions','ql_plans','ql_site_settings')),
+ 'functions',(SELECT jsonb_agg(jsonb_build_object('name',p.proname,'definition',pg_get_functiondef(p.oid))) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND (p.proname LIKE 'student_%quiz%' OR p.proname IN ('ql_create_external_quiz_share','ql_send_item_share','ql_create_external_item_share','ql_dash_post','ql__feature_ok','ql__effective_plan','ql_admin_delete_user','ql__check_item_limits'))),
+ 'triggers',(SELECT jsonb_agg(jsonb_build_object('table',c.relname,'definition',pg_get_triggerdef(t.oid),'function',pg_get_functiondef(t.tgfoid))) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND NOT t.tgisinternal AND c.relname IN ('student_library_items','student_quiz_questions','quiz_external_shares','ql_dash_posts')),
+ 'policies',(SELECT jsonb_agg(to_jsonb(p)) FROM pg_policies p WHERE schemaname='public' AND tablename IN ('student_library_items','student_quiz_questions')),
+ 'grants',(SELECT jsonb_agg(to_jsonb(p)) FROM information_schema.role_table_grants p WHERE table_schema='public' AND table_name IN ('student_library_items','student_quiz_questions')),
+ 'indexes',(SELECT jsonb_agg(jsonb_build_object('table',tablename,'definition',indexdef)) FROM pg_indexes WHERE schemaname='public' AND tablename IN ('quiz_external_shares','ql_dash_posts')),
+ 'constraints',(SELECT jsonb_agg(jsonb_build_object('table',c.relname,'name',k.conname,'definition',pg_get_constraintdef(k.oid))) FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname IN ('student_library_items','student_quiz_questions','quiz_external_shares','ql_dash_posts'))
+) AS schema_review;

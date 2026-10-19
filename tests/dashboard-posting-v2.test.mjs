@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';import crypto from 'node:crypto';import {test,before,after} from 'node:test';
+import {createObservedTables} from './fixtures/observed-schema.mjs';
+const {PGlite}=await import(process.env.QL_PGLITE_MODULE||'@electric-sql/pglite'),db=new PGlite(),root=new URL('../',import.meta.url);
+const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222';let seq=0;
+const uuid=()=>`bbbbbbbb-bbbb-4bbb-8bbb-${String(++seq).padStart(12,'0')}`;
+const file=n=>fs.readFileSync(new URL(n,root),'utf8');
+async function identity(id=A,role='authenticated'){await db.exec('reset role;set role '+role);await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id||''])}
+async function admin(fn){await db.exec('reset role');try{return await fn()}finally{await identity()}}
+async function rpc(name,args){return (await db.query(`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) value`,args)).rows[0].value}
+const payload=()=>({version:1,kind:'folder',root_ref:'root',nodes:[{ref:'root',parent_ref:null,kind:'folder',title:'MD-Y3-S2',color:'#65676B',icon:'book'},...Array.from({length:24},(_,i)=>({ref:'folder'+i,parent_ref:'root',kind:'folder',title:'Folder '+i})),...Array.from({length:12},(_,i)=>({ref:'quiz'+i,parent_ref:'folder0',kind:'quiz',title:'Quiz '+i,quiz_link:'https://example.test/quiz'+i,quiz_settings:{shuffle:true},questions:[{id:'q',type:'true_false',correct_answer:false,prompt:'តើ នេះ ត្រឹមត្រូវ?'}]})),...Array.from({length:14},(_,i)=>({ref:'pdf'+i,parent_ref:'folder1',kind:'pdf',title:'PDF '+i,pdf_url:'https://example.test/'+i+'.pdf'}))]});
+function encoded(p){const bytes=Buffer.from(JSON.stringify(p)),parts=[];for(let i=0;i<bytes.length;i+=65536)parts.push(bytes.subarray(i,i+65536));return {bytes,parts,hash:crypto.createHash('sha256').update(bytes).digest('hex')}}
+const begin=(id,p,e)=>rpc('ql_begin_dash_upload_v2',[id,'folder','MD-Y3-S2',p.nodes.length,e.parts.length,e.hash]);
+const stage=(id,i,b)=>rpc('ql_stage_dash_upload_v2',[id,i,b.toString('base64')]);
+const finish=id=>rpc('ql_finalize_dash_upload_v2',[id]);
+async function prepare(id,item='quiz'){return await rpc('ql_prepare_dash_quiz_v2',[id,'lib',item,'Test quiz',JSON.stringify({version:1,kind:'quiz',questions:[{id:'q',correct_answer:false}],settings:{}})])}
+before(async()=>{await db.exec(`create role authenticated;create role anon;create schema auth;
+ create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb default '{}');insert into auth.users(id,email) values('${A}','a@example.test'),('${B}','b@example.test');
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to authenticated,anon;
+ `);
+ await createObservedTables(db,['ql_site_settings','ql_plans','ql_subscriptions','quiz_external_shares']);
+ await db.exec(`insert into ql_site_settings(key,value) values('features','{}');
+ insert into ql_plans(id,name,features,is_default) values('free','Free','{}',true);
+ create function ql__default_plan() returns text language sql as $$select 'free'::text$$;
+ create function ql__effective_plan(p_uid uuid) returns text language sql stable security definer set search_path=public as $$
+  select coalesce((select s.plan_id from ql_subscriptions s where s.user_id=p_uid and s.status='active' and (s.ends_at is null or s.ends_at>now()) and exists(select 1 from ql_plans p where p.id=s.plan_id)),ql__default_plan());$$;
+ create table student_share_profiles(user_id uuid,share_id text,display_name text);insert into student_share_profiles values('${A}','QL-AAAAAAAA','A'),('${B}','QL-BBBBBBBB','B');
+`);
+ await db.exec(file('tests/fixtures/deployed-quiz-share.sql'));
+ await db.exec(file('supabase/item_sharing.sql'));await db.exec(file('supabase/dashboard.sql'));await db.exec(file('supabase/dashboard_reliable_posting_v2.sql'));await db.exec(file('supabase/dashboard_reliable_posting_v2.sql'));await identity();
+});after(()=>db.close());
+test('Folder matching screenshot posts once; all content and appearance survive',async()=>{const p=payload(),id=uuid(),e=encoded(p);assert.equal(p.nodes.length,51);assert.equal(await begin(id,p,e),null);for(let i=0;i<e.parts.length;i++)await stage(id,i,e.parts[i]);const post=await finish(id);assert.equal(await finish(id),post);assert.equal(await begin(id,p,e),post);const view=await rpc('ql_dash_open',[post]);assert.equal(view.payload.nodes[0].color,'#65676B');assert.equal(view.payload.nodes[0].icon,'book');assert.equal(view.payload.nodes.length,51);assert.equal(view.payload.nodes.find(n=>n.kind==='quiz').questions,undefined);const full=await rpc('ql_dash_full',[post]);assert.equal(full.nodes.find(n=>n.kind==='quiz').questions[0].correct_answer,false)});
+test('Large multi-part Unicode upload rejects incomplete content, then resumes',async()=>{const p=payload();p.nodes[25].questions=Array.from({length:3000},(_,i)=>({id:'q'+i,prompt:'សំណួរ អំពី វេជ្ជសាស្ត្រ '+i,correct_answer:false}));const e=encoded(p),id=uuid();assert.ok(e.parts.length>2);await begin(id,p,e);await stage(id,0,e.parts[0]);await assert.rejects(finish(id),/Incomplete/);await stage(id,0,e.parts[0]);for(let i=1;i<e.parts.length;i++)await stage(id,i,e.parts[i]);const post=await finish(id);assert.equal(await finish(id),post);const full=await rpc('ql_dash_full',[post]);assert.equal(full.nodes[25].questions.length,3000);assert.equal(full.nodes[25].questions[0].prompt,p.nodes[25].questions[0].prompt)});
+test('Changed part retry and changed operation metadata are rejected',async()=>{const p=payload(),e=encoded(p),id=uuid();await begin(id,p,e);await stage(id,0,e.parts[0]);await assert.rejects(stage(id,0,Buffer.from('changed')),/retry changed/);await assert.rejects(begin(id,{...p,nodes:[p.nodes[0]]},e),/operation changed/)});
+test('Failed final insert publishes nothing; retry publishes once',async()=>{const p=payload(),e=encoded(p),id=uuid();await begin(id,p,e);for(let i=0;i<e.parts.length;i++)await stage(id,i,e.parts[i]);const count=await admin(async()=>(await db.query('select count(*) n from ql_dash_posts')).rows[0].n);await admin(()=>db.exec(`create function fail_dash_test() returns trigger language plpgsql as $$begin raise exception 'Injected final failure';end$$;create trigger injected before insert on ql_dash_posts for each statement execute function fail_dash_test()`));await assert.rejects(finish(id),/Injected final/);await admin(async()=>{assert.equal((await db.query('select count(*) n from ql_dash_posts')).rows[0].n,count);await db.exec('drop trigger injected on ql_dash_posts;drop function fail_dash_test()')});const post=await finish(id);assert.equal(await finish(id),post)});
+test('Lost quiz-preparation response reuses the same share token',async()=>{const id=uuid(),one=await prepare(id),two=await prepare(id);assert.equal(one.share_token,two.share_token);await admin(async()=>assert.equal((await db.query('select count(*) n from quiz_external_shares where share_token=$1',[one.share_token])).rows[0].n,1));await assert.rejects(rpc('ql_prepare_dash_quiz_v2',[id,'lib','quiz','Changed title','{}']),/QL_CONFLICT/)});
+test('Another owner cannot read, append to, or finalize an upload',async()=>{const id=uuid(),p=payload(),e=encoded(p);await begin(id,p,e);await stage(id,0,e.parts[0]);await identity(B);await assert.rejects(stage(id,0,e.parts[0]),/not found/);await assert.rejects(finish(id),/not found/);await assert.rejects(db.query('select * from ql_dash_upload_parts_v2'),/permission denied/);await identity(null,'anon');await assert.rejects(finish(id),/permission denied/);await identity()});
+test('Disabled feature and suspended accounts cannot bypass sharing through RPCs',async()=>{await admin(()=>db.exec(`update ql_site_settings set value='{"item_share_ex":"off","item_share_in":"off","item_share_dash":"off"}' where key='features'`));await assert.rejects(rpc('ql_create_external_item_share',['pdf','Test','{}']),/disabled/);await assert.rejects(rpc('ql_send_item_share',['QL-BBBBBBBB','folder','Test',1,'{}']),/disabled/);await assert.rejects(prepare(uuid()),/disabled/);await admin(()=>db.exec(`update ql_site_settings set value='{}';insert into ql_subscriptions(user_id,status) values('${A}','suspended')`));await assert.rejects(rpc('ql_create_external_item_share',['pdf','Test','{}']),/suspended/);await assert.rejects(prepare(uuid()),/disabled/);await admin(()=>db.exec('delete from ql_subscriptions'))});
+test('Enabled internal/external shares still work; anonymous token access remains intentional',async()=>{const token=await rpc('ql_create_external_item_share',['pdf','Test',JSON.stringify({nodes:[{kind:'pdf',pdf_url:'https://example.test/a.pdf'}]})]);assert.ok(await rpc('ql_send_item_share',['QL-BBBBBBBB','folder','Test',1,'{}']));await identity(null,'anon');assert.ok(await rpc('ql_get_external_item_share',[token]));assert.equal(await rpc('ql_get_external_item_share',['wrong']),null);await identity()});
+
+test('Plan-mode restrictions use the deployed effective-plan logic',async()=>{
+ await admin(()=>db.exec(`update ql_site_settings set value='{"item_share_in":"plan","item_share_ex":"plan","item_share_dash":"plan"}';`));
+ await assert.rejects(rpc('ql_create_external_item_share',['pdf','Test','{}']),/disabled/);
+ await assert.rejects(rpc('ql_send_item_share',['QL-BBBBBBBB','folder','Test',1,'{}']),/disabled/);
+ await assert.rejects(prepare(uuid()),/disabled/);
+ await admin(()=>db.exec(`insert into ql_plans(id,features) values('paid','{"item_share_in":true,"item_share_ex":true,"item_share_dash":true}');insert into ql_subscriptions(user_id,status,plan_id,ends_at) values('${A}','active','paid',now()+interval '1 day')`));
+ assert.ok(await rpc('ql_create_external_item_share',['pdf','Enabled','{}']));assert.ok((await prepare(uuid())).share_token);
+ await admin(()=>db.exec(`update ql_subscriptions set ends_at=now()-interval '1 day' where user_id='${A}'`));
+ await assert.rejects(prepare(uuid()),/disabled/);
+ await admin(()=>db.exec("delete from ql_subscriptions;update ql_site_settings set value='{}'"));
+});

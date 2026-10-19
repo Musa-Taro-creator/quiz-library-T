@@ -1,0 +1,4 @@
+Mozilla PDF.js 6.4.299, Apache-2.0.
+Source: https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-6.4.299.tgz
+Downloaded tarball verified against npm dist.integrity (SHA-512).
+Unmodified distribution files; only viewer library/worker and resource folders are included.

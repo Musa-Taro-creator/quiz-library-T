@@ -16,9 +16,15 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@800&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<meta name="ql-shell-generation" content="reliability-2026-10-19-v1">
+<script>
+window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
+window.qlLoadPdfJs().catch(()=>{});
+</script>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <style>
+/* Keep offscreen bulk-preview cards out of expensive layout and paint work. */
+
 :root{
   --bg:#f4f7fb;--panel:#ffffff;--soft:#edf2f8;--line:#dce4ee;--text:#172033;--muted:#768196;
   --blue:#2f80ed;--blue-soft:#eaf3ff;--danger:#d84c5d;--success:#1f9d68;--shadow:0 16px 42px rgba(28,45,75,.11);
@@ -10385,7 +10391,7 @@ Answer: B">${esc(sPrompt)}</textarea></label>
         ${body}
       </div>`;
     }
-    function bulkPreviewHtml(){
+    function bulkPreviewHtml(includeItems=true){
       if(!bulkParsed.length)return '<div class="qz-paste-hint">Nothing parsed yet — click Parse &amp; Preview.</div>';
       const total=bulkParsed.length;
       const readyCount=bulkParsed.filter(q=>!qzBulkItemProblem(q)&&!q._needsReview).length;
@@ -10416,8 +10422,8 @@ Answer: B">${esc(sPrompt)}</textarea></label>
             <span class="qz-bp-panel-pos" id="qzBpProblemPos">Problem ${bulkProblemCursor+1} of ${problemIdx.length} · Q${problemIdx[bulkProblemCursor]+1}</span>
           </div>
         </div>`:`<div class="qz-bp-panel ok">✓ No question-format problems.</div>`;
-      const items=bulkParsed.map((q,i)=>bulkPreviewItemHtml(q,i)).join("");
-      return `${summary}${missingPanel}${problemPanel}<div class="qz-paste-hint qz-addq-label-bold" style="margin:10px 0 4px">Parsed Questions Preview</div><div class="qz-preview-list" style="max-height:340px">${items}</div>`;
+      const items=includeItems?bulkParsed.map((q,i)=>bulkPreviewItemHtml(q,i)).join(""):"";
+      return `<div class="qz-preview-status">${summary}${missingPanel}${problemPanel}</div><div class="qz-paste-hint qz-addq-label-bold" style="margin:10px 0 4px">Parsed Questions Preview</div><div class="qz-preview-list" style="max-height:340px">${items}</div>`;
     }
     function bulkTabHtml(submitLabel,submitDisabled){
       const guideIcon=`<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.3"/><path d="M12 7v6.2"/><circle cx="12" cy="16.7" r="0.9" fill="currentColor" stroke="none"/></svg>`;
@@ -10725,21 +10731,33 @@ Q5 Answer B
         return el?{selector,top:el.scrollTop,left:el.scrollLeft}:null;
       }).filter(Boolean);
       syncFieldsFromDom();
-      render();
+      const preview=document.getElementById("qzAqPreview");
+      const list=preview.querySelector(".qz-preview-list");
+      const oldCard=document.querySelector(focusSelector)?.closest("[data-bulk-item]");
+      if(!list||!oldCard){render()}else{
+        const index=Number(oldCard.dataset.bulkItem);
+        const range=document.createRange();
+        const card=range.createContextualFragment(bulkPreviewItemHtml(bulkParsed[index],index)).firstElementChild;
+        oldCard.replaceWith(card);
+        const header=range.createContextualFragment(bulkPreviewHtml(false));
+        preview.querySelector(".qz-preview-status").replaceWith(header.querySelector(".qz-preview-status"));
+        wireBulkPreview(card);
+        updateSubmitButtonState();
+      }
       document.querySelector(focusSelector)?.focus({preventScroll:true});
       positions.forEach(({selector,top,left})=>{
         const el=document.querySelector(selector);
         if(el){el.scrollTop=top;el.scrollLeft=left}
       });
     }
-    function wireBulkPreview(){
-      document.querySelectorAll(".qz-bp-qtext").forEach(t=>{
+    function wireBulkPreview(scope=document){
+      scope.querySelectorAll(".qz-bp-qtext").forEach(t=>{
         t.oninput=()=>{
           bulkParsed[Number(t.dataset.bulkQuestion)].prompt=t.value;
           updateSubmitButtonState();
         };
       });
-      document.querySelectorAll(".qz-bp-multi-toggle").forEach(cb=>{
+      scope.querySelectorAll(".qz-bp-multi-toggle").forEach(cb=>{
         cb.onchange=()=>{
           const item=bulkParsed[Number(cb.dataset.bulkIndex)];
           item.allow_multiple=cb.checked;
@@ -10754,7 +10772,7 @@ Q5 Answer B
           refreshBulkPreview(`.qz-bp-multi-toggle[data-bulk-index="${cb.dataset.bulkIndex}"]`);
         };
       });
-      document.querySelectorAll(".qz-bp-answer-select").forEach(sel=>{
+      scope.querySelectorAll(".qz-bp-answer-select").forEach(sel=>{
         sel.onchange=()=>{
           const item=bulkParsed[Number(sel.dataset.bulkIndex)];
           item.correct_answer=Number(sel.value);
@@ -10762,7 +10780,7 @@ Q5 Answer B
           refreshBulkPreview(`.qz-bp-answer-select[data-bulk-index="${sel.dataset.bulkIndex}"]`);
         };
       });
-      document.querySelectorAll(".qz-bp-tick").forEach(cb=>{
+      scope.querySelectorAll(".qz-bp-tick").forEach(cb=>{
         cb.onchange=()=>{
           const item=bulkParsed[Number(cb.dataset.bulkIndex)];
           const oi=Number(cb.dataset.optIndex);
@@ -10773,7 +10791,7 @@ Q5 Answer B
           refreshBulkPreview(`.qz-bp-tick[data-bulk-index="${cb.dataset.bulkIndex}"][data-opt-index="${cb.dataset.optIndex}"]`);
         };
       });
-      document.querySelectorAll(".qz-bp-tf-btn").forEach(btn=>{
+      scope.querySelectorAll(".qz-bp-tf-btn").forEach(btn=>{
         btn.onclick=()=>{
           const item=bulkParsed[Number(btn.dataset.bulkTf)];
           item.correct_answer=btn.dataset.val==="true";
@@ -10781,7 +10799,7 @@ Q5 Answer B
           refreshBulkPreview(`.qz-bp-tf-btn[data-bulk-tf="${btn.dataset.bulkTf}"][data-val="${btn.dataset.val}"]`);
         };
       });
-      document.querySelectorAll(".qz-bp-sa-input").forEach(inp=>{
+      scope.querySelectorAll(".qz-bp-sa-input").forEach(inp=>{
         inp.oninput=()=>{
           const item=bulkParsed[Number(inp.dataset.bulkIndex)];
           const v=inp.value;
@@ -11577,7 +11595,7 @@ Q5 Answer B
   /* Round 5 note 7: one auto-save draft key per quiz, and a housekeeping
      sweep (run once) that quietly drops drafts older than 30 days — never a
      recent one, and never anything the admin hasn't touched today. */
-  function qzDraftKey(quizId){return `ql_quiz_draft_${quizId}`}
+  function qzDraftKey(quizId){return `ql_quiz_draft_v2_${state.user?.id||"guest"}_${LIBRARY_ID}_${quizId}`}
   function qzAddQDraftKey(quizId){return `ql_addq_draft_${quizId}`}
   function qzSweepOldDrafts(){
     try{
@@ -12120,7 +12138,9 @@ Q5 Answer B
     document.getElementById("qzTopClose").onclick=()=>qzClosePage();
     qzWireScrollHandoff(bodyEl);
 
-    let questions=[],settings;
+    let questions=[],settings,qzBaseRevision=null;
+    const qzEditorOwner=state.user?.id||"guest";
+    const qzEditorDraftKey=qzDraftKey(item.id);
     /* Kuza: even after the per-action fixes above, a large question quiz
        still felt heavy -- because ALL of them sat in the page as real DOM
        at once (10,000 full question cards = 500,000+ elements), which is
@@ -12156,6 +12176,8 @@ Q5 Answer B
     let qzWinStart=0,qzWinEnd=0,qzEstSlotHeight=220,qzEstSlotHeightMeasured=false,qzWinScrollTicking=false,qzSuppressAutoWindowUntil=0;
     try{
       const rows=await service.getQuizQuestionsAdmin(item.id);
+      qzBaseRevision=rows._qlRevision??null;
+      if(rows._qlItem)item={...item,...rows._qlItem};
       questions=rows.map(r=>({id:r.id,type:r.type,prompt:r.prompt,options:r.options?[...r.options]:[],correct_answer:r.correct_answer,points:Number(r.points)||1,image:r.image||null,explanation:r.explanation||"",allow_multiple:!!r.allow_multiple,images:Array.isArray(r.images)?[...r.images]:[],session_label:r.session_label||null,session_labels:qzSessOf(r)}));
     }catch(error){alert(friendlyError(error));qzClosePage();return}
     /* Kuza (Disk IO / incremental-save fix): ids just loaded above are real,
@@ -12180,7 +12202,9 @@ Q5 Answer B
        unfinished work" actually means here — never the source of truth
        students see, which stays whatever the last successful Save Quiz
        wrote via qzPersist(). */
-    let qzDraftTimer=null,qzDraftHasUnsaved=false;
+    let qzDraftTimer=null,qzDraftHasUnsaved=false,qzEditGeneration=0,qzSavePaused=false;
+    let qzPersistPromise=null,qzPendingSave=null;
+    let qzLastSavedSettings=JSON.stringify(settings);
     function qzSetAutosaveStatus(text,findable){
       const el=document.getElementById("qzAutosaveStatus");
       if(!el)return;
@@ -12188,10 +12212,14 @@ Q5 Answer B
       el.classList.toggle("qz-autosave-find",!!findable);
       el.onclick=findable?()=>qzOpenFindBar(0):null;
       el.setAttribute("role",findable?"button":"status");
+      if(qzSavePaused){el.onclick=qzReviewDraft;el.setAttribute("role","button")}
     }
     function qzTimeNow(){return new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}
     function qzSaveDraftNow(){
-      try{localStorage.setItem(qzDraftKey(curItem.id),JSON.stringify({title:curItem.title,questions,settings,savedAt:Date.now()}))}catch{}
+      try{
+        localStorage.setItem(qzEditorDraftKey,JSON.stringify({owner:qzEditorOwner,library:String(LIBRARY_ID),quiz:curItem.id,title:curItem.title,questions,settings,baseRevision:qzBaseRevision,savedAt:Date.now()}));
+        return true;
+      }catch{qzSetAutosaveStatus("⚠ Draft could not be stored on this device. Keep this page open.");return false}
     }
     /* Kuza round 8: dropped the separate Cancel/Save Quiz buttons -- editing
        now saves itself, the same way the local draft above always has, just
@@ -12230,7 +12258,7 @@ Q5 Answer B
        what happened before this comment was written. */
     function qzRunServerSave(){
       if(qzServerSaving){qzServerSaveQueued=true;return}
-      if(!qzDraftHasUnsaved)return;
+      if(!qzDraftHasUnsaved||qzSavePaused)return;
       if(qzValidateQuestions(questions)){ /* incomplete -- local draft still covers it, try again next edit */
         const n=qzProblemList().length;
         if(n)qzSetAutosaveStatus(`⚠ Can't save yet — ${n} question${n===1?"":"s"} need${n===1?"s":""} fixing · Find`,true);
@@ -12243,27 +12271,29 @@ Q5 Answer B
       qzSetAutosaveStatus(attempt>0?`Saving… (retry ${attempt}/${QZ_SAVE_MAX_RETRIES})`:"Saving…");
       try{
         await qzPersist();
-        qzDraftHasUnsaved=false;
-        clearTimeout(qzDraftTimer);
-        try{localStorage.removeItem(qzDraftKey(curItem.id))}catch{}
-        qzSetAutosaveStatus(`✓ Saved ${qzTimeNow()}`);
+        qzSetAutosaveStatus(qzDraftHasUnsaved?"● Newer changes waiting to save":`✓ Saved ${qzTimeNow()}`);
+        if(qzDraftHasUnsaved)qzServerSaveQueued=true;
         qzServerSaving=false;
       }catch(error){
-        if(attempt<QZ_SAVE_MAX_RETRIES){
+        const fatal=/QL_CONFLICT|QL_EXPIRED|QL_PROTOCOL|QL_INVALID|QL_LIMIT|42501|28000|PGRST202|42883/.test(`${error?.code||""} ${error?.message||error}`);
+        if(!fatal&&attempt<QZ_SAVE_MAX_RETRIES){
           const delay=QZ_SAVE_RETRY_DELAYS_MS[attempt]||8000;
           qzSetAutosaveStatus(`⚠ Sync hiccup — retrying in ${Math.round(delay/1000)}s…`);
           setTimeout(()=>qzAttemptServerSave(attempt+1),delay);
           return; /* still mid-save; qzServerSaving stays true until the retry settles */
         }
-        qzSetAutosaveStatus(`⚠ Sync failed — saved locally. ${friendlyError(error)}`);
+        qzSavePaused=fatal;
+        qzSaveDraftNow();
+        qzSetAutosaveStatus(`⚠ Save not confirmed. Draft retained. ${friendlyError(error)}`);
         qzServerSaving=false;
       }
       if(qzServerSaveQueued){qzServerSaveQueued=false;qzRunServerSave()}
     }
     function qzMarkUnsaved(){
+      qzEditGeneration++;
       qzDraftHasUnsaved=true;
       if(document.getElementById("qzFindBar")){clearTimeout(qzMarkUnsaved._ft);qzMarkUnsaved._ft=setTimeout(qzFindRefresh,250)}
-      qzSetAutosaveStatus("● Unsaved changes");
+      qzSetAutosaveStatus(qzSavePaused?"⚠ Automatic saving paused. Draft retained — tap to review.":"● Unsaved changes");
       clearTimeout(qzDraftTimer);
       qzDraftTimer=setTimeout(qzSaveDraftNow,700);
       qzScheduleServerSave();
@@ -12272,14 +12302,31 @@ Q5 Answer B
       qzDraftHasUnsaved=false;
       clearTimeout(qzDraftTimer);
       clearTimeout(qzServerSaveTimer);
-      try{localStorage.removeItem(qzDraftKey(curItem.id))}catch{}
+      try{localStorage.removeItem(qzEditorDraftKey)}catch{}
+    }
+    function qzReviewDraft(){
+      qzSaveDraftNow();
+      qzOpenSubDialog(`<h3>Review your retained draft</h3><p>The saved quiz changed, or this save could not be confirmed. Your draft is kept separately. Automatic saving is paused to protect both versions.</p><div class="form-actions"><button type="button" id="qzDraftExport" class="btn">Download draft</button><button type="button" id="qzDraftKeep" class="btn">Keep editing draft</button><button type="button" id="qzDraftCopy" class="btn primary">Save draft as a new quiz</button></div><div id="qzDraftReviewStatus" class="status"></div>`);
+      document.getElementById("qzDraftKeep").onclick=qzCloseSubDialog;
+      document.getElementById("qzDraftExport").onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify({title:curItem.title,settings,questions},null,2)],{type:"application/json"}));const a=document.createElement("a");a.href=url;a.download="quiz-recovered-draft.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+      document.getElementById("qzDraftCopy").onclick=async event=>{
+        event.target.disabled=true;const generation=qzEditGeneration;
+        const copyQuestions=JSON.parse(JSON.stringify(questions)).map(q=>({...q,id:uid()})),copySettings=JSON.parse(JSON.stringify(settings));
+        try{
+          if((state.user?.id||"guest")!==qzEditorOwner)throw new Error("Sign back into the draft's account first.");
+          const id=uid(),created=await service.insertItem({id,kind:"quiz",title:(curItem.title||"Quiz")+" (recovered draft)",parent_id:curItem.parent_id||null,position:Date.now(),quiz_settings:copySettings});replaceLocal(created);
+          const saved=await service.saveQuizQuestions(id,copyQuestions,copySettings);replaceLocal(saved);
+          if(generation===qzEditGeneration)qzClearDraft();qzCloseSubDialog();openQuizWorkspace(saved);
+        }catch(error){document.getElementById("qzDraftReviewStatus").textContent=friendlyError(error);event.target.disabled=false}
+      };
     }
     let qzRestoredDraft=false;
     try{
-      const raw=localStorage.getItem(qzDraftKey(item.id));
+      const raw=localStorage.getItem(qzEditorDraftKey);
       if(raw){
         const draft=JSON.parse(raw);
-        if(draft&&Array.isArray(draft.questions)){
+        if(draft&&draft.owner===qzEditorOwner&&draft.library===String(LIBRARY_ID)&&draft.quiz===item.id&&Array.isArray(draft.questions)){
+          qzSavePaused=draft.baseRevision!==qzBaseRevision;
           questions=draft.questions;
           settings=Object.assign(settings,draft.settings||{});
           if(draft.title)curItem={...curItem,title:draft.title};
@@ -12333,7 +12380,9 @@ Q5 Answer B
       document.getElementById("qzTopClose").onclick=async()=>{
         clearTimeout(qzServerSaveTimer);
         if(qzDraftHasUnsaved&&!qzValidateQuestions(questions)){
-          try{await qzPersist();qzClearDraft()}catch(error){/* keep local draft, close anyway */}
+          try{await qzPersist()}catch(error){if(!qzSaveDraftNow()){alert("Your draft could not be stored. Keep this editor open and download a copy before closing.");return}}
+        }else if(qzDraftHasUnsaved&&!qzSaveDraftNow()){
+          alert("Your draft could not be stored. Keep this editor open and download a copy before closing.");return;
         }
         qzClosePage();render();
       };
@@ -12363,7 +12412,8 @@ Q5 Answer B
       if(qzRestoredDraft){
         qzRestoredDraft=false; /* only announce once, on the very first render after opening */
         toast("✓ Unsaved draft restored");
-        qzMarkUnsaved(); /* also queues a real save to the server, not just the local draft */
+        qzMarkUnsaved();
+        if(qzSavePaused)qzSetAutosaveStatus("⚠ Server quiz changed. Recovered draft kept; automatic saving is paused.");
       }
       document.getElementById("qzBtnAddNew").onclick=()=>qzOpenAddNewQuestions();
       document.getElementById("qzBtnMoveQuestions").onclick=()=>{
@@ -12589,59 +12639,45 @@ Q5 Answer B
        save of a new quiz) falls straight back to today's proven full-save
        path -- correctness always wins over saving IO. */
     async function qzPersist(){
-      const curIds=questions.map(q=>q.id);
-      const canIncrement=qzLastSavedSnapshot&&curIds.length===qzLastSavedOrder.length&&(()=>{
-        const lastSet=new Set(qzLastSavedOrder);
-        return curIds.every(id=>lastSet.has(id));
-      })();
+      if(qzPersistPromise){await qzPersistPromise;return qzDraftHasUnsaved?qzPersist():curItem}
+      if(qzSavePaused)throw new Error("QL_CONFLICT: Reload and review the recovered draft before saving.");
+      if((state.user?.id||"guest")!==qzEditorOwner)throw new Error("QL_CONFLICT: Account changed. Draft retained for its owner.");
+      qzPersistPromise=qzPersistSnapshot();
+      try{return await qzPersistPromise}finally{qzPersistPromise=null}
+    }
+    async function qzPersistSnapshot(){
+      // A retry keeps exactly the same payload and operation ID. Edits made
+      // while it is pending belong to the next generation, not this snapshot.
+      if(!qzPendingSave){
+        const savedQuestions=JSON.parse(JSON.stringify(questions));
+        const savedSettings=JSON.parse(JSON.stringify({...settings,question_count:savedQuestions.length}));
+        qzPendingSave={generation:qzEditGeneration,questions:savedQuestions,settings:savedSettings,options:{expectedRevision:qzBaseRevision,saveId:uid()}};
+      }
+      const attempt=qzPendingSave,qs=attempt.questions,curIds=qs.map(q=>q.id);
+      const canIncrement=qzLastSavedSnapshot&&curIds.length===qzLastSavedOrder.length&&curIds.every(id=>qzLastSavedSnapshot.has(id));
+      const changed=[];
+      if(canIncrement)qs.forEach((q,i)=>{const clean=qzCleanQuestionFields(q);if(qzLastSavedOrder[i]!==q.id||qzLastSavedSnapshot.get(q.id)!==JSON.stringify(clean))changed.push({id:q.id,position:i,...clean})});
+      let row=curItem,savedRows=qs;
       if(canIncrement){
-        const changed=[];
-        for(let i=0;i<questions.length;i++){
-          const q=questions[i],id=q.id;
-          const clean=qzCleanQuestionFields(q);
-          const cleanStr=JSON.stringify(clean);
-          const posChanged=qzLastSavedOrder[i]!==id;
-          const contentChanged=qzLastSavedSnapshot.get(id)!==cleanStr;
-          if(posChanged||contentChanged)changed.push({id,position:i,...clean});
-        }
-        if(changed.length){
-          const newSettings={...settings,question_count:questions.length};
-          const row=await service.saveQuizQuestionsPartial(curItem.id,changed,newSettings);
-          curItem={...row,quiz_settings:newSettings};
-          settings=newSettings;
-          replaceLocal(curItem);
-          qzLastSavedOrder=curIds;
-          qzLastSavedSnapshot=qzSnapshotFromQuestions(questions);
-          logActivity("edit_quiz",{item:curItem}).catch(()=>{});
-        }
-        return curItem;
+        if(changed.length||JSON.stringify(attempt.settings)!==qzLastSavedSettings)
+          row=await service.saveQuizQuestionsPartial(curItem.id,changed,attempt.settings,attempt.options);
+      }else{
+        row=await service.saveQuizQuestions(curItem.id,qs.map(q=>({id:q.id,...qzCleanQuestionFields(q)})),attempt.settings,attempt.options);
+        replaceLocal(row);
+        savedRows=await service.getQuizQuestionsAdmin(curItem.id);
+        if(savedRows.length!==qs.length||(row?._qlRevision!=null&&savedRows._qlRevision!==row._qlRevision))throw new Error("QL_CONFLICT: Saved quiz changed during confirmation. Draft retained.");
+        qs.forEach((q,i)=>{const live=questions.find(x=>x.id===q.id);if(live)live.id=savedRows[i].id});
       }
-      /* Structural change (or the very first save) -- same full resend as
-         always. */
-      const cleanQuestions=questions.map(q=>qzCleanQuestionFields(q));
-      const newSettings={...settings,question_count:cleanQuestions.length};
-      const row=await service.saveQuizQuestions(curItem.id,cleanQuestions,newSettings);
-      curItem={...row,quiz_settings:newSettings};
-      settings=newSettings;
+      qzBaseRevision=row?._qlRevision??savedRows._qlRevision??qzBaseRevision;
+      curItem={...row,quiz_settings:attempt.settings};
       replaceLocal(curItem);
+      qzLastSavedOrder=savedRows.map(q=>q.id);
+      qzLastSavedSnapshot=qzSnapshotFromQuestions(savedRows);
+      qzLastSavedSettings=JSON.stringify(attempt.settings);
+      if(qzEditGeneration===attempt.generation){settings=attempt.settings;qzClearDraft()}
+      else{qzDraftHasUnsaved=true;qzSaveDraftNow()}
+      qzPendingSave=null;
       logActivity("edit_quiz",{item:curItem}).catch(()=>{});
-      /* The full-save RPC assigns its own fresh ids to every row -- read
-         them back so future saves (until the next structural change) can
-         target real rows instead of guessing. If anything about this
-         doesn't line up, don't guess: fall back to full saves until the
-         next successful read-back re-establishes a trustworthy baseline. */
-      try{
-        const freshRows=await service.getQuizQuestionsAdmin(curItem.id);
-        if(freshRows.length===questions.length){
-          freshRows.forEach((r,i)=>{questions[i].id=r.id});
-          qzLastSavedOrder=questions.map(q=>q.id);
-          qzLastSavedSnapshot=qzSnapshotFromQuestions(questions);
-        }else{
-          qzLastSavedOrder=null;qzLastSavedSnapshot=null;
-        }
-      }catch{
-        qzLastSavedOrder=null;qzLastSavedSnapshot=null;
-      }
       return curItem;
     }
 
@@ -15797,7 +15833,7 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
   window.__sharedLibraryService=shared;
   const isStudentAccount=()=>!!(state.user&&state.library&&!state.isAdmin);
   const ownPrefix=()=>state.user?`students/${state.user.id}/${LIBRARY_ID}/`:"students/";
-  const cleanItem=item=>{const x={...item};delete x._student_private;delete x._student_personalized;delete x._student_source_updated_at;return x};
+  const cleanItem=item=>{const x={...item};delete x._student_private;delete x._student_personalized;delete x._student_source_updated_at;delete x._qlRevision;return x};
   const fromRow=r=>({...r.payload,id:r.id,library_id:r.library_id,_student_private:true,_student_personalized:!!r.personalized,_student_source_updated_at:r.source_updated_at||null});
   function setupMissing(error){const raw=String(error?.message||error||"");return /student_library_items|relation .* does not exist|schema cache|42P01/i.test(raw)}
   function setupMessage(error){
@@ -15809,19 +15845,25 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
   }
   async function fetchRows(){if(MOCK_MODE){let rows=[];try{rows=JSON.parse(localStorage.getItem(`ql_student_workspace_${LIBRARY_ID}_${state.user?.id}`)||"[]")}catch{}return rows}const {data,error}=await service.client.from(TABLE).select("*").eq("library_id",LIBRARY_ID).eq("user_id",state.user.id);if(error)throw error;return data||[]}
   async function saveRowsMock(rows){localStorage.setItem(`ql_student_workspace_${LIBRARY_ID}_${state.user?.id}`,JSON.stringify(rows))}
-  async function upsertRow(item,{personalized=true,sourceUpdatedAt=null,preservePersonalized=false}={}){
+  async function upsertRow(item,{personalized=true,sourceUpdatedAt=null,preservePersonalized=false,expectedSourceUpdatedAt}={}){
     const payload=cleanItem(item),stamp=nowIso();payload.updated_at=payload.updated_at||stamp;
     if(MOCK_MODE){let rows=await fetchRows(),i=rows.findIndex(r=>r.id===item.id),old=i>=0?rows[i]:null,row={user_id:state.user.id,library_id:LIBRARY_ID,id:item.id,payload,personalized:preservePersonalized?!!old?.personalized:!!personalized,source_updated_at:sourceUpdatedAt??old?.source_updated_at??null,created_at:old?.created_at||stamp,updated_at:stamp};if(i>=0)rows[i]=row;else rows.push(row);await saveRowsMock(rows);return fromRow(row)}
     let current=null;if(preservePersonalized){const {data}=await service.client.from(TABLE).select("personalized,source_updated_at,created_at").eq("library_id",LIBRARY_ID).eq("user_id",state.user.id).eq("id",item.id).maybeSingle();current=data}
     const row={user_id:state.user.id,library_id:LIBRARY_ID,id:item.id,payload,personalized:preservePersonalized?!!current?.personalized:!!personalized,source_updated_at:sourceUpdatedAt??current?.source_updated_at??null,updated_at:stamp};
-    const {data,error}=await service.client.from(TABLE).upsert(row,{onConflict:"user_id,library_id,id"}).select().single();if(error)throw error;return fromRow(data)
+    if(!personalized){
+      const {data:existing,error:readError}=await service.client.from(TABLE).select("*").eq("library_id",LIBRARY_ID).eq("user_id",state.user.id).eq("id",item.id).maybeSingle();if(readError)throw readError;
+      if(existing){if(expectedSourceUpdatedAt===undefined)return fromRow(existing);const {data,error}=await service.client.rpc("student_reconcile_item_v2",{p_library_id:String(LIBRARY_ID),p_item_id:String(item.id),p_payload:payload,p_source_updated_at:sourceUpdatedAt,p_expected_source:expectedSourceUpdatedAt});if(error)throw error;return fromRow(data)}
+    }
+    const {data,error}=await service.client.from(TABLE).insert(row).select().single();
+    if(error?.code==="23505"&&!personalized){const result=await service.client.from(TABLE).select("*").eq("library_id",LIBRARY_ID).eq("user_id",state.user.id).eq("id",item.id).single();if(result.error)throw result.error;return fromRow(result.data)}
+    if(error)throw error;return fromRow(data)
   }
   async function removeRows(ids){if(!ids.length)return;if(MOCK_MODE){const rows=(await fetchRows()).filter(r=>!ids.includes(r.id));await saveRowsMock(rows);return}const {error}=await service.client.from(TABLE).delete().eq("library_id",LIBRARY_ID).eq("user_id",state.user.id).in("id",ids);if(error)throw error}
   async function reconcile(){
     if(!isStudentAccount())return [];
     const [globalItems,rows]=await Promise.all([shared.getItems(),fetchRows()]);
     const byId=new Map(rows.map(r=>[r.id,r])),globalIds=new Set(globalItems.map(x=>x.id));
-    for(const g of globalItems){const r=byId.get(g.id);if(!r){await upsertRow({...g,student_favorite:false},{personalized:false,sourceUpdatedAt:g.updated_at||null});continue}if(!r.personalized&&String(r.source_updated_at||"")!==String(g.updated_at||"")){const prev=r.payload||{},kept={student_favorite:!!prev.student_favorite,_student_attempts:Array.isArray(prev._student_attempts)?prev._student_attempts:[]};await upsertRow({...g,...kept},{personalized:false,sourceUpdatedAt:g.updated_at||null})}}
+    for(const g of globalItems){const r=byId.get(g.id);if(!r){await upsertRow({...g,student_favorite:false},{personalized:false,sourceUpdatedAt:g.updated_at||null});continue}if(!r.personalized&&String(r.source_updated_at||"")!==String(g.updated_at||"")){const prev=r.payload||{},kept={student_favorite:!!prev.student_favorite,_student_attempts:Array.isArray(prev._student_attempts)?prev._student_attempts:[]};await upsertRow({...g,...kept},{personalized:false,sourceUpdatedAt:g.updated_at||null,expectedSourceUpdatedAt:r.source_updated_at||null})}}
     const stale=rows.filter(r=>!r.personalized&&!globalIds.has(r.id)).map(r=>r.id);if(stale.length)await removeRows(stale);
     return (await fetchRows()).map(fromRow).sort((a,b)=>Number(a.position||0)-Number(b.position||0))
   }
@@ -15834,7 +15876,21 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
     syncMode();if(!isStudentAccount()){state.studentWorkspaceReady=false;document.body.classList.remove("student-edit-mode");return}
     try{await refresh();if(service.client){try{if(state.realtime)await service.client.removeChannel(state.realtime)}catch{};try{if(state.studentWorkspaceChannel)await service.client.removeChannel(state.studentWorkspaceChannel)}catch{};let timer=null;const rerun=()=>{clearTimeout(timer);timer=setTimeout(refresh,140)};state.studentWorkspaceChannel=service.client.channel(`student-workspace-${LIBRARY_ID}-${state.user.id}`).on("postgres_changes",{event:"*",schema:"public",table:TABLE,filter:`user_id=eq.${state.user.id}`},change=>{if(isOwnQuizEcho(change))return;rerun()}).on("postgres_changes",{event:"*",schema:"public",table:"library_items",filter:`library_id=eq.${LIBRARY_ID}`},rerun).subscribe(status=>setConnection(status==="SUBSCRIBED"))}}catch(error){setupMissing(error)}
   }
-  async function studentUpdate(id,patch,{personalize=true}={}){const current=itemById(id)||fromRow((await fetchRows()).find(r=>r.id===id)||{});if(!current?.id)throw new Error("Item not found in My Library.");const next={...cleanItem(current),...patch,updated_at:nowIso()};const onlyFavorite=Object.keys(patch).every(k=>["student_favorite","updated_at"].includes(k));return await upsertRow(next,{personalized:onlyFavorite?false:personalize,preservePersonalized:onlyFavorite||!personalize})}
+  async function studentUpdate(id,patch,{personalize=true}={}){
+    const current=itemById(id);if(!current?.id)throw new Error("Item not found in My Library.");
+    const onlyFavorite=Object.keys(patch).every(k=>["student_favorite","updated_at"].includes(k));
+    if(MOCK_MODE)return await upsertRow({...cleanItem(current),...patch,updated_at:nowIso()},{personalized:onlyFavorite?false:personalize,preservePersonalized:onlyFavorite||!personalize});
+    if(patch.quiz_settings){
+      const base=await service.getQuizQuestionsAdmin(id),latest=itemById(id)||current;
+      const delta={};for(const [k,v] of Object.entries(patch.quiz_settings))if(JSON.stringify(v)!==JSON.stringify(current.quiz_settings?.[k]))delta[k]=v;
+      const nextSettings={...(latest.quiz_settings||{}),...delta};
+      const row=await service.saveQuizQuestionsPartial(id,[],nextSettings,{expectedRevision:base._qlRevision,saveId:uid()});
+      const rest={...patch};delete rest.quiz_settings;if(!Object.keys(rest).length)return row;
+      replaceLocal(row);return await studentUpdate(id,rest,{personalize});
+    }
+    const {data,error}=await service.client.rpc("student_patch_item_v2",{p_library_id:String(LIBRARY_ID),p_item_id:String(id),p_patch:patch,p_personalize:personalize&&!onlyFavorite});
+    if(error)throw error;return fromRow(data);
+  }
   async function studentInsert(p){return await upsertRow({...p,library_id:LIBRARY_ID,student_favorite:!!p.student_favorite,created_at:p.created_at||nowIso(),updated_at:nowIso()},{personalized:true})}
   service.getItems=async()=>qlIsStudentWorkspace()?await reconcile():await shared.getItems();
   service.insertItem=async p=>qlIsStudentWorkspace()?await studentInsert(p):await shared.insertItem(p);
@@ -15933,7 +15989,7 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
   /* stamp = {max: newest updated_at, count} as the server reported it when the
      list was downloaded; null after our own save (then the cache is right by
      construction and the first freshness check just records the stamp). */
-  function cacheQuestions(itemId,list,stamp){const sorted=list.slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0));splitCache.set(String(itemId),{list:sorted,byId:new Map(sorted.map(q=>[q.id,q])),stamp:stamp||null});qzDiskCachePut(itemId);return sorted}
+  function cacheQuestions(itemId,list,stamp){const sorted=list.slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0));splitCache.set(qzDiskKey(String(itemId)),{list:sorted,byId:new Map(sorted.map(q=>[q.id,q])),stamp:stamp||null});qzDiskCachePut(itemId);return sorted}
   /* Kuza: "Loading quiz… still shows, not the first time" -- the cache above
      only lived in memory, so every page reload (e.g. Refresh for a new
      version) started empty. A copy is kept on the device in IndexedDB, per
@@ -15957,12 +16013,12 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
   const qzDiskTimers=new Map();
   function qzDiskCachePut(itemId){
     if(!state.user?.id||typeof indexedDB==="undefined")return;
-    const id=String(itemId);
-    clearTimeout(qzDiskTimers.get(id));
-    qzDiskTimers.set(id,setTimeout(async()=>{
-      qzDiskTimers.delete(id);
-      const c=splitCache.get(id);if(!c)return;
-      try{const db=await qzDiskOpen();db.transaction("q","readwrite").objectStore("q").put({list:c.list,stamp:c.stamp,at:Date.now()},qzDiskKey(id))}catch(e){}
+    const id=String(itemId),key=qzDiskKey(id);
+    clearTimeout(qzDiskTimers.get(key));
+    qzDiskTimers.set(key,setTimeout(async()=>{
+      qzDiskTimers.delete(key);
+      const c=splitCache.get(key);if(!c)return;
+      try{const db=await qzDiskOpen();db.transaction("q","readwrite").objectStore("q").put({list:c.list,stamp:c.stamp,at:Date.now()},key)}catch(e){}
     },800));
   }
   async function qzDiskCacheGet(itemId){
@@ -15975,103 +16031,106 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
       });
     }catch(e){return null}
   }
-  async function loadSplitQuestions(itemId){
-    const query=()=>service.client.from(QTABLE).select("id,position,data,updated_at").eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("position").order("id");
-    const first=await service.client.from(QTABLE).select("id,position,data,updated_at",{count:"exact"}).eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("position").order("id").range(0,QPAGE-1);
-    if(first.error)throw first.error;
-    let rows=first.data||[];
-    const total=Number(first.count??rows.length);
-    if(total>rows.length){
-      const pages=[];for(let from=QPAGE;from<total;from+=QPAGE)pages.push(from);
-      /* a few pages at a time: fast, without flooding a slow connection */
-      for(let i=0;i<pages.length;i+=4){
-        const got=await Promise.all(pages.slice(i,i+4).map(from=>query().range(from,from+QPAGE-1)));
-        for(const g of got){if(g.error)throw g.error;rows=rows.concat(g.data||[])}
-      }
-    }
-    let max="";rows.forEach(r=>{if(r.updated_at&&r.updated_at>max)max=r.updated_at});
-    return cacheQuestions(itemId,rows.map(toQuestion),{max,count:rows.length});
+  const quizRevisions=new Map();
+  const revisionKey=id=>`${state.user?.id||""}:${LIBRARY_ID}:${id}`;
+  async function quizRpc(name,args){
+    const owner=state.user?.id;
+    const {data,error}=await service.client.rpc(name,args);
+    if(owner!==state.user?.id)throw new Error("QL_CONFLICT: Account changed during this operation.");
+    if(error)throw error;return data;
   }
-  /* Kuza: Take quiz waited 1-2s re-downloading every question. If this device
-     already holds the quiz (editor open, or taken before), one tiny request
-     (newest change time + row count) confirms nothing changed elsewhere, and
-     the cached questions are used straight away; otherwise download fresh. */
-  async function freshSplitQuestions(itemId){
-    if(!splitCache.has(String(itemId))){
-      const disk=await qzDiskCacheGet(itemId);
-      if(disk&&Array.isArray(disk.list)&&disk.list.length){
-        const sorted=disk.list;
-        splitCache.set(String(itemId),{list:sorted,byId:new Map(sorted.map(q=>[q.id,q])),stamp:disk.stamp||null});
-      }
+  function rememberQuizRead(itemId,result){
+    const row=fromRow(result.item);row._qlRevision=result.revision;
+    quizRevisions.set(revisionKey(itemId),result.revision);replaceLocal(row);return row;
+  }
+  async function readQuizPage(itemId,offset=0,revision=null){
+    return await quizRpc("student_read_quiz_page_v2",{p_library_id:String(LIBRARY_ID),p_item_id:String(itemId),p_offset:offset,p_revision:revision});
+  }
+  async function loadSplitQuestions(itemId){
+    for(let attempt=0;attempt<3;attempt++){
+      try{
+        const first=await readQuizPage(itemId);let rows=first.questions||[];
+        for(let offset=QPAGE;offset<first.count;offset+=QPAGE){const part=await readQuizPage(itemId,offset,first.revision);rows=rows.concat(part.questions||[])}
+        // Even the last page is validated against this generation; no mixed-version cache.
+        await readQuizPage(itemId,1000000000,first.revision);
+        if(rows.length!==first.count)throw new Error("QL_CONFLICT: Incomplete quiz read");
+        const item=rememberQuizRead(itemId,first);
+        const list=cacheQuestions(itemId,rows,{revision:first.revision,count:rows.length});
+        Object.defineProperties(list,{_qlRevision:{value:first.revision,configurable:true},_qlItem:{value:item,configurable:true}});
+        return list;
+      }catch(error){if(!/QL_CONFLICT/.test(String(error?.message||error))||attempt===2)throw error}
     }
-    const c=splitCache.get(String(itemId));
-    if(!c)return await loadSplitQuestions(itemId);
-    try{
-      const {data,count,error}=await service.client.from(QTABLE).select("updated_at",{count:"exact"}).eq("user_id",state.user.id).eq("library_id",String(LIBRARY_ID)).eq("item_id",String(itemId)).order("updated_at",{ascending:false}).limit(1);
-      if(error)throw error;
-      const max=(data&&data[0]&&data[0].updated_at)||"",n=Number(count??0);
-      if(c.stamp?(c.stamp.max===max&&c.stamp.count===n):n===c.list.length){const was=c.stamp;c.stamp={max,count:n};if(!was)qzDiskCachePut(itemId);return c.list}
-    }catch(e){if(window.qlOff&&qlOff.isNetError(e))return c.list}
+  }
+  async function freshSplitQuestions(itemId){
+    const key=revisionKey(itemId);
+    if(!splitCache.has(key)){const disk=await qzDiskCacheGet(itemId);if(disk?.list?.length)splitCache.set(key,{list:disk.list,byId:new Map(disk.list.map(q=>[q.id,q])),stamp:disk.stamp})}
+    const cached=splitCache.get(key);
+    if(cached){
+      try{const head=await readQuizPage(itemId,1000000000);if(cached.stamp?.revision===head.revision&&head.count===cached.list.length){rememberQuizRead(itemId,head);return cached.list}}
+      catch(error){if(window.qlOff&&qlOff.isNetError(error))return cached.list;throw error}
+    }
     return await loadSplitQuestions(itemId);
   }
-  async function cachedSplitQuestions(itemId){const c=splitCache.get(String(itemId));return c?c.list:await loadSplitQuestions(itemId)}
-  async function saveSplitFull(itemId,questions,settings){
-    /* ids must be unique per quiz (primary key); give any repeat a fresh id instead of failing the save */
+  async function cachedSplitQuestions(itemId){return splitCache.get(revisionKey(itemId))?.list||await loadSplitQuestions(itemId)}
+  async function saveOptions(itemId,options){
+    const expected=options?.expectedRevision??quizRevisions.get(revisionKey(itemId));
+    if(expected!=null)return {...options,expectedRevision:expected,saveId:options?.saveId||uid()};
+    const head=await readQuizPage(itemId,1000000000);rememberQuizRead(itemId,head);
+    return {...options,expectedRevision:head.revision,saveId:options?.saveId||uid()};
+  }
+  function acceptQuizReceipt(itemId,result){
+    if(result.committed_revision!==result.current_revision||!result.item)throw new Error("QL_CONFLICT: This save completed, but a newer quiz now exists. Draft retained.");
+    const row=fromRow(result.item);row._qlRevision=result.current_revision;
+    quizRevisions.set(revisionKey(itemId),result.current_revision);return row;
+  }
+  async function saveSplitFull(itemId,questions,settings,options={}){
     const seenIds=new Set();
     const normalized=(questions||[]).map((q,i)=>{let id=q.id?String(q.id):uid();if(seenIds.has(id))id=uid();seenIds.add(id);return {...q,id,question_position:i}});
+    const attempt=await saveOptions(itemId,options);
     markOwnQuizWrite(itemId);
+    await quizRpc("student_begin_quiz_save_v2",{p_save_id:attempt.saveId,p_library_id:String(LIBRARY_ID),p_item_id:String(itemId),p_question_count:normalized.length,p_settings:settings||{},p_expected_revision:attempt.expectedRevision});
     for(let i=0;i<normalized.length||i===0;i+=QCHUNK){
-      const {error}=await service.client.rpc("student_replace_quiz_questions",{p_library_id:String(LIBRARY_ID),p_item_id:String(itemId),p_questions:normalized.slice(i,i+QCHUNK),p_reset:i===0});
-      if(error)throw error;
+      await quizRpc("student_stage_quiz_batch_v2",{p_save_id:attempt.saveId,p_batch_index:i/QCHUNK,p_questions:normalized.slice(i,i+QCHUNK)});
       if(!normalized.length)break;
     }
-    cacheQuestions(itemId,normalized);
-    /* the library row keeps only settings + the split flag; `undefined` drops
-       any legacy embedded copy of the questions from the payload */
-    return await studentUpdate(itemId,{quiz_settings:settings,_student_q_split:true,_student_questions:undefined});
+    const row=acceptQuizReceipt(itemId,await quizRpc("student_finalize_quiz_save_v2",{p_save_id:attempt.saveId}));
+    cacheQuestions(itemId,normalized,{revision:row._qlRevision,count:normalized.length});return row;
   }
-
-  service.saveQuizQuestions=async(itemId,questions,settings)=>{
+  service.saveQuizQuestions=async(itemId,questions,settings,options)=>{
     if(!await useSplit())return await legacyQuiz.saveQuizQuestions(itemId,questions,settings);
-    return await saveSplitFull(itemId,questions,settings);
+    return await saveSplitFull(itemId,questions,settings,options);
   };
-  service.saveQuizQuestionsPartial=async(itemId,changedQuestions,settings)=>{
+  service.saveQuizQuestionsPartial=async(itemId,changedQuestions,settings,options)=>{
     if(!await useSplit())return await legacyQuiz.saveQuizQuestionsPartial(itemId,changedQuestions,settings);
-    const item=itemById(itemId);
+    const attempt=await saveOptions(itemId,options),item=itemById(itemId);
     if(!isSplitItem(item)){
-      /* first save of a legacy / shared quiz: move it to per-question rows once */
-      const base=Array.isArray(item?._student_questions)?item._student_questions:await service.getQuizQuestionsAdmin(itemId);
-      const byId=new Map((base||[]).map(q=>[q.id,q]));
-      (changedQuestions||[]).forEach(c=>{const {position,...rest}=c;byId.set(c.id,{...(byId.get(c.id)||{}),...rest,id:c.id,question_position:position})});
-      return await saveSplitFull(itemId,[...byId.values()].sort((a,b)=>(a.question_position||0)-(b.question_position||0)),settings);
+      const base=await legacyQuiz.getQuizQuestionsAdmin(itemId),byId=new Map(base.map(q=>[q.id,q]));
+      (changedQuestions||[]).forEach(c=>{const {position,...rest}=c;if(!byId.has(c.id))throw new Error("QL_CONFLICT: Question no longer exists");byId.set(c.id,{...byId.get(c.id),...rest,question_position:position})});
+      return await saveSplitFull(itemId,[...byId.values()].sort((a,b)=>(a.question_position||0)-(b.question_position||0)),settings,attempt);
     }
-    const cache=splitCache.get(String(itemId));
-    const stamp=nowIso();
-    const rows=(changedQuestions||[]).map(c=>{const {position,...rest}=c;const data={...(cache?.byId.get(c.id)||{}),...rest,id:c.id,question_position:position};return {user_id:state.user.id,library_id:String(LIBRARY_ID),item_id:String(itemId),id:String(c.id),position,data,updated_at:stamp}});
-    if(rows.length){
-      markOwnQuizWrite(itemId);
-      const {error}=await service.client.from(QTABLE).upsert(rows,{onConflict:"user_id,library_id,item_id,id"});
-      if(error)throw error;
-      if(cache)cacheQuestions(itemId,[...new Map([...cache.list.map(q=>[q.id,q]),...rows.map(r=>[r.id,r.data])]).values()]);
-    }
-    /* settings (e.g. question_count) only touch the small library row, and only when they changed */
-    if(JSON.stringify(item.quiz_settings||{})!==JSON.stringify(settings||{})){markOwnQuizWrite(itemId);return await studentUpdate(itemId,{quiz_settings:settings})}
-    return {...item,quiz_settings:settings};
+    markOwnQuizWrite(itemId);
+    const row=acceptQuizReceipt(itemId,await quizRpc("student_patch_quiz_v2",{p_save_id:attempt.saveId,p_library_id:String(LIBRARY_ID),p_item_id:String(itemId),p_changed:changedQuestions||[],p_settings:settings||{},p_expected_revision:attempt.expectedRevision}));
+    splitCache.delete(revisionKey(itemId));return row;
   };
   service.getQuizQuestionsAdmin=async itemId=>{
-    if(!isSplitItem(itemById(itemId))||!await useSplit())return await legacyQuiz.getQuizQuestionsAdmin(itemId);
-    return (await loadSplitQuestions(itemId)).slice();
+    if(!await useSplit())return await legacyQuiz.getQuizQuestionsAdmin(itemId);
+    if(!isSplitItem(itemById(itemId))){
+      const first=await readQuizPage(itemId);const current=rememberQuizRead(itemId,first);
+      if(!current._student_questions){const qs=await legacyQuiz.getQuizQuestionsAdmin(itemId);Object.defineProperties(qs,{_qlRevision:{value:first.revision},_qlItem:{value:current}});return qs}
+    }
+    return await loadSplitQuestions(itemId);
   };
+
   service.getQuizForTaking=async itemId=>{
     const item=itemById(itemId);
     if(!isSplitItem(item)||!await useSplit())return await legacyQuiz.getQuizForTaking(itemId);
-    const qs=await freshSplitQuestions(itemId);
-    return {title:item.title||"Quiz",settings:item.quiz_settings||{},questions:qs.map(q=>({id:q.id,type:q.type,prompt:q.prompt,options:q.options,points:q.points,image:q.image,allow_multiple:!!q.allow_multiple,images:q.images||[],session_label:q.session_label||null,session_labels:qzSessOf(q)}))};
+    const qs=await freshSplitQuestions(itemId),current=itemById(itemId)||item;
+    return {title:current.title||"Quiz",settings:current.quiz_settings||{},questions:qs.map(q=>({id:q.id,type:q.type,prompt:q.prompt,options:q.options,points:q.points,image:q.image,allow_multiple:!!q.allow_multiple,images:q.images||[],session_label:q.session_label||null,session_labels:qzSessOf(q)}))};
   };
   service.gradeQuizQuestion=async(itemId,questionId,given)=>{
     if(!isSplitItem(itemById(itemId))||!await useSplit())return await legacyQuiz.gradeQuizQuestion(itemId,questionId,given);
     await cachedSplitQuestions(itemId);
-    const q=splitCache.get(String(itemId))?.byId.get(questionId);
+    const q=splitCache.get(qzDiskKey(String(itemId)))?.byId.get(questionId);
     if(!q)return await legacyQuiz.gradeQuizQuestion(itemId,questionId,given);
     return {correct:gradeLocal(q,given),correct_answer:q.correct_answer,explanation:q.explanation||null,points:Number(q.points)||1};
   };
@@ -18307,24 +18366,33 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     const parts=[c.folder&&plural(c.folder,"folder"),c.quiz&&plural(c.quiz,"quiz").replace("quizs","quizzes"),c.pdf&&plural(c.pdf,"PDF"),c.link&&plural(c.link,"link")].filter(Boolean);
     return parts.length?parts.join(" · "):"Empty folder";
   }
-  async function buildPacket(root,{pdfSeconds,externalQuizzes,both,onStep}){
+  async function buildPacket(root,{pdfSeconds,externalQuizzes,both,onStep,dashboard}){
     const nodes=treeOf(root),out=[];let i=0;
     for(const x of nodes){
       i++;onStep&&onStep(i,nodes.length,x);
+      if(dashboard?.prepared[x.id]){out.push(dashboard.prepared[x.id]);continue}
       const n={ref:x.id,parent_ref:x.id===root.id?null:(root.__multi&&root.__items.some(t=>t.id===x.id))?root.id:x.parent_id,kind:x.kind,title:x.title||"",url:x.url||null,description:x.description||null,color:x.color||null,icon:x.icon||"",file_size:x.file_size||null};
       if(x.kind==="pdf"&&x.storage_path){n.pdf_url=await service.signedUrl(x,pdfSeconds)}
       if(x.kind==="quiz"){
-        if(externalQuizzes){n.quiz_link=await externalQuizLink(x)}
-        if(!externalQuizzes||both){const qs=await service.getQuizQuestionsAdmin(x.id);n.quiz_settings={...(x.quiz_settings||{})};n.questions=(qs||[]).map(q=>{const c={...q};delete c.item_id;delete c.library_id;return c})}
+        dashboard&&(dashboard.stage=`Loading questions: ${x.title||"Quiz"}`);
+        const qs=await service.getQuizQuestionsAdmin(x.id);
+        const current={...x,quiz_settings:qs._qlItem?.quiz_settings||x.quiz_settings};
+        if(dashboard){dashboard.fingerprint=await dashFingerprint(treeOf(root));await dashDraftPut(dashboard.key,dashboard)}
+        if(externalQuizzes){dashboard&&(dashboard.stage=`Preparing quiz link: ${x.title||"Quiz"}`);n.quiz_link=await externalQuizLink(current,qs,dashboard)}
+        if(!externalQuizzes||both){n.quiz_settings={...(current.quiz_settings||{})};n.questions=(qs||[]).map(q=>{const c={...q};delete c.item_id;delete c.library_id;return c})}
       }
       out.push(n);
+      if(dashboard){dashboard.prepared[x.id]=n;await dashDraftPut(dashboard.key,dashboard)}
     }
     return {version:1,kind:root.kind,root_ref:root.id,title:root.title||"",nodes:out};
   }
-  async function externalQuizLink(item){
-    const rows=await service.getQuizQuestionsAdmin(item.id);
+  async function externalQuizLink(item,loadedRows,dashboard){
+    const rows=loadedRows||await service.getQuizQuestionsAdmin(item.id);
     const questions=(rows||[]).slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0)).map((q,i)=>({id:q.id,type:q.type,prompt:q.prompt,options:q.options||[],points:Number(q.points||1),image:q.image||null,images:q.images||[],correct_answer:q.correct_answer,explanation:q.explanation||null,allow_multiple:!!q.allow_multiple,session_label:q.session_label||null,session_labels:q.session_labels||[],question_position:i}));
-    const row=await service.createExternalQuizShare(item.id,item.title,"guest",{version:1,kind:"quiz",settings:{...(item.quiz_settings||{})},questions});
+    const payload={version:1,kind:"quiz",settings:{...(item.quiz_settings||{})},questions};
+    let row;
+    if(dashboard){const result=await service.client.rpc("ql_prepare_dash_quiz_v2",{p_operation_id:dashboard.operationId,p_library_id:String(LIBRARY_ID),p_item_id:String(item.id),p_title:item.title||"Quiz",p_payload:payload});if(result.error)throw result.error;row=Array.isArray(result.data)?result.data[0]:result.data}
+    else row=await service.createExternalQuizShare(item.id,item.title,"guest",payload);
     const token=row?.share_token||row?.token;if(!token)return null;
     const code=await service.createShortShareLink(token).catch(()=>null);
     const u=new URL(location.href);u.search="";u.hash="";u.searchParams.set(code?"s":"quiz_share",code||token);return u.toString();
@@ -18532,22 +18600,54 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
   /* ---------- Dashboard: posts every student can see (admin approves first) ---------- */
   const dashIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="8" rx="1.6"></rect><rect x="13.5" y="3.5" width="7" height="5" rx="1.6"></rect><rect x="13.5" y="11.5" width="7" height="9" rx="1.6"></rect><rect x="3.5" y="14.5" width="7" height="6" rx="1.6"></rect></svg>';
   const fromDash=x=>{try{return treeOf(x).some(n=>n&&n.ql_from_dash)}catch{return !!(x&&x.ql_from_dash)}};
+  let dashDraftDb;
+  async function dashDraftOpen(){
+    if(!dashDraftDb)dashDraftDb=new Promise((resolve,reject)=>{const req=indexedDB.open("ql_dashboard_drafts",1);req.onupgradeneeded=()=>req.result.createObjectStore("drafts");req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)}).catch(error=>{dashDraftDb=null;throw error});
+    return await dashDraftDb;
+  }
+  async function dashDraftGet(key){const db=await dashDraftOpen();return await new Promise((resolve,reject)=>{const req=db.transaction("drafts","readonly").objectStore("drafts").get(key);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
+  async function dashDraftPut(key,value){const db=await dashDraftOpen();return await new Promise((resolve,reject)=>{const tx=db.transaction("drafts","readwrite");tx.objectStore("drafts").put(value,key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error("Posting draft could not be retained"))})}
+  async function dashDraftDelete(key){const db=await dashDraftOpen();return await new Promise((resolve,reject)=>{const tx=db.transaction("drafts","readwrite");tx.objectStore("drafts").delete(key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}
+  async function dashHash(bytes){return [...new Uint8Array(await crypto.subtle.digest("SHA-256",bytes))].map(b=>b.toString(16).padStart(2,"0")).join("")}
+  async function dashFingerprint(nodes){return await dashHash(new TextEncoder().encode(JSON.stringify(nodes.map(n=>[n.id,n.parent_id,n.updated_at,n.title,n.kind,n.color,n.icon,n.url,n.storage_path,n.quiz_settings]))))}
   async function postToDash(item){
-    const nodes=treeOf(item);
+    const owner=state.user?.id,nodes=treeOf(item);
     const line=item.kind==="folder"?`${summary(nodes)} — everything inside is posted`:item.kind==="quiz"?"Others can take this quiz — they can't see the answers or edit it":"Others can open it (view only)";
     openModal("Post to Dashboard",`<div class="ql-is-shell">${shareCard(item,line)}
       <div class="ql-is-note"><b>Every student can see it</b> right away. Quizzes can be taken; PDFs, links and folders can be opened. You can take it down any time in Dashboard → My posts.</div>
       <div id="qlIsStatus" class="status hidden"></div>
       <div class="form-actions"><button id="qlIsCancel" class="btn" type="button">Cancel</button><button id="qlDashGo" class="btn primary" type="button">Post</button></div></div>`);
-    $("#qlIsCancel").onclick=closeModal;const st=$("#qlIsStatus"),go=$("#qlDashGo");
-    const say=(t,c)=>{st.className="status"+(c?" "+c:"");st.innerHTML=t};
-    go.onclick=async()=>{go.disabled=true;
-      try{say("Preparing…");
-        const packet=await buildPacket(item,{pdfSeconds:60*60*24*365,externalQuizzes:true,both:true,onStep:(i,n)=>{if(n>1)say(`Preparing… ${i} / ${n}`)}});
-        const {error}=await service.client.rpc("ql_dash_post",{p_kind:item.kind,p_title:item.title||"",p_item_count:packet.nodes.length,p_payload:packet});
-        if(error)throw error;closeModal();toast("Posted to the Dashboard");
-      }catch(e){go.disabled=false;st.className="status";st.innerHTML=/ql_dash_post|PGRST202|42883/.test(String(e&&e.message))?`<div class="status error"><b>One Supabase step first:</b> run <b>dashboard.sql</b> in Supabase → SQL Editor.</div>`:errHtml(e)}};
+    const st=$("#qlIsStatus"),go=$("#qlDashGo"),cancel=$("#qlIsCancel");cancel.onclick=closeModal;
+    const say=(text,error=false)=>{st.className="status"+(error?" error":"");st.textContent=text};
+    go.onclick=async()=>{
+      if(go.disabled)return;go.disabled=true;cancel.disabled=true;let draft;
+      const checkOwner=()=>{if(state.user?.id!==owner)throw new Error("Account changed. Reopen this dialog in the correct account.")};
+      try{
+        checkOwner();say("Preparing resumable post…");
+        const key=`${owner}:${LIBRARY_ID}:${item.id}`;
+        const fingerprint=await dashFingerprint(nodes);
+        draft=await dashDraftGet(key);
+        if(!draft||draft.fingerprint!==fingerprint||Date.now()-draft.createdAt>23*60*60*1000){draft={key,fingerprint,owner,operationId:uid(),createdAt:Date.now(),prepared:{},stage:"Preparing contents"};await dashDraftPut(key,draft)}
+        const packet=draft.packet||await buildPacket(item,{pdfSeconds:60*60*24*365,externalQuizzes:true,both:true,dashboard:draft,onStep:(i,n,x)=>{checkOwner();draft.stage=`Preparing ${x.title||x.kind}`;say(`Preparing ${i} / ${n}: ${x.title||x.kind}`)}});
+        draft.packet=packet;await dashDraftPut(key,draft);checkOwner();
+        const bytes=new TextEncoder().encode(JSON.stringify(packet)),parts=Math.max(1,Math.ceil(bytes.length/65536));
+        const rpc=async(name,args)=>{checkOwner();const {data,error}=await service.client.rpc(name,args);checkOwner();if(error)throw error;return data};
+        draft.stage="Starting Dashboard upload";say(draft.stage);
+        const existing=await rpc("ql_begin_dash_upload_v2",{p_operation_id:draft.operationId,p_kind:item.kind,p_title:item.title||"",p_item_count:packet.nodes.length,p_parts:parts,p_content_hash:await dashHash(bytes)});
+        if(!existing){
+          for(let part=0;part<parts;part++){
+            draft.stage=`Uploading part ${part+1} / ${parts}`;say(draft.stage);
+            let binary="";const slice=bytes.subarray(part*65536,(part+1)*65536);for(let i=0;i<slice.length;i+=8192)binary+=String.fromCharCode(...slice.subarray(i,i+8192));
+            await rpc("ql_stage_dash_upload_v2",{p_operation_id:draft.operationId,p_part:part,p_base64:btoa(binary)});
+          }
+          draft.stage="Finalizing Dashboard post";say(draft.stage);await rpc("ql_finalize_dash_upload_v2",{p_operation_id:draft.operationId});
+        }
+        await dashDraftDelete(key);closeModal();toast("Posted to the Dashboard");
+      }catch(error){say(`${draft?.stage||"Preparing post"} failed. ${friendlyError(error)} Your original folder is unchanged. Retry resumes this attempt.`,true)}
+      finally{go.disabled=false;cancel.disabled=false}
+    };
   }
+
   let dashTab="all",dashKind="",dashQ="";
   async function openDash(){
     let d=document.getElementById("qlDash");if(!d){d=document.createElement("div");d.id="qlDash";document.body.appendChild(d)}
@@ -19525,29 +19625,55 @@ body.ql-neon .ql-off-sw.on{background:#00c8a0;box-shadow:0 0 12px rgba(0,229,255
   /* ---------- offline PDF viewer ---------- */
   async function pdfBlob(x){try{const c=await caches.open(PDFC()),r=await c.match(pdfKey(x.id));return r?await r.blob():null}catch(e){return null}}
   async function viewPdf(x){
+    const opening=window.qlPdfOpenGeneration=(window.qlPdfOpenGeneration||0)+1;
     const blob=await pdfBlob(x);
+    if(opening!==window.qlPdfOpenGeneration)return;
     if(!blob)return needNet("📄 This PDF isn't saved on this device. Next time, tap ⋮ → Save for offline.");
-    const lib=window.pdfjsLib;
-    if(!lib){const u=URL.createObjectURL(blob);window.open(u,"_blank");return}
-    try{lib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"}catch(e){}
-    document.getElementById("qlOffPdf")?.remove();
+    window.qlCloseOfflinePdf?.();
     const v=document.createElement("div");v.id="qlOffPdf";
     v.innerHTML=`<div class="hd"><button type="button" data-a="close">←</button><b></b><button type="button" data-a="out">−</button><button type="button" data-a="in">+</button></div><div class="pg"></div>`;
     v.querySelector("b").textContent=x.title||"PDF";document.body.appendChild(v);
-    const pg=v.querySelector(".pg");let zoom=1,doc=null,io=null;
-    const close=()=>{io&&io.disconnect();v.remove();try{doc&&doc.destroy()}catch(e){}};
+    const pg=v.querySelector(".pg"),tasks=new Set();
+    let zoom=1,doc=null,loadingTask=null,io=null,closed=false,generation=0,nativeUrl=null;
+    function cancelRendering(){io?.disconnect();for(const task of tasks){try{task.cancel()}catch{}}tasks.clear()}
+    const close=()=>{if(closed)return;closed=true;generation++;cancelRendering();v.remove();if(nativeUrl)URL.revokeObjectURL(nativeUrl);try{Promise.resolve(loadingTask?.destroy()).catch(()=>{})}catch{}};
+    window.qlCloseOfflinePdf=close;
     v.querySelector('[data-a="close"]').onclick=close;
+    function nativeFallback(){
+      if(closed)return;generation++;cancelRendering();pg.replaceChildren();
+      nativeUrl=URL.createObjectURL(blob);
+      const link=document.createElement("a");link.href=nativeUrl;link.target="_blank";link.rel="noopener";link.textContent="Open PDF with your browser";link.className="btn";
+      const frame=document.createElement("iframe");frame.src=nativeUrl;frame.title=x.title||"PDF";frame.style.cssText="width:100%;height:85vh;border:0";
+      pg.append(link,frame);v.querySelectorAll('[data-a="in"],[data-a="out"]').forEach(b=>b.disabled=true);
+    }
     async function draw(){
-      if(!doc)return;io&&io.disconnect();pg.innerHTML="";
-      const first=await doc.getPage(1),base=first.getViewport({scale:1});
-      const w=Math.min(pg.clientWidth-16,1000)*zoom,scale=w/base.width,dpr=Math.min(2,window.devicePixelRatio||1);
-      io=new IntersectionObserver(es=>es.forEach(async e=>{if(!e.isIntersecting||e.target.dataset.done)return;e.target.dataset.done="1";const n=+e.target.dataset.n,page=await doc.getPage(n),vp=page.getViewport({scale:scale*dpr}),c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;c.style.width=vp.width/dpr+"px";c.style.height=vp.height/dpr+"px";await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;e.target.replaceWith(c)}),{root:pg,rootMargin:"600px 0px"});
+      if(!doc||closed)return;
+      const current=++generation;cancelRendering();pg.replaceChildren();
+      const first=await doc.getPage(1);if(closed||current!==generation)return;
+      const base=first.getViewport({scale:1}),w=Math.max(100,Math.min(pg.clientWidth-16,1000))*zoom,scale=w/base.width,dpr=Math.min(2,window.devicePixelRatio||1);
+      async function renderPage(target){
+        if(closed||current!==generation||target.dataset.done)return;target.dataset.done="1";
+        try{
+          const page=await doc.getPage(+target.dataset.n);if(closed||current!==generation)return;
+          const vp=page.getViewport({scale:scale*dpr}),canvas=document.createElement("canvas");
+          canvas.width=vp.width;canvas.height=vp.height;canvas.style.width=vp.width/dpr+"px";canvas.style.height=vp.height/dpr+"px";
+          const task=page.render({canvasContext:canvas.getContext("2d"),viewport:vp});tasks.add(task);
+          try{await task.promise}finally{tasks.delete(task)}
+          if(!closed&&current===generation)target.replaceWith(canvas);
+        }catch(error){if(!closed&&current===generation&&error?.name!=="RenderingCancelledException"){target.dataset.done="";target.textContent="Page could not render. Tap to open the browser PDF viewer.";target.onclick=nativeFallback}}
+      }
+      io=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting)renderPage(e.target)}),{root:pg,rootMargin:"600px 0px"});
       for(let n=1;n<=doc.numPages;n++){const ph=document.createElement("div");ph.className="ph";ph.dataset.n=n;ph.style.width=base.width*scale+"px";ph.style.height=base.height*scale+"px";pg.appendChild(ph);io.observe(ph)}
     }
-    v.querySelector('[data-a="in"]').onclick=()=>{zoom=Math.min(3,zoom*1.25);draw()};
-    v.querySelector('[data-a="out"]').onclick=()=>{zoom=Math.max(.5,zoom/1.25);draw()};
-    try{doc=await lib.getDocument({data:new Uint8Array(await blob.arrayBuffer())}).promise;await draw()}
-    catch(e){console.warn("Offline PDF viewer",e);close();const u=URL.createObjectURL(blob);window.open(u,"_blank")}
+    v.querySelector('[data-a="in"]').onclick=()=>{zoom=Math.min(3,zoom*1.25);draw().catch(nativeFallback)};
+    v.querySelector('[data-a="out"]').onclick=()=>{zoom=Math.max(.5,zoom/1.25);draw().catch(nativeFallback)};
+    try{
+      const lib=await window.qlLoadPdfJs();if(closed)return;
+      const base=new URL("vendor/pdfjs-6.4.299/",document.baseURI).href;
+      lib.GlobalWorkerOptions.workerSrc=base+"legacy/build/pdf.worker.min.mjs";
+      loadingTask=lib.getDocument({data:new Uint8Array(await blob.arrayBuffer()),isEvalSupported:false,isImageDecoderSupported:false,cMapUrl:base+"cmaps/",cMapPacked:true,standardFontDataUrl:base+"standard_fonts/",iccUrl:base+"iccs/",wasmUrl:base+"wasm/"});
+      if(closed){await loadingTask.destroy();return}doc=await loadingTask.promise;if(!closed)await draw();
+    }catch(error){if(!closed){console.warn("Offline PDF viewer",error);nativeFallback()}}
   }
   window.qlOfflineViewPdf=viewPdf;
 

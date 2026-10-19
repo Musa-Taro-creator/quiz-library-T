@@ -1,0 +1,276 @@
+{
+  "columns": [
+    {
+      "type": "text",
+      "table": "ql_plans",
+      "column": "id",
+      "default": null
+    },
+    {
+      "type": "text",
+      "table": "ql_plans",
+      "column": "name",
+      "default": null
+    },
+    {
+      "type": "text",
+      "table": "ql_plans",
+      "column": "tagline",
+      "default": "''::text"
+    },
+    {
+      "type": "text",
+      "table": "ql_plans",
+      "column": "color",
+      "default": "'#6366f1'::text"
+    },
+    {
+      "type": "text",
+      "table": "ql_plans",
+      "column": "badge",
+      "default": "''::text"
+    },
+    {
+      "type": "numeric",
+      "table": "ql_plans",
+      "column": "price_month",
+      "default": null
+    },
+    {
+      "type": "numeric",
+      "table": "ql_plans",
+      "column": "price_year",
+      "default": null
+    },
+    {
+      "type": "numeric",
+      "table": "ql_plans",
+      "column": "price_lifetime",
+      "default": null
+    },
+    {
+      "type": "text",
+      "table": "ql_plans",
+      "column": "visibility",
+      "default": "'public'::text"
+    },
+    {
+      "type": "int4",
+      "table": "ql_plans",
+      "column": "sort",
+      "default": "100"
+    },
+    {
+      "type": "jsonb",
+      "table": "ql_plans",
+      "column": "limits",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "type": "jsonb",
+      "table": "ql_plans",
+      "column": "features",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "type": "bool",
+      "table": "ql_plans",
+      "column": "is_default",
+      "default": "false"
+    },
+    {
+      "type": "timestamptz",
+      "table": "ql_plans",
+      "column": "updated_at",
+      "default": "now()"
+    },
+    {
+      "type": "text",
+      "table": "ql_site_settings",
+      "column": "key",
+      "default": null
+    },
+    {
+      "type": "jsonb",
+      "table": "ql_site_settings",
+      "column": "value",
+      "default": "'{}'::jsonb"
+    },
+    {
+      "type": "timestamptz",
+      "table": "ql_site_settings",
+      "column": "updated_at",
+      "default": "now()"
+    },
+    {
+      "type": "uuid",
+      "table": "ql_subscriptions",
+      "column": "user_id",
+      "default": null
+    },
+    {
+      "type": "text",
+      "table": "ql_subscriptions",
+      "column": "plan_id",
+      "default": null
+    },
+    {
+      "type": "timestamptz",
+      "table": "ql_subscriptions",
+      "column": "starts_at",
+      "default": "now()"
+    },
+    {
+      "type": "timestamptz",
+      "table": "ql_subscriptions",
+      "column": "ends_at",
+      "default": null
+    },
+    {
+      "type": "text",
+      "table": "ql_subscriptions",
+      "column": "status",
+      "default": "'active'::text"
+    },
+    {
+      "type": "int4",
+      "table": "ql_subscriptions",
+      "column": "extra_storage_mb",
+      "default": "0"
+    },
+    {
+      "type": "timestamptz",
+      "table": "ql_subscriptions",
+      "column": "force_logout_at",
+      "default": null
+    },
+    {
+      "type": "timestamptz",
+      "table": "ql_subscriptions",
+      "column": "updated_at",
+      "default": "now()"
+    },
+    {
+      "type": "uuid",
+      "table": "quiz_external_shares",
+      "column": "id",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "type": "uuid",
+      "table": "quiz_external_shares",
+      "column": "share_token",
+      "default": "gen_random_uuid()"
+    },
+    {
+      "type": "text",
+      "table": "quiz_external_shares",
+      "column": "library_id",
+      "default": null
+    },
+    {
+      "type": "text",
+      "table": "quiz_external_shares",
+      "column": "source_item_id",
+      "default": null
+    },
+    {
+      "type": "uuid",
+      "table": "quiz_external_shares",
+      "column": "owner_user_id",
+      "default": null
+    },
+    {
+      "type": "text",
+      "table": "quiz_external_shares",
+      "column": "quiz_title",
+      "default": "'Quiz'::text"
+    },
+    {
+      "type": "text",
+      "table": "quiz_external_shares",
+      "column": "identity_mode",
+      "default": null
+    },
+    {
+      "type": "jsonb",
+      "table": "quiz_external_shares",
+      "column": "payload",
+      "default": null
+    },
+    {
+      "type": "bool",
+      "table": "quiz_external_shares",
+      "column": "active",
+      "default": "true"
+    },
+    {
+      "type": "timestamptz",
+      "table": "quiz_external_shares",
+      "column": "created_at",
+      "default": "now()"
+    },
+    {
+      "type": "timestamptz",
+      "table": "quiz_external_shares",
+      "column": "updated_at",
+      "default": "now()"
+    }
+  ],
+  "indexes": [
+    {
+      "table": "ql_dash_posts",
+      "definition": "CREATE UNIQUE INDEX ql_dash_posts_pkey ON public.ql_dash_posts USING btree (id)"
+    },
+    {
+      "table": "ql_dash_posts",
+      "definition": "CREATE INDEX ql_dash_posts_status ON public.ql_dash_posts USING btree (status, created_at DESC)"
+    },
+    {
+      "table": "quiz_external_shares",
+      "definition": "CREATE UNIQUE INDEX quiz_external_shares_pkey ON public.quiz_external_shares USING btree (id)"
+    },
+    {
+      "table": "quiz_external_shares",
+      "definition": "CREATE UNIQUE INDEX quiz_external_shares_share_token_key ON public.quiz_external_shares USING btree (share_token)"
+    },
+    {
+      "table": "quiz_external_shares",
+      "definition": "CREATE INDEX quiz_external_shares_owner_item_idx ON public.quiz_external_shares USING btree (owner_user_id, library_id, source_item_id, created_at DESC)"
+    }
+  ],
+  "triggers": [
+    {
+      "table": "student_library_items",
+      "trigger": "CREATE TRIGGER ql_item_limits BEFORE INSERT ON public.student_library_items FOR EACH ROW EXECUTE FUNCTION ql__check_item_limits()",
+      "function": "CREATE OR REPLACE FUNCTION public.ql__check_item_limits()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  v_lim jsonb;\n  v_use jsonb;\n  v_kind text := new.payload->>'kind';\n  v_key text;\n  v_extra integer;\nbegin\n  if not coalesce(new.personalized, false) or v_kind not in ('quiz', 'pdf', 'link', 'folder') then return new; end if;\n  if exists (select 1 from student_library_items where user_id = new.user_id and library_id = new.library_id and id = new.id) then\n    return new;\n  end if;\n  if exists (select 1 from ql_subscriptions where user_id = new.user_id and status = 'suspended') then\n    raise exception 'plan_limit:suspended';\n  end if;\n  select limits into v_lim from ql_plans where id = ql__effective_plan(new.user_id);\n  if v_lim is null then return new; end if;\n  v_use := ql__usage(new.user_id);\n  v_key := case v_kind when 'quiz' then 'quizzes' when 'pdf' then 'pdfs' when 'link' then 'links' else 'folders' end;\n  if (v_lim->>v_key) ~ '^[0-9]+$' and coalesce((v_use->>v_key)::int, 0) >= (v_lim->>v_key)::int then\n    raise exception 'plan_limit:%', v_key;\n  end if;\n  if v_kind = 'pdf' then\n    select coalesce(extra_storage_mb, 0) into v_extra from ql_subscriptions where user_id = new.user_id;\n    if (v_lim->>'storage_mb') is not null and (new.payload->>'file_size') ~ '^[0-9]+$' and\n       (v_use->>'storage_bytes')::bigint + (new.payload->>'file_size')::bigint\n         > ((v_lim->>'storage_mb')::bigint + coalesce(v_extra, 0)) * 1048576 then\n      raise exception 'plan_limit:storage';\n    end if;\n  end if;\n  return new;\nend;\n$function$\n"
+    },
+    {
+      "table": "student_library_items",
+      "trigger": "CREATE TRIGGER student_quiz_cleanup AFTER DELETE ON public.student_library_items FOR EACH ROW EXECUTE FUNCTION student_quiz_cleanup()",
+      "function": "CREATE OR REPLACE FUNCTION public.student_quiz_cleanup()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public'\nAS $function$\r\nbegin\r\n  delete from student_quiz_questions\r\n   where user_id = old.user_id::uuid and library_id = old.library_id::text and item_id = old.id::text;\r\n  delete from student_quiz_attempts\r\n   where user_id = old.user_id::uuid and library_id = old.library_id::text and item_id = old.id::text;\r\n  return old;\r\nend;\r\n$function$\n"
+    }
+  ],
+  "constraints": [
+    {
+      "table": "ql_dash_posts",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "quiz_external_shares",
+      "definition": "CHECK ((identity_mode = ANY (ARRAY['guest'::text, 'name'::text])))"
+    },
+    {
+      "table": "quiz_external_shares",
+      "definition": "FOREIGN KEY (owner_user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "table": "quiz_external_shares",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "table": "quiz_external_shares",
+      "definition": "UNIQUE (share_token)"
+    }
+  ]
+}
