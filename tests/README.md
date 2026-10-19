@@ -33,6 +33,7 @@ python tests/pdf-viewer.browser.py
 python tests/offline-upgrade.browser.py
 python tests/dashboard-posting.browser.py
 python tests/dashboard-appearance.browser.py
+python tests/system-back.browser.py
 ```
 
 For the additional supported text-ID schema compatibility check:
@@ -65,6 +66,13 @@ It does not read PG* environment variables or accept a remote database URL.
 - Dashboard: a folder with 24 subfolders, 12 quizzes and 14 PDFs, Unicode/chunked
   uploads, failures at preparation/upload/finalization, duplicate retries, feature
   restrictions, ownership, and folder appearance when saving shared content.
+- System Back: nested screens, dialogs, shared folders, saved PDFs, quiz tools,
+  editor save/draft failures, repeated Back during saving, reloads, folder
+  Forward navigation, and the confirmation before leaving Documents. These
+  exercise real history traversal in mobile Chromium; physical Android gestures
+  and the launcher still need a device check. Websites cannot force the launcher
+  to open, so an installed app with no earlier history may need one more Back
+  after confirming exit.
 
 Mock authentication does not validate real Google login, payments, email or
 Supabase deployment configuration. PGlite/stock PostgreSQL fixtures cannot prove

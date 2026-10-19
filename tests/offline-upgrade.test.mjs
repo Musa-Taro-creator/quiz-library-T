@@ -11,7 +11,7 @@ const legacyLibrary='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.
 const legacyWorker='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 const library=origin+'vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs';
 const worker=origin+'vendor/pdfjs-6.4.299/legacy/build/pdf.worker.min.mjs';
-const html='<meta name="ql-shell-generation" content="reliability-2026-10-19-v1"><script type="module">import * as pdfjsLib from "'+library+'";</script>';
+const html='<meta name="ql-shell-generation" content="reliability-2026-10-19-v2"><script type="module">import * as pdfjsLib from "'+library+'";</script>';
 const oldHtml='<script src="'+legacyLibrary+'"></script>';
 const key=x=>new URL(typeof x==='string'?x:x.url,origin).href;
 class LocalRequest extends Request {

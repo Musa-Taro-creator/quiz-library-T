@@ -5,8 +5,8 @@
    version (the update banner keeps working); the saved copy is only used offline.
    Supabase (login, data, files) is never cached here — the app keeps its own
    offline copy of the library and of saved PDFs. */
-const APP_CACHE = "ql-app-reliability-2026-10-19-v1";
-const SHELL_GENERATION = 'name="ql-shell-generation" content="reliability-2026-10-19-v1"';
+const APP_CACHE = "ql-app-reliability-2026-10-19-v2";
+const SHELL_GENERATION = 'name="ql-shell-generation" content="reliability-2026-10-19-v2"';
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 const LIBS = [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2",

@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@800&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
-<meta name="ql-shell-generation" content="reliability-2026-10-19-v1">
+<meta name="ql-shell-generation" content="reliability-2026-10-19-v2">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -3902,7 +3902,7 @@ function qlPathForFast(id){
 }
 function currentFolder(){return itemById(state.folderId)}
 function routeHash(){return state.folderId?`#folder=${state.folderId}`:state.section!=="documents"?`#section=${state.section}`:""}
-function currentRoute(){return {route:true,section:state.section,folderId:state.folderId}}
+function currentRoute(){return {route:true,section:state.section,folderId:state.folderId,...(window.qlUiBack?.routeState()||(history.state?.qlBackArmed?{qlBackSession:history.state.qlBackSession,qlBackArmed:true}:{}))}}
 function rememberKey(){return `ql_remember_${LIBRARY_ID}`}
 function rememberChoiceKey(){return `ql_remember_choice_${LIBRARY_ID}`}
 function modeKey(){return `ql_mode_${LIBRARY_ID}`}
@@ -4142,7 +4142,7 @@ function navigate(section="documents",folderId=null,push=true){
   scrollTo(0,0);
   closeSidebar()
 }
-function applyRoute(){const p=new URLSearchParams(location.hash.slice(1));const folder=p.get("folder"),section=p.get("section");if(folder&&itemById(folder)){state.section="documents";state.folderId=folder}else if(["documents","favorites","recent","shared","trash"].includes(section)){state.section=section;state.folderId=null}history.replaceState(currentRoute(),"",routeHash())}
+function applyRoute(){const p=new URLSearchParams(location.hash.slice(1));const folder=p.get("folder"),section=p.get("section");if(folder&&itemById(folder)){state.section="documents";state.folderId=folder}else if(["documents","favorites","recent","shared","trash"].includes(section)){state.section=section;state.folderId=null}history.replaceState(currentRoute(),"",routeHash());window.qlUiBack?.start()}
 
 function updateBrand(){
   const l=state.library||{};
@@ -6147,20 +6147,84 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
      is already the single source of truth for which menu (if any) is open
      -- see the note in the real closeMenus() definition above -- so this
      can answer instantly instead of scanning the page. */
-  function qlLayerOpen(kind){if(kind==="menu")return !!state.activeMenu;if(kind==="sidebar")return $("#sidebar")?.classList.contains("open");if(kind==="modal")return $("#modalOverlay")?.classList.contains("show");return false}
-  function qlPushLayer(kind){if(qlHandlingSystemBack)return;if(history.state?.qlUiLayer===kind)return;history.pushState({...currentRoute(),qlUiLayer:kind},"",location.href)}
-  function qlCleanupLayer(kind){setTimeout(()=>{if(!qlLayerOpen(kind)&&history.state?.qlUiLayer===kind&&!qlHistoryCleanup){qlHistoryCleanup=true;history.back()}},0)}
+  function qlLayerOpen(kind){
+    if(qlExtraBackLayers.has(kind))return qlExtraBackLayers.get(kind).isOpen();
+    if(kind==="menu")return !!state.activeMenu;
+    if(kind==="sidebar")return $("#sidebar")?.classList.contains("open");
+    if(kind==="modal")return $("#modalOverlay")?.classList.contains("show");
+    return false;
+  }
+  const qlExtraBackLayers=new Map(),qlBackOrder=[];
+  const qlBackSession=history.state?.qlBackSession||uid();
+  let qlRootBackArmed=!!history.state?.qlBackArmed;
+  const qlExternalBackRoute=()=>{const p=new URLSearchParams(location.search);return ["quiz_share","item_share","s","recovery","student_recovery"].some(k=>p.has(k))};
+  function qlPushLayer(kind){
+    if(!qlHandlingSystemBack&&history.state?.qlUiLayer===kind)return;
+    const at=qlBackOrder.indexOf(kind);if(at>=0)qlBackOrder.splice(at,1);qlBackOrder.push(kind);
+    if(qlHandlingSystemBack)return;
+    history.pushState({...currentRoute(),qlUiLayer:kind},"",location.href);
+  }
+  function qlPruneBackEntry(){
+    const kind=history.state?.qlUiLayer;
+    if(kind&&!qlLayerOpen(kind)&&!qlHistoryCleanup){qlHistoryCleanup=true;history.back()}
+  }
+  function qlCleanupLayer(){setTimeout(qlPruneBackEntry,0)}
+  window.qlUiBack={
+    open(kind,isOpen,close){qlExtraBackLayers.set(kind,{isOpen,close,pending:false});qlPushLayer(kind)},
+    close:qlCleanupLayer,
+    routeState(){return qlExternalBackRoute()?{}:{qlBackSession,qlBackArmed:qlRootBackArmed}},
+    start(){
+      if(qlRootBackArmed||qlExternalBackRoute())return;
+      qlRootBackArmed=true;
+      history.replaceState({...currentRoute(),qlExitBase:true},"",location.href);
+      history.pushState(currentRoute(),"",location.href);
+    }
+  };
   openModal=function(...args){const was=qlLayerOpen("modal"),result=rawOpenModal(...args);if(!was)qlPushLayer("modal");return result};
-  closeModal=function(...args){const was=qlLayerOpen("modal"),result=rawCloseModal(...args);if(was)qlCleanupLayer("modal");return result};
+  closeModal=function(...args){const was=qlLayerOpen("modal"),result=rawCloseModal(...args);if(was)qlCleanupLayer();return result};
   openSidebar=function(...args){const was=qlLayerOpen("sidebar"),result=rawOpenSidebar(...args);if(!was)qlPushLayer("sidebar");return result};
-  closeSidebar=function(...args){const was=qlLayerOpen("sidebar"),result=rawCloseSidebar(...args);if(was)qlCleanupLayer("sidebar");return result};
+  closeSidebar=function(...args){const was=qlLayerOpen("sidebar"),result=rawCloseSidebar(...args);if(was)qlCleanupLayer();return result};
   openMenu=function(...args){const was=qlLayerOpen("menu"),result=rawOpenMenu(...args);if(!was)qlPushLayer("menu");return result};
-  closeMenus=function(...args){const was=qlLayerOpen("menu"),result=rawCloseMenus(...args);if(was)qlCleanupLayer("menu");return result};
+  closeMenus=function(...args){const was=qlLayerOpen("menu"),result=rawCloseMenus(...args);if(was)qlCleanupLayer();return result};
   window.addEventListener("popstate",event=>{
-    if(qlHistoryCleanup){event.stopImmediatePropagation();qlHistoryCleanup=false;const stale=event.state?.qlUiLayer;if(stale&&!qlLayerOpen(stale)){qlHistoryCleanup=true;setTimeout(()=>history.back(),0)}return}
-    const order=["menu","sidebar","modal"];
-    for(const kind of order)if(qlLayerOpen(kind)){event.stopImmediatePropagation();qlHandlingSystemBack=true;try{if(kind==="menu")rawCloseMenus();else if(kind==="sidebar")rawCloseSidebar();else rawCloseModal()}finally{qlHandlingSystemBack=false}const stale=event.state?.qlUiLayer;if(stale&&!qlLayerOpen(stale)){qlHistoryCleanup=true;setTimeout(()=>history.back(),0)}return}
+    if(qlHistoryCleanup){event.stopImmediatePropagation();qlHistoryCleanup=false;qlPruneBackEntry();return}
+    const order=[...qlBackOrder].reverse();
+    for(const kind of order)if(qlLayerOpen(kind)){
+      event.stopImmediatePropagation();const extra=qlExtraBackLayers.get(kind);
+      if(extra?.pending){qlPushLayer(kind);return}
+      qlHandlingSystemBack=true;let result;
+      try{if(extra)result=extra.close();else if(kind==="menu")rawCloseMenus();else if(kind==="sidebar")rawCloseSidebar();else rawCloseModal()}
+      catch(error){result=Promise.reject(error)}
+      finally{qlHandlingSystemBack=false}
+      // A cancelled close or an asynchronous editor save must retain a Back
+      // entry. Reuse the existing close callback, including its draft checks.
+      const top=[...qlBackOrder].reverse().find(qlLayerOpen);
+      if(top)qlPushLayer(top);else qlCleanupLayer();
+      if(result&&typeof result.then==="function"){
+        if(extra)extra.pending=true;
+        Promise.resolve(result).catch(()=>{toast("This screen could not close. Your draft remains open.")}).finally(()=>{if(extra)extra.pending=false;if(!qlLayerOpen(kind))qlCleanupLayer()});
+      }
+      return;
+    }
+    if(event.state?.qlUiLayer&&!qlLayerOpen(event.state.qlUiLayer)){event.stopImmediatePropagation();qlPruneBackEntry();return}
+    if(event.state?.qlExitBase&&event.state.qlBackSession===qlBackSession&&!qlExternalBackRoute()){
+      event.stopImmediatePropagation();
+      const url=new URL(location.href);
+      if(state.folderId||state.section!=="documents"){
+        const parent=state.folderId?itemById(state.folderId)?.parent_id:null;
+        state.section="documents";state.folderId=parent||null;state.selection=false;state.selected.clear();render();
+        url.hash=routeHash();history.pushState(currentRoute(),"",url.href);return;
+      }
+      if(!confirm("Leave Quiz Library?")){url.hash=routeHash();history.pushState(currentRoute(),"",url.href);return}
+      qlRootBackArmed=false;
+      if(matchMedia("(display-mode: standalone)").matches||navigator.standalone){try{window.close()}catch{}}
+      history.back();
+      // Browsers cannot force Android's launcher to open. If there was no
+      // earlier browser entry, the next native Back is allowed to leave.
+      setTimeout(()=>{if(document.visibilityState==="visible")toast("Press Back once more to leave.")},350);
+    }
   },true);
+  if(history.state?.route)window.qlUiBack.start();
 
   const styles=document.createElement("style");styles.id="notes61to65Styles";styles.textContent=`.repair-actions{flex-wrap:wrap}.export-broken-row{align-items:flex-start}.export-broken-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.workflow-error p,.upload-small{white-space:pre-wrap}.manage-row-copy span{word-break:break-word}@media(max-width:650px){.export-broken-row{display:block}.export-broken-actions{justify-content:flex-start;margin-top:10px}.repair-actions .btn{flex:1 1 46%}}`;document.head.appendChild(styles);
   window.__quizTest={...window.__quizTest,ql61FindMissingPdfs,ql65BuildZipEntries,ql61ExpectedPdfPath};
@@ -9652,7 +9716,8 @@ html,body{overscroll-behavior-y:none}
     requestAnimationFrame(()=>ov.classList.add("show"));
     const card=ov.querySelector(".qz-aa2-card"),go=ov.querySelector("#qzAa2Go");
     let busy=false;
-    const close=()=>{if(busy)return;ov.classList.remove("show");setTimeout(()=>ov.remove(),220)};
+    const close=()=>{if(busy)return;ov.classList.remove("show");window.qlUiBack?.close("apply-all");setTimeout(()=>ov.remove(),220)};
+    window.qlUiBack?.open("apply-all",()=>ov.isConnected&&ov.classList.contains("show"),close);
     ov.addEventListener("click",e=>{if(e.target===ov)close()});
     ov.querySelector("#qzAa2X").onclick=close;
     ov.querySelector("#qzAa2Cancel").onclick=close;
@@ -9708,10 +9773,12 @@ html,body{overscroll-behavior-y:none}
     const el=qzEnsureSubDialog();
     document.getElementById("qzSubDialogBox").innerHTML=html;
     el.classList.add("show");
+    window.qlUiBack?.open("quiz-dialog",()=>el.classList.contains("show"),qzCloseSubDialog);
   }
   function qzCloseSubDialog(){
     const el=document.getElementById("qzSubDialogOverlay");
     if(el){el.classList.remove("show");el.innerHTML='<div class="qz-subdialog-box" id="qzSubDialogBox"></div>'}
+    window.qlUiBack?.close("quiz-dialog");
     /* Round 5 note 8: closing a layered dialog must never leave the smart
        action bar stuck hidden underneath it until the next scroll tick. */
     document.querySelector("#qzPageBody .qz-save-bar")?.classList.remove("qz-hide");
@@ -9739,6 +9806,8 @@ html,body{overscroll-behavior-y:none}
   function qzOpenPage(fullscreen){
     const el=qzEnsurePage();
     el.classList.add("show");
+    if(!new URLSearchParams(location.search).has("quiz_share")&&!window.__qlShortShareToken)
+      window.qlUiBack?.open("quiz",()=>el.classList.contains("show"),()=>{const b=document.getElementById("qzTopClose")||document.getElementById("qzExamHome");return b?.onclick?.call(b,new MouseEvent("click"))});
     el.classList.toggle("qz-fullscreen",!!fullscreen);
   }
   /* The element that actually scrolls the main (right-hand) content: on
@@ -9849,7 +9918,7 @@ html,body{overscroll-behavior-y:none}
   function qzClosePage(){
     const el=document.getElementById("qzPageOverlay");
     if(el){el.classList.remove("show");el.classList.remove("qz-fullscreen");el.innerHTML='<div class="qz-page-box" id="qzPageBody"></div>'}
-    qzStopTimer();
+    qzStopTimer();window.qlUiBack?.close("quiz");
   }
   /* Navigate "back" from a screen inside the page overlay: stop any running
      timer, then either render the previous screen into the SAME still-open
@@ -15097,6 +15166,7 @@ Q5 Answer B
     function closeToolsPanel(){
       const el=document.getElementById("qzToolsOverlay");
       if(el)el.classList.remove("show");
+      window.qlUiBack?.close("quiz-tools");
     }
     function applyPrefsToShell(){
       const shell=document.getElementById("qzExamShell");
@@ -15107,7 +15177,11 @@ Q5 Answer B
     }
     function toggleNavDrawer(){
       const shell=document.getElementById("qzExamShell");
-      if(shell)shell.classList.toggle("qz-navdrawer-open");
+      if(shell){
+        const open=shell.classList.toggle("qz-navdrawer-open");
+        if(open)window.qlUiBack?.open("quiz-navigation",()=>shell.isConnected&&shell.classList.contains("qz-navdrawer-open"),toggleNavDrawer);
+        else window.qlUiBack?.close("quiz-navigation");
+      }
     }
     function openToolsPanel(){
       const el=qzEnsureToolsPanel();
@@ -15146,6 +15220,7 @@ Q5 Answer B
         </div>
       `;
       el.classList.add("show");
+      window.qlUiBack?.open("quiz-tools",()=>el.classList.contains("show"),closeToolsPanel);
       document.getElementById("qzToolsClose").onclick=closeToolsPanel;
       /* Kuza: "apply to all quiz that have in account when click change in
          tool" -- copies this quiz's Layout / Feedback timing / Auto-Advance
@@ -16616,7 +16691,7 @@ let QL_PROFILE_RETURN_ROUTE=null;const QL_PROFILE_RAW_NAVIGATE=navigate;function
   return event.target&&event.target.closest?event.target.closest(selector):false;
 }
 document.addEventListener("click",event=>{if(state.section!=="profile"||document.querySelector("#modalOverlay.show"))return;if(qlEventPathHitsExcluded(event,".profile-shell,#studentProfileNav,#studentAccountChip,.sidebar,#modalOverlay,#qlTabbar,.ql-inst-veil,.ql-kick-ov"))return;setTimeout(()=>{if(state.section==="profile")closeProfileSection(true)},0)});document.addEventListener("keydown",event=>{if(state.section!=="profile"||document.querySelector("#modalOverlay.show"))return;if(qlEventPathHitsExcluded(event,".profile-shell,#modalOverlay"))return;if(event.key!=="Escape"&&event.key.length===1)closeProfileSection(true)});
-const QL_PROFILE_RAW_APPLY_ROUTE=applyRoute;applyRoute=function(){const p=new URLSearchParams(location.hash.slice(1));if(p.get("section")==="profile"&&isStudentProfileUser()){state.section="profile";state.folderId=null;history.replaceState(currentRoute(),"",routeHash());return}return QL_PROFILE_RAW_APPLY_ROUTE()};
+const QL_PROFILE_RAW_APPLY_ROUTE=applyRoute;applyRoute=function(){const p=new URLSearchParams(location.hash.slice(1));if(p.get("section")==="profile"&&isStudentProfileUser()){state.section="profile";state.folderId=null;history.replaceState(currentRoute(),"",routeHash());window.qlUiBack?.start();return}return QL_PROFILE_RAW_APPLY_ROUTE()};
 ensureStudentHeaderSearch();
 window.addEventListener("popstate",()=>setTimeout(syncProfileUi,0));q("modalClose")?.addEventListener("click",()=>document.querySelector(".modal")?.classList.remove("profile-avatar-modal"));syncProfileUi();setTimeout(syncProfileUi,450);window.__studentProfile={openAvatarPicker,openProfileEditor,readProfile,profileAvatarSrc};
 })();</script>
@@ -16920,7 +16995,8 @@ body.ql-white .ql-glass-folder-wrap svg .ql-gf-front,body.ql-white .ql-glass-fol
     document.body.appendChild(ov);
     requestAnimationFrame(()=>ov.classList.add("show"));
     const tree=ov.querySelector(".ql-loc-tree"),go=ov.querySelector(".ql-loc-go"),now=ov.querySelector(".ql-loc-now");
-    const close=()=>{ov.classList.remove("show");setTimeout(()=>ov.remove(),200)};
+    const close=()=>{ov.classList.remove("show");window.qlUiBack?.close("location-picker");setTimeout(()=>ov.remove(),200)};
+    window.qlUiBack?.open("location-picker",()=>ov.isConnected&&ov.classList.contains("show"),close);
     ov.querySelector(".ql-loc-x").onclick=close;
     ov.addEventListener("click",ev=>{if(ev.target===ov)close()});
     const kidsOf=id=>folders().filter(f=>(f.parent_id||"")===(id||"")&&allowed.has(f.id)).sort((a,b)=>String(a.title).localeCompare(String(b.title)));
@@ -18028,8 +18104,10 @@ body.ql-installed .ql-install-row,body.ql-installed #qlInstallNav{display:none!i
     ];
     const v=document.createElement("div");v.className="ql-inst-veil";
     v.innerHTML=`<div class="ql-inst-card" role="dialog" aria-label="Install Quiz Library"><div class="ql-inst-head"><img src="${logo()}" alt=""><div><b>Install Quiz Library</b><span>Open it from your Home Screen like an app</span></div></div><ol class="ql-inst-steps">${steps.map((s,i)=>`<li><span class="ql-inst-num">${i+1}</span><span class="ql-inst-ico">${s[0]}</span><span>${s[1]}</span></li>`).join("")}</ol><div class="ql-inst-note">${apple?"Use <b>Safari</b> for this. Apple only allows adding to the Home Screen from the Share menu.":"If you don't see Install, open this page in Chrome or Edge."}</div><button type="button" class="ql-inst-close">Got it</button></div>`;
-    v.onclick=e=>{if(e.target===v||e.target.closest(".ql-inst-close"))v.remove()};
+    const close=()=>{v.remove();window.qlUiBack?.close("install-guide")};
+    v.onclick=e=>{if(e.target===v||e.target.closest(".ql-inst-close"))close()};
     document.body.appendChild(v);
+    window.qlUiBack?.open("install-guide",()=>v.isConnected,close);
   }
   async function install(){
     if(isInstalled())return;
@@ -18508,7 +18586,7 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
         if(x.kind==="quiz"){const qs=(x.questions||[]).map((q,i)=>({...q,id:uid(),question_position:i}));await service.saveQuizQuestions(newId,qs,base.quiz_settings)}
       }
       if(opt.load){if(opt.finish)await opt.finish()}else await service.client.rpc("ql_finish_item_share",{p_share_record_id:id,p_saved:true});
-      await loadAll();closeModal();document.getElementById("qlItemViewer")?.remove();refreshCount();
+      await loadAll();closeModal();document.getElementById("qlItemViewer")?.remove();window.qlUiBack?.close("shared-viewer");refreshCount();
       toast(failed?`Saved — ${plural(failed,"PDF")} could not be copied`:"Saved to your library");
       navigate("documents",parentId||null);
     }catch(e){
@@ -18565,7 +18643,10 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     v.classList.toggle("ql-iv-inapp",!!opt.inApp);
     const logo=document.querySelector('link[rel="apple-touch-icon"]')?.href||"";
     const frame=inner=>`<div class="ql-iv-wrap"><div class="ql-iv-top">${logo?`<img src="${logo}" alt="">`:""}<span class="ql-iv-brand">${opt.inApp?"DASHBOARD":"QUIZ LIBRARY"}</span>${opt.inApp?`<button type="button" class="ql-iv-close" aria-label="Close">×</button>`:""}</div>${inner}</div>`;
-    const wire=()=>{const c=v.querySelector(".ql-iv-close");if(c)c.onclick=()=>v.remove()};
+    let backToParent=null;
+    const closeSharedViewer=()=>{v.remove();window.qlUiBack?.close("shared-viewer")};
+    if(opt.inApp)window.qlUiBack?.open("shared-viewer",()=>document.getElementById("qlItemViewer")===v,()=>backToParent?backToParent():closeSharedViewer());
+    const wire=()=>{const c=v.querySelector(".ql-iv-close");if(c)c.onclick=closeSharedViewer};
     v.innerHTML=frame(`<div class="ql-iv-msg">Loading…</div>`);wire();
     let share;
     try{if(opt.load)share=await opt.load();else{const {data,error}=await service.client.rpc("ql_get_external_item_share",{p_token:String(token)});if(error)throw error;if(!data)throw new Error("This shared link is invalid or no longer available.");share=data}}
@@ -18581,6 +18662,7 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     const rowHtml=x=>opt.inApp&&typeof iconMarkup==="function"?`<article tabindex="0" class="item-card qd-item" data-ref="${h(x.ref)}">${iconMarkup({kind:x.kind,id:"v_"+x.ref,title:x.title,color:x.color||null,icon:x.icon||""})}<div class="item-title">${h(x.title||KN[x.kind])}</div><div class="item-sub">${h(sub(x))}</div></article>`:`<button type="button" class="ql-iv-row" data-ref="${h(x.ref)}">${kIco(x.kind)}<span><b>${h(x.title||KN[x.kind])}</b><small>${h(sub(x))}</small></span><span class="ql-iv-go">${go[x.kind]}</span></button>`;
     const show=ref=>{
       const cur=nodes.find(x=>x.ref===ref)||root;
+      backToParent=cur!==root&&cur.parent_ref?()=>show(cur.parent_ref):null;
       const path=[];let c=cur;while(c){path.unshift(c);c=c.parent_ref?nodes.find(x=>x.ref===c.parent_ref):null}
       const head=`<div class="ql-iv-head"><h1>${h(root.title||KN[root.kind])}</h1><p>${opt.sub?h(opt.sub)+" · ":""}${root.kind==="folder"?`Shared folder · ${plural(countIn(root.ref),"item")}`:`Shared ${KN[root.kind]}`}</p>${opt.extra||""}</div>`;
       let body;
@@ -18651,9 +18733,11 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
   let dashTab="all",dashKind="",dashQ="";
   async function openDash(){
     let d=document.getElementById("qlDash");if(!d){d=document.createElement("div");d.id="qlDash";document.body.appendChild(d)}
+    const closeDash=()=>{document.getElementById("qlDashMenu")?.remove();d.remove();window.qlUiBack?.close("dashboard")};
+    window.qlUiBack?.open("dashboard",()=>document.getElementById("qlDash")===d,closeDash);
     d.innerHTML=`<div class="qd-wrap"><div class="qd-empty">Loading…</div></div>`;
     let data;try{const r=await service.client.rpc("ql_dash_list");if(r.error)throw r.error;data=r.data||{}}
-    catch(e){d.innerHTML=`<div class="qd-wrap"><div class="qd-top"><div><h1>Dashboard</h1></div><button type="button" class="ql-iv-close" data-qd-close>×</button></div><div class="qd-empty">${/ql_dash_list|PGRST202|42883/.test(String(e&&e.message))?"Dashboard is not set up yet (admin: run dashboard.sql).":h(friendlyError(e))}</div></div>`;d.querySelector("[data-qd-close]").onclick=()=>d.remove();return}
+    catch(e){d.innerHTML=`<div class="qd-wrap"><div class="qd-top"><div><h1>Dashboard</h1></div><button type="button" class="ql-iv-close" data-qd-close>×</button></div><div class="qd-empty">${/ql_dash_list|PGRST202|42883/.test(String(e&&e.message))?"Dashboard is not set up yet (admin: run dashboard.sql).":h(friendlyError(e))}</div></div>`;d.querySelector("[data-qd-close]").onclick=closeDash;return}
     const draw=()=>{
       const mine=dashTab==="mine",list=(mine?data.mine:data.posts)||[];
       const q=dashQ.trim().toLowerCase();
@@ -18665,7 +18749,7 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
         <input class="qd-search" placeholder="Search title or name…" value="${h(dashQ)}">
         <div class="qd-kinds">${[["","All"],["quiz","Quizzes"],["pdf","PDFs"],["link","Links"],["folder","Folders"]].map(([k,l])=>`<button type="button" data-qd-kind="${k}" class="${dashKind===k?"on":""}">${l}</button>`).join("")}</div>
         ${rows.length?`<div class="content grid qd-grid">${rows.map(card).join("")}</div>`:`<div class="qd-empty">${mine?"You haven't posted anything yet. Use ⋮ → Post to Dashboard on any quiz, PDF, link or folder.":"Nothing here yet."}</div>`}</div>`;
-      d.querySelector("[data-qd-close]").onclick=()=>d.remove();
+      d.querySelector("[data-qd-close]").onclick=closeDash;
       d.querySelectorAll("[data-qd-tab]").forEach(b=>b.onclick=()=>{dashTab=b.dataset.qdTab;draw()});
       d.querySelectorAll("[data-qd-kind]").forEach(b=>b.onclick=()=>{dashKind=b.dataset.qdKind;draw()});
       const si=d.querySelector(".qd-search");si.oninput=()=>{dashQ=si.value;clearTimeout(si.t);si.t=setTimeout(()=>{const pos=si.selectionStart;draw();const n=d.querySelector(".qd-search");n.focus();try{n.setSelectionRange(pos,pos)}catch{}},250)};
@@ -18684,9 +18768,11 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     const m=document.createElement("div");m.id="qlDashMenu";
     m.innerHTML=items.map(([l,,cls,feat],i)=>`<button type="button" data-i="${i}" class="${cls||""} ${feat==="dash_save"?"ql-dash-save":""}">${l}</button>`).join("");
     document.body.appendChild(m);const r=anchor.getBoundingClientRect();
+    const closeDashMenu=()=>{m.remove();window.qlUiBack?.close("dashboard-menu")};
+    window.qlUiBack?.open("dashboard-menu",()=>document.getElementById("qlDashMenu")===m,closeDashMenu);
     m.style.top=Math.min(window.innerHeight-m.offsetHeight-10,r.bottom+6)+"px";m.style.left=Math.max(10,Math.min(window.innerWidth-m.offsetWidth-10,r.right-m.offsetWidth))+"px";
-    m.querySelectorAll("[data-i]").forEach(b=>b.onclick=e=>{e.stopPropagation();if(b.classList.contains("ql-locked"))return;m.remove();items[+b.dataset.i][1]()});
-    setTimeout(()=>document.addEventListener("click",function off(ev){if(!m.contains(ev.target)){m.remove();document.removeEventListener("click",off,true)}},true),0);
+    m.querySelectorAll("[data-i]").forEach(b=>b.onclick=e=>{e.stopPropagation();if(b.classList.contains("ql-locked"))return;closeDashMenu();items[+b.dataset.i][1]()});
+    setTimeout(()=>document.addEventListener("click",function off(ev){if(!m.contains(ev.target)){closeDashMenu();document.removeEventListener("click",off,true)}},true),0);
   }
   function saveDash(r){
     openModal("Save to my library",`<div class="ql-is-shell">${shareCard({kind:r.kind,title:r.title},r.kind==="folder"?"The folder and everything inside":"A copy for your own library")}
@@ -19108,7 +19194,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   }
   /* a gift waiting: red dot on the profile picture + a pop-up once each time the app opens (or the moment it arrives) */
   const giftShown=new Set();
-  function closeGiftPop(){const o=document.getElementById("qlGiftPop");if(o)o.remove()}
+  function closeGiftPop(){const o=document.getElementById("qlGiftPop");if(o)o.remove();window.qlUiBack?.close("gift-popup")}
   function giftAlert(){
     const chip=document.getElementById("studentAccountChip"),has=!!(signedIn()&&gifts&&gifts.length);
     if(chip){chip.classList.toggle("ql-gift-dot",has);chip.title=has?"You have a gift waiting 🎁":""}
@@ -19124,6 +19210,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     const bits=Array.from({length:26},(_,i)=>`<i style="left:${Math.round(Math.random()*100)}%;background:${["#f43f5e","#f59e0b","#22c55e","#3b82f6","#a855f7","#ec4899"][i%6]};animation-delay:${(Math.random()*.6).toFixed(2)}s;animation-duration:${(1.6+Math.random()*1.2).toFixed(2)}s"></i>`).join("");
     o.innerHTML=`<div class="ql-gp-box" role="dialog" aria-label="A gift for you"><div class="ql-gp-conf">${bits}</div><div class="ql-gp-ico">🎁</div><small>A GIFT FOR YOU</small><h3>You got ${h(g.plan_name||g.plan_id)}!</h3><div class="ql-gp-len">${h(giftLen(g.days))}</div>${g.message?`<p>“${h(g.message)}”</p>`:""}<div class="ql-gp-acts"><button type="button" class="ql-gp-claim">Claim now</button><button type="button" class="ql-gp-later">Later</button></div>${gifts.length>1?`<div class="ql-gp-more">+${gifts.length-1} more gift${gifts.length>2?"s":""} in My Profile</div>`:""}</div>`;
     document.body.appendChild(o);
+    window.qlUiBack?.open("gift-popup",()=>o.isConnected,closeGiftPop);
     o.querySelector(".ql-gp-claim").onclick=e=>claimGift(g.id,e.currentTarget);
     o.querySelector(".ql-gp-later").onclick=closeGiftPop;
     o.onclick=e=>{if(e.target===o)closeGiftPop()};
@@ -19636,8 +19723,9 @@ body.ql-neon .ql-off-sw.on{background:#00c8a0;box-shadow:0 0 12px rgba(0,229,255
     const pg=v.querySelector(".pg"),tasks=new Set();
     let zoom=1,doc=null,loadingTask=null,io=null,closed=false,generation=0,nativeUrl=null;
     function cancelRendering(){io?.disconnect();for(const task of tasks){try{task.cancel()}catch{}}tasks.clear()}
-    const close=()=>{if(closed)return;closed=true;generation++;cancelRendering();v.remove();if(nativeUrl)URL.revokeObjectURL(nativeUrl);try{Promise.resolve(loadingTask?.destroy()).catch(()=>{})}catch{}};
+    const close=()=>{if(closed)return;closed=true;generation++;cancelRendering();v.remove();window.qlUiBack?.close("offline-pdf");if(nativeUrl)URL.revokeObjectURL(nativeUrl);try{Promise.resolve(loadingTask?.destroy()).catch(()=>{})}catch{}};
     window.qlCloseOfflinePdf=close;
+    window.qlUiBack?.open("offline-pdf",()=>document.getElementById("qlOffPdf")===v,close);
     v.querySelector('[data-a="close"]').onclick=close;
     function nativeFallback(){
       if(closed)return;generation++;cancelRendering();pg.replaceChildren();

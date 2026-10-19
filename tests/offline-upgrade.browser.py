@@ -56,7 +56,7 @@ try:
     assert page.evaluate("async()=>await caches.has('ql-app-v1')")
     context.set_offline(True);page.close();page=context.new_page();page.goto(url+'index.html');assert 'Legacy application fixture' in page.locator('body').inner_text()
     context.set_offline(False);mode['failure']='';page.evaluate("async()=>await(await navigator.serviceWorker.getRegistration()).update()")
-   wait_async(page,"async()=>!await caches.has('ql-app-v1')&&await caches.has('ql-app-reliability-2026-10-19-v1')")
+   wait_async(page,"async()=>!await caches.has('ql-app-v1')&&await caches.has('ql-app-reliability-2026-10-19-v2')")
    wait_async(page,"async()=>{const r=await navigator.serviceWorker.getRegistration();return r.active&&r.active.state==='activated'&&!r.installing}")
    assert page.evaluate("localStorage.getItem('protected-account-draft')")=='keep'
    assert page.evaluate("async()=>!!await(await caches.open('ql-off-pdf-fixture-user')).match('https://ql-offline.invalid/fixture.pdf')")
