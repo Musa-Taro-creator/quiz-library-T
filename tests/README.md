@@ -34,6 +34,7 @@ python tests/offline-upgrade.browser.py
 python tests/dashboard-posting.browser.py
 python tests/dashboard-appearance.browser.py
 python tests/system-back.browser.py
+python tests/password-recovery.browser.py
 ```
 
 For the additional supported text-ID schema compatibility check:
@@ -73,6 +74,11 @@ It does not read PG* environment variables or accept a remote database URL.
   and the launcher still need a device check. Websites cannot force the launcher
   to open, so an installed app with no earlier history may need one more Back
   after confirming exit.
+- Password recovery: real frontend handlers with simulated recovery/auth events,
+  fast and delayed code verification, existing device sessions, validation and
+  password-update errors, sign-out retries, refresh and recovery URLs. Checks
+  also cover normal login, device-limit sign-out and signup verification. No
+  real recovery emails are sent and no production passwords are changed.
 
 Mock authentication does not validate real Google login, payments, email or
 Supabase deployment configuration. PGlite/stock PostgreSQL fixtures cannot prove

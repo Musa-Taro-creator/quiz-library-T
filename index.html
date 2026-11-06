@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@800&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
-<meta name="ql-shell-generation" content="reliability-2026-10-19-v2">
+<meta name="ql-shell-generation" content="reliability-2026-11-06-v1">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -4002,6 +4002,7 @@ function isStudentRecoveryUrl(){
   const query=new URLSearchParams(location.search);
   return query.get("student_recovery")==="1"
 }
+function isStudentPasswordRecovery(){return !!window.__studentPasswordRecovery||isStudentRecoveryUrl()}
 function isRecoveryUrl(){
   const query=new URLSearchParams(location.search);
   if(isStudentRecoveryUrl())return false;
@@ -4122,7 +4123,7 @@ function createSupabaseService(){
 }
 const service=MOCK_MODE?createMockService():createSupabaseService();
 
-async function loadAll(){state.library=await service.getLibrary();state.items=await service.getItems();const session=await service.getSession();state.user=session?.user||null;syncMode();render()}
+async function loadAll(){state.library=await service.getLibrary();state.items=await service.getItems();const session=await service.getSession();state.user=isStudentPasswordRecovery()?null:session?.user||null;syncMode();render()}
 function handleRealtime(type,p){if(type==="library"&&p.new?.id===LIBRARY_ID){state.library=p.new;syncMode()}if(type==="item"){if(p.eventType==="DELETE")state.items=state.items.filter(x=>x.id!==p.old.id);else{const i=state.items.findIndex(x=>x.id===p.new.id);if(i>=0)state.items[i]=p.new;else state.items.push(p.new)}}render()}
 function navigate(section="documents",folderId=null,push=true){
   closeMenus();
@@ -4972,14 +4973,14 @@ window.__quizTest={state,service,navigate,openAdmin,exitAdmin,openUpload,openEdi
   state.library=await service.getLibrary();
   state.items=await service.getItems();
   const session=await service.getSession();
-  state.user=session?.user||null;
+  state.user=isStudentPasswordRecovery()?null:session?.user||null;
   // Any valid Supabase Auth session is accepted.
   // Admin mode still requires its separate explicit unlock; normal sign-in stays in Student View.
   syncMode();
   applyRoute();
   render();
   service.onAuth?.((event,currentSession)=>{
-    if(window.__studentAuthUiTransition)return;
+    if(window.__studentAuthUiTransition||isStudentPasswordRecovery())return;
     state.user=currentSession?.user||null;
     syncMode();
     render();
@@ -7311,6 +7312,10 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
 
   function authUi(_tab="login",message="",context={}){
     const gate=document.getElementById("studentAccessGate");
+    // A verified recovery session must not become a normal app login before
+    // the new password is saved. Keep the intent across refreshes as well.
+    window.__studentPasswordRecovery=["forgot","email-recovery-code","reset-password"].includes(_tab);
+    if(_tab==="reset-password"&&!isStudentRecoveryUrl()){const url=new URL(location.href);url.searchParams.set("student_recovery","1");history.replaceState(history.state,"",url.toString())}
     if(["login","register","forgot"].includes(_tab))studentAuthFlowContext={...context};else studentAuthFlowContext={...studentAuthFlowContext,...context};
     gate.classList.add("ql-auth-active");
     const isRegister=_tab==="register",isForgot=_tab==="forgot",isSignupCode=_tab==="email-signup-code",isRecoveryCode=_tab==="email-recovery-code",isReset=_tab==="reset-password";
@@ -7362,7 +7367,27 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
       gate.querySelector("#studentRecoveryResend").onclick=async()=>{const button=gate.querySelector("#studentRecoveryResend");button.disabled=true;try{if(MOCK_MODE){setAuthStatus(gate,"studentRecoveryCodeStatus","Mock verification code: 123456","success")}else{const redirect=new URL(location.href);redirect.hash="";redirect.searchParams.set("student_recovery","1");const {error}=await service.client.auth.resetPasswordForEmail(studentAuthFlowContext.email,{redirectTo:redirect.toString()});if(error)throw error;setAuthStatus(gate,"studentRecoveryCodeStatus","A new verification code was sent.","success")}startOtpCooldown(gate,"studentRecoveryResend")}catch(error){setAuthStatus(gate,"studentRecoveryCodeStatus",studentAuthError(error),"error");button.disabled=false}};
       gate.querySelector("#studentRecoveryCodeForm").onsubmit=async event=>{event.preventDefault();const code=gate.querySelector("#studentRecoveryCode").value.trim(),email=studentAuthFlowContext.email,button=event.submitter;if(!/^\d{6,8}$/.test(code))return setAuthStatus(gate,"studentRecoveryCodeStatus","Enter the verification code from your email.");button.disabled=true;try{if(MOCK_MODE){if(code!==String(studentAuthFlowContext.mockCode||"123456"))throw new Error("Invalid OTP");authUi("reset-password");return}const {error}=await service.client.auth.verifyOtp({email,token:code,type:"recovery"});if(error)throw error;setStudentAuthPersistence(false);authUi("reset-password")}catch(error){setAuthStatus(gate,"studentRecoveryCodeStatus",studentAuthError(error),"error")}finally{if(button?.isConnected)button.disabled=false}}
     }else if(isReset){
-      gate.querySelector("#studentResetPasswordForm").onsubmit=async event=>{event.preventDefault();const password=gate.querySelector("#studentNewPassword").value,confirm=gate.querySelector("#studentNewPasswordConfirm").value,button=event.submitter;if(password.length<8)return setAuthStatus(gate,"studentResetPasswordStatus","Password must be at least 8 characters.");if(password!==confirm)return setAuthStatus(gate,"studentResetPasswordStatus","Passwords do not match.");button.disabled=true;try{if(MOCK_MODE){const email=studentAuthFlowContext.email;let rows=mockAuthAccounts(),row=rows.find(x=>x.identifier===email);if(!row)throw new Error("Account not found.");row.password=password;row.verified=true;saveMockAuthAccounts(rows)}else{const {error}=await service.client.auth.updateUser({password});if(error)throw error;await service.client.auth.signOut()}clearStudentAuthPersistence();clearStudentAuthUrl();authUi("login","Password updated. Sign in with your new password.")}catch(error){setAuthStatus(gate,"studentResetPasswordStatus",studentAuthError(error),"error")}finally{if(button?.isConnected)button.disabled=false}}
+      let passwordSaved=false;
+      gate.querySelector("#studentResetPasswordForm").onsubmit=async event=>{
+        event.preventDefault();
+        const passwordInput=gate.querySelector("#studentNewPassword"),confirmInput=gate.querySelector("#studentNewPasswordConfirm"),password=passwordInput.value,button=event.submitter;
+        if(!passwordSaved&&password.length<8)return setAuthStatus(gate,"studentResetPasswordStatus","Password must be at least 8 characters.");
+        if(!passwordSaved&&password!==confirmInput.value)return setAuthStatus(gate,"studentResetPasswordStatus","Passwords do not match.");
+        button.disabled=true;
+        try{
+          if(!passwordSaved){
+            if(MOCK_MODE){const email=studentAuthFlowContext.email;const rows=mockAuthAccounts(),row=rows.find(x=>x.identifier===email);if(!row)throw new Error("Account not found.");row.password=password;row.verified=true;saveMockAuthAccounts(rows)}
+            else{const {error}=await service.client.auth.updateUser({password});if(error)throw error}
+            passwordSaved=true;passwordInput.disabled=true;confirmInput.disabled=true;
+          }
+          if(!MOCK_MODE){const {error}=await service.client.auth.signOut({scope:"local"});if(error)throw error}
+          state.user=null;syncMode();clearStudentAuthPersistence();clearStudentAuthUrl();
+          authUi("login","Password updated. Sign in with your new password.");
+        }catch(error){
+          setAuthStatus(gate,"studentResetPasswordStatus",passwordSaved?"Password updated, but sign-out did not finish. Tap Finish reset to retry.":studentAuthError(error),"error");
+          if(passwordSaved)button.textContent="Finish reset";
+        }finally{if(button?.isConnected)button.disabled=false}
+      };
     }else{
       gate.querySelector("#studentForgotPassword").onclick=()=>authUi("forgot");
       gate.querySelector("#studentLoginForm").onsubmit=async event=>{event.preventDefault();const email=studentAuthIdentifier(gate.querySelector("#studentLoginIdentifier").value),password=gate.querySelector("#studentLoginPassword").value,remember=!!gate.querySelector("#studentRememberMe").checked,button=gate.querySelector("#studentLoginSubmit");if(!studentAuthValidIdentifier(email))return setAuthStatus(gate,"studentLoginStatus","Enter your email address.");if(!password)return setAuthStatus(gate,"studentLoginStatus","Enter your password.");button.disabled=true;try{const result=await studentAuthSignIn(email,password);if(!result?.user)throw new Error("Unable to sign in.");await completeStudentAuth(result.user,remember)}catch(error){setAuthStatus(gate,"studentLoginStatus",studentAuthError(error),"error")}finally{if(button.isConnected)button.disabled=false}}
@@ -7371,6 +7396,10 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
   }
   async function enforceLibraryAccess(){
     if(window.__studentAuthUiTransition){authGateVisible(true);return}
+    if(isStudentPasswordRecovery()){
+      if(isStudentRecoveryUrl()&&!document.getElementById("studentResetPasswordForm"))authUi("reset-password");
+      authGateVisible(true);return;
+    }
     if(!state.library)return;
     /* External quiz-share links are intentionally frictionless. The quiz owner
        chooses Guest/Anonymous or Require student name when creating the link,
@@ -7380,10 +7409,12 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
     if(externalQuizShare){authGateVisible(false);return}
     const accountRequired=STUDENT_ONLY_BUILD||state.library.student_access_private===true;
     if(!accountRequired||state.isAdmin){authGateVisible(false);return}
-    if(isStudentRecoveryUrl()){authUi("reset-password");authGateVisible(true);return}
     try{
-      const session=await studentAuthCurrentSession(),user=session?.user||null;if(user){state.user=user;syncMode();authGateVisible(false);if(!state.isAdmin&&!studentWelcomeShownThisLoad)showStudentWelcome(studentWelcomeRecord(user,false),true);if(new URLSearchParams(location.search).has("student_oauth")){try{sessionStorage.setItem("ql_fresh_login","1")}catch(e){}clearStudentAuthUrl()}return}
+      const session=await studentAuthCurrentSession(),user=session?.user||null;
+      if(window.__studentAuthUiTransition||isStudentPasswordRecovery()){authGateVisible(true);return}
+      if(user){state.user=user;syncMode();authGateVisible(false);if(!state.isAdmin&&!studentWelcomeShownThisLoad)showStudentWelcome(studentWelcomeRecord(user,false),true);if(new URLSearchParams(location.search).has("student_oauth")){try{sessionStorage.setItem("ql_fresh_login","1")}catch(e){}clearStudentAuthUrl()}return}
     }catch{}
+    if(window.__studentAuthUiTransition||isStudentPasswordRecovery()){authGateVisible(true);return}
     clearStudentAuthPersistence();authUi("login");authGateVisible(true)
   }
 
@@ -16281,7 +16312,7 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
   };
   const rawOpenItemMenu=openItemMenu;openItemMenu=function(x,anchor){rawOpenItemMenu(x,anchor);if(!qlIsStudentWorkspace())return;const m=$("#itemMenu");if(!m)return;const labels=[...m.querySelectorAll("button")].map(b=>b.textContent.trim());const add=(label,fn,cls="")=>{if(labels.includes(label))return;const b=document.createElement("button");b.className=cls;b.textContent=label;b.onclick=()=>{closeMenus();fn()};m.appendChild(b)};if(state.section!=="trash"){add("Edit",()=>openEditor(x));add("Move",()=>openMove([x.id]));add("Duplicate",()=>duplicateItems([x.id]));add("Move to Trash",()=>trashItems([x.id]),"danger")}else{add("Restore",()=>restoreItems([x.id]));add("Delete Permanently",()=>deletePermanent([x.id]),"danger")}};
   const rawLoadAll=loadAll;loadAll=async function(){await rawLoadAll();await activate()};
-  service.onAuth?.((event,session)=>{if(window.__studentAuthUiTransition)return;setTimeout(async()=>{if(window.__studentAuthUiTransition)return;state.user=session?.user||state.user;syncMode();await activate()},120)});
+  service.onAuth?.((event,session)=>{if(window.__studentAuthUiTransition||isStudentPasswordRecovery())return;setTimeout(async()=>{if(window.__studentAuthUiTransition||isStudentPasswordRecovery())return;state.user=session?.user||state.user;syncMode();await activate()},120)});
   window.addEventListener("pageshow",()=>setTimeout(activate,180));
   setTimeout(activate,220);
   window.__studentWorkspace={activate,refresh,reconcile,isStudentAccount,shared};
@@ -17303,7 +17334,7 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
   async function current(){const c=cli();const {data,error}=await c.from("ql_active_device").select("device_id,device_label,signed_in_at").eq("user_id",uid).maybeSingle();if(error)throw error;return data}
   function fmt(t){try{return new Date(t).toLocaleString([],{hour:"numeric",minute:"2-digit",day:"numeric",month:"short"})}catch(e){return ""}}
   async function kick(row,blocked){
-    if(kicked)return;kicked=true;stop();
+    if(kicked||isStudentPasswordRecovery())return;kicked=true;stop();
     try{await cli().auth.signOut({scope:"local"})}catch(e){}
     try{localStorage.removeItem(`ql_student_auth_remember_${LIBRARY_ID}`);sessionStorage.removeItem(`ql_student_auth_session_${LIBRARY_ID}`)}catch(e){}
     const ov=document.createElement("div");ov.id="qlKicked";ov.className="ql-kick-ov";
@@ -17321,7 +17352,7 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
     document.getElementById("qlKickLogin").onclick=()=>location.reload();
   }
   function stop(){if(poll){clearInterval(poll);poll=null}if(chan){try{cli().removeChannel(chan)}catch(e){}chan=null}if(chan2){try{cli().removeChannel(chan2)}catch(e){}chan2=null}if(chan3){try{cli().removeChannel(chan3)}catch(e){}chan3=null}}
-  async function check(){if(!uid||kicked)return;try{
+  async function check(){if(!uid||kicked||isStudentPasswordRecovery())return;try{
     if(multi){const d=await mCheck();if(!d.signed_in)kick(d.newest?{device_label:d.newest.label,signed_in_at:d.newest.at}:null);return}
     if(await blockedNow())return kick(null,true);const row=await current();if(row&&row.device_id!==deviceId)kick(row)}catch(e){if(isBlockedErr(e))kick(null,true)}}
   async function start(u){
@@ -17345,10 +17376,10 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
   }
   /* signing out frees this device's place */
   setInterval(()=>{const c=cli();if(!c||!c.auth||c.auth.__qlDevWrap)return;const orig=c.auth.signOut.bind(c.auth);
-    c.auth.signOut=async function(o){if(multi&&uid&&!kicked&&!(o&&o.scope==="others"))try{await c.rpc("ql_device_signout",{p_device_id:deviceId})}catch(e){}return orig(o)};c.auth.__qlDevWrap=true},1000);
+    c.auth.signOut=async function(o){if(multi&&uid&&!kicked&&!isStudentPasswordRecovery()&&!(o&&o.scope==="others"))try{await c.rpc("ql_device_signout",{p_device_id:deviceId})}catch(e){}return orig(o)};c.auth.__qlDevWrap=true},1000);
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")check()});
   setInterval(()=>{
-    if(!cli()||typeof state==="undefined")return;
+    if(!cli()||typeof state==="undefined"||isStudentPasswordRecovery())return;
     const u=state.user&&!state.isAdmin&&!state.user.__mock?state.user.id:null;
     if(u&&u!==uid&&!ready){ready=start(u).finally(()=>{ready=null})}
     else if(!u&&uid){uid=null;stop()}
@@ -18026,7 +18057,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   };
 
   service.onAuth?.((event,session)=>{
-    if(session?.user){
+    if(session?.user&&!isStudentPasswordRecovery()){
       setTimeout(()=>{
         shareProfileCache=null;
         ensureShareProfile(true).then(()=>refreshShareBadge()).catch(()=>{});
