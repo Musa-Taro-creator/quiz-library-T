@@ -20,12 +20,12 @@ if os.environ.get('QL_RECOVERY_SOURCE_REF'):
 STUB = r'''
 window.authTest={session:JSON.parse(sessionStorage.getItem('local-recovery-session')||'null'),
   callbacks:[],calls:[],delay:0,otherDevice:false,forceLogout:false,failUpdate:false,
-  failSignOut:false,password:'Old-password-123!'};
+  failSignOut:false,failReset:false,password:'Old-password-123!'};
 const library={id:'2953b6bf-e205-4924-ba7b-df87d48de03a',
   owner_id:'22222222-2222-4222-8222-222222222222',name:'Local recovery test',
   is_public:true,student_access_private:false};
 const user={id:'11111111-1111-4111-8111-111111111111',email:'audit@example.test',
-  user_metadata:{full_name:'Local test'}};
+  app_metadata:{provider:'email'},user_metadata:{full_name:'Local test'}};
 authTest.user=user;
 const persist=()=>sessionStorage.setItem('local-recovery-session',JSON.stringify(authTest.session));
 const emit=async(event)=>{authTest.calls.push({event});
@@ -36,7 +36,8 @@ const auth={
   async getUser(){return {data:{user:authTest.session?.user||null},error:null}},
   async refreshSession(){return this.getSession()},
   async resetPasswordForEmail(email,{redirectTo}){
-    authTest.calls.push({method:'send-reset',email,redirectTo});return {data:{},error:null}},
+    authTest.calls.push({method:'send-reset',email,redirectTo});
+    return authTest.failReset?{error:{message:'Simulated recovery email failure'}}:{data:{},error:null}},
   async verifyOtp({email,token,type}){
     authTest.calls.push({method:'verify',type,email});
     if(token!=='123456')return {data:{},error:{message:'Invalid or expired OTP'}};
@@ -45,11 +46,12 @@ const auth={
     if(authTest.delay)await new Promise(r=>setTimeout(r,authTest.delay));
     return {data:{user,session:authTest.session},error:null};
   },
-  async updateUser({password}){
+  async updateUser({password,data}){
     authTest.calls.push({method:'update-password'});
     if(!authTest.session)return {error:{message:'Auth session missing'}};
     if(authTest.failUpdate)return {error:{message:'Simulated password save failure'}};
-    authTest.password=password;await emit('USER_UPDATED');return {data:{user},error:null};
+    authTest.password=password;Object.assign(user.user_metadata,data||{});
+    await emit('USER_UPDATED');return {data:{user},error:null};
   },
   async signOut(options){
     authTest.calls.push({method:'signout',scope:options?.scope||'global'});
@@ -81,8 +83,14 @@ async function rpc(name){
     return {data:{signed_in:true,limit:1,count:1},error:null}}
   return {data:null,error:null};
 }
-window.supabase={createClient:()=>({auth,from,rpc,channel,
-  removeChannel:async()=>{},storage:{from:()=>({})}})};
+window.supabase={createClient:(_url,_key,options)=>{
+  if(options?.auth?.storageKey==='ql-password-check')return {auth:{
+    async signInWithPassword({password}){authTest.calls.push({method:'verify-current-password'});
+      return password===authTest.password?{data:{user},error:null}:{error:{message:'Invalid login credentials'}}},
+    async signOut(options){authTest.calls.push({method:'verifier-signout',scope:options?.scope});return {error:null}}
+  }};
+  return {auth,from,rpc,channel,removeChannel:async()=>{},storage:{from:()=>({})}};
+}};
 '''
 
 passed = []
@@ -157,11 +165,40 @@ with sync_playwright() as p:
         return page.evaluate('(method)=>authTest.calls.filter(x=>x.method===method)', method)
 
     def finish_assertions(page):
-        page.locator('#studentLoginForm').wait_for()
+        try:
+            page.locator('#studentLoginForm').wait_for(timeout=10000)
+        except Exception:
+            print('RESET_FINISH_STATE', json.dumps(page.evaluate('''()=>({
+              userPresent:!!state.user, sessionPresent:!!authTest.session,
+              recovery:isStudentPasswordRecovery(), section:state.section,
+              gateVisible:document.querySelector('#studentAccessGate').classList.contains('show'),
+              resetStatus:document.querySelector('#studentResetPasswordStatus')?.textContent,
+              loginPresent:!!document.querySelector('#studentLoginForm'),
+              devicePopupPresent:!!document.querySelector('#qlKicked'),
+              calls:authTest.calls.map(x=>x.method||x.event)
+            })''')), flush=True)
+            raise
         assert 'Password updated.' in page.locator('#studentLoginStatus').inner_text()
         assert not page.evaluate('isStudentPasswordRecovery()||!!state.user||!!authTest.session')
         assert 'student_recovery' not in page.url
         assert calls(page, 'signout')[-1]['scope'] == 'global'
+
+    def login_for_profile(page):
+        page.locator('#studentLoginIdentifier').fill('audit@example.test')
+        page.locator('#studentLoginPassword').fill('Old-password-123!')
+        page.locator('#studentLoginSubmit').click()
+        page.wait_for_function("authTest.calls.some(x=>x.method==='ql_device_signin')")
+        page.evaluate("navigate('profile')")
+
+    def profile_password(page):
+        page.evaluate('__studentProfile.openProfileEditor()')
+        page.locator('#profilePasswordAction').click()
+
+    def fill_profile_password(page):
+        page.locator('#profileNewPassword').click()
+        page.locator('.profile-strong-backdrop .no').click()
+        page.locator('#profileNewPassword').fill('Profile-password-789!')
+        page.locator('#profileConfirmPassword').fill('Profile-password-789!')
 
     for delay in [0, 250]:
         for conflict in [False, True]:
@@ -322,6 +359,117 @@ with sync_playwright() as p:
     assert not page.evaluate('isStudentPasswordRecovery()||!!state.user||!!authTest.session')
     assert not errors, errors
     ok('Cancelling forgotten-password flow and ordinary signup verification remain unchanged')
+    context.close()
+
+    context, page, errors = open_app()
+    page.set_viewport_size({'width':390,'height':844})
+    login_for_profile(page)
+    profile_password(page)
+    link = page.locator('#profileForgotPassword')
+    assert link.is_visible()
+    assert link.bounding_box()['y'] >= page.locator('#profileCurrentPassword').bounding_box()['y']
+    link.click()
+    assert page.locator('#studentForgotIdentifier').input_value() == 'audit@example.test'
+    assert page.locator('#studentForgotIdentifier').evaluate('e=>e.readOnly')
+    assert not calls(page, 'send-reset')
+    assert not calls(page, 'signout')
+    page.locator('#focusStudentLogin').click()
+    page.locator('#profileCurrentPassword').wait_for()
+    assert not page.evaluate('isStudentPasswordRecovery()')
+    assert page.evaluate('!!authTest.session')
+    assert not calls(page, 'update-password')
+    ok('Phone Profile link prefills the account email; cancelling preserves sign-in')
+
+    page.locator('#profileForgotPassword').click()
+    page.evaluate('authTest.failReset=true')
+    page.locator('#studentForgotForm button[type="submit"]').click()
+    page.wait_for_function("document.querySelector('#studentForgotStatus').textContent.includes('Simulated')")
+    assert page.locator('#studentForgotForm').is_visible()
+    assert page.evaluate('!!authTest.session')
+    page.evaluate('authTest.failReset=false')
+    page.locator('#studentForgotForm button[type="submit"]').click()
+    page.locator('#studentRecoveryCodeForm').wait_for()
+    assert calls(page, 'send-reset')[-1]['email'] == 'audit@example.test'
+    ok('Profile recovery email errors retain the form and allow retry')
+    page.locator('#focusStudentLogin').click()
+    page.locator('#profileCurrentPassword').wait_for()
+    assert page.evaluate('!!authTest.session')
+    assert not calls(page, 'signout')
+    ok('Cancelling from the Profile email-code screen returns to Change Password')
+
+    page.locator('#profileForgotPassword').click()
+    page.locator('#studentForgotForm button[type="submit"]').click()
+    page.locator('#studentRecoveryCodeForm').wait_for()
+    page.evaluate("authTest.forceLogout=true;document.dispatchEvent(new Event('visibilitychange'))")
+    verify(page)
+    page.locator('#studentResetPasswordForm').wait_for()
+    page.wait_for_timeout(1800)
+    assert page.locator('#studentResetPasswordForm').is_visible()
+    assert page.locator('#qlKicked').count() == 0
+    assert not calls(page, 'signout')
+    fill_password(page)
+    save(page)
+    finish_assertions(page)
+    assert not errors, errors
+    ok('Profile recovery completes without the device checker interrupting the reset form')
+    context.close()
+
+    context, page, errors = open_app()
+    login_for_profile(page)
+    page.evaluate('''()=>{
+      window.oldGetSession=service.getSession;
+      service.getSession=()=>new Promise(resolve=>window.releaseOldSession=resolve);
+      window.oldAccessCheck=__quizTest.enforceLibraryAccess();
+    }''')
+    profile_password(page)
+    page.locator('#profileForgotPassword').click()
+    page.locator('#studentForgotForm button[type="submit"]').click()
+    verify(page)
+    fill_password(page)
+    save(page)
+    finish_assertions(page)
+    page.evaluate('''()=>{
+      service.getSession=window.oldGetSession;
+      window.releaseOldSession({user:authTest.user});
+    }''')
+    page.wait_for_timeout(200)
+    assert page.locator('#studentLoginForm').is_visible()
+    assert not page.evaluate('!!state.user||!!authTest.session')
+    assert not errors, errors
+    ok('A Profile access response from before recovery cannot restore a signed-out user')
+    context.close()
+
+    context, page, errors = open_app()
+    login_for_profile(page)
+    profile_password(page)
+    page.locator('#profileCurrentPassword').fill('Wrong-password!')
+    fill_profile_password(page)
+    page.locator('#profilePasswordSave').click()
+    page.wait_for_function("document.querySelector('#profilePasswordStatus').textContent.includes('incorrect')")
+    assert not calls(page, 'update-password')
+    page.locator('#profileCurrentPassword').fill('Old-password-123!')
+    page.locator('#profilePasswordSave').click()
+    page.locator('#profilePasswordDone').wait_for()
+    assert page.evaluate('!!authTest.session')
+    assert not calls(page, 'signout')
+    assert calls(page, 'verifier-signout')[-1]['scope'] == 'local'
+    assert not errors, errors
+    ok('Normal Profile password changes still verify the current password and retain sign-in')
+    context.close()
+
+    context, page, errors = open_app()
+    login_for_profile(page)
+    page.evaluate("state.user.app_metadata.provider='google';state.user.user_metadata.ql_password_enabled=false")
+    profile_password(page)
+    assert page.locator('#profileCurrentPassword').count() == 0
+    assert page.locator('#profileForgotPassword').count() == 0
+    fill_profile_password(page)
+    page.locator('#profilePasswordSave').click()
+    page.locator('#profilePasswordDone').wait_for()
+    assert page.evaluate('!!authTest.session&&state.user.user_metadata.ql_password_enabled')
+    assert not calls(page, 'verify-current-password')
+    assert not errors, errors
+    ok('Google-only Set Up Password still works without a current-password requirement')
     context.close()
     browser.close()
 

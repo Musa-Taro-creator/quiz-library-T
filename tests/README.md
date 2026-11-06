@@ -79,6 +79,8 @@ It does not read PG* environment variables or accept a remote database URL.
   password-update errors, sign-out retries, refresh and recovery URLs. Checks
   also cover normal login, device-limit sign-out and signup verification. No
   real recovery emails are sent and no production passwords are changed.
+  Profile checks cover the Forgot password link, cancellation, email-send retry,
+  normal password changes and Google-only password setup.
 
 Mock authentication does not validate real Google login, payments, email or
 Supabase deployment configuration. PGlite/stock PostgreSQL fixtures cannot prove

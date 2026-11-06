@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@800&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
-<meta name="ql-shell-generation" content="reliability-2026-11-06-v2">
+<meta name="ql-shell-generation" content="reliability-2026-11-06-v3">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -7200,6 +7200,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
   const studentAuthMockAccountsKey=()=>`ql_mock_auth_accounts_${LIBRARY_ID}`;
   const studentAuthMockSessionKey=()=>`ql_mock_auth_session_${LIBRARY_ID}`;
   let studentAuthFlowContext={};
+  let studentAuthUiVersion=0;
   let studentAuthUiTransition=false;
   function setStudentAuthUiTransition(on){studentAuthUiTransition=!!on;window.__studentAuthUiTransition=!!on}
   const authMailSvg=`<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg>`;
@@ -7250,6 +7251,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
     const {data,error}=await service.client.auth.signUp({email,password,options:{data:meta}});if(error)throw error;return {...data,identifier:email}
   }
   async function completeStudentAuth(user,remember=true){
+    studentAuthUiVersion++;
     try{sessionStorage.setItem("ql_fresh_login","1")}catch(e){}
     setStudentAuthPersistence(remember);if(MOCK_MODE)saveMockAuthSession(user,remember);state.user=user||state.user;syncMode();authGateVisible(false);const record=studentWelcomeRecord(user,true);showStudentWelcome(record,record.login_count>1);render()
   }
@@ -7311,6 +7313,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
   }
 
   function authUi(_tab="login",message="",context={}){
+    studentAuthUiVersion++;
     const gate=document.getElementById("studentAccessGate");
     // A verified recovery session must not become a normal app login before
     // the new password is saved. Keep the intent across refreshes as well.
@@ -7348,16 +7351,20 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
     gate.innerHTML=authShellMarkup(body,title,subtitle);wirePasswordEyes(gate);
     const clearAuthStatusOnEdit=(formId,statusId)=>{const form=gate.querySelector(`#${formId}`),status=gate.querySelector(`#${statusId}`);if(!form||!status)return;form.addEventListener("input",()=>{status.textContent="";status.classList.add("hidden");status.classList.remove("error","success")})};
     if(isRegister){clearAuthStatusOnEdit("studentRegisterForm","studentRegisterStatus");wireStrongPasswordPrompt(gate,"studentRegisterPassword","studentRegisterConfirm")}
-    if(isForgot)clearAuthStatusOnEdit("studentForgotForm","studentForgotStatus");
+    if(isForgot){clearAuthStatusOnEdit("studentForgotForm","studentForgotStatus");if(studentAuthFlowContext.fromProfile){const input=gate.querySelector("#studentForgotIdentifier");input.value=studentAuthFlowContext.email;input.readOnly=true}}
     if(isReset)clearAuthStatusOnEdit("studentResetPasswordForm","studentResetPasswordStatus");
     if(isReset)wireStrongPasswordPrompt(gate,"studentNewPassword","studentNewPasswordConfirm");
     const switchLogin=gate.querySelector("#focusStudentLogin"),switchRegister=gate.querySelector("#focusStudentRegister");
     if(switchLogin)switchLogin.onclick=()=>isSignupCode?authUi("register"):authUi("login");if(switchRegister)switchRegister.onclick=()=>authUi("register");
+    if(switchLogin&&studentAuthFlowContext.fromProfile&&(isForgot||isRecoveryCode)){
+      switchLogin.textContent="← Back to Change Password";
+      switchLogin.onclick=()=>{const cancel=studentAuthFlowContext.onCancel;studentAuthFlowContext={};window.__studentPasswordRecovery=false;authGateVisible(false);cancel?.()};
+    }
     const google=gate.querySelector("#studentGoogleAuth");if(google)google.onclick=async()=>{const statusId=isRegister?"studentRegisterStatus":"studentLoginStatus",remember=!!gate.querySelector("#studentRememberMe")?.checked;google.disabled=true;try{await studentAuthGoogle(remember||isRegister)}catch(error){setAuthStatus(gate,statusId,studentAuthError(error),"error");google.disabled=false}};
     if(isRegister){
       gate.querySelector("#studentRegisterForm").onsubmit=async event=>{event.preventDefault();const name=gate.querySelector("#studentRegisterName").value.trim(),email=studentAuthIdentifier(gate.querySelector("#studentRegisterIdentifier").value),password=gate.querySelector("#studentRegisterPassword").value,confirm=gate.querySelector("#studentRegisterConfirm").value,button=gate.querySelector("#studentRegisterSubmit");if(!name)return setAuthStatus(gate,"studentRegisterStatus","Enter your full name.");if(!studentAuthValidIdentifier(email))return setAuthStatus(gate,"studentRegisterStatus","Enter a valid email address.");if(password.length<8)return setAuthStatus(gate,"studentRegisterStatus","Password must be at least 8 characters.");if(password!==confirm)return setAuthStatus(gate,"studentRegisterStatus","Passwords do not match.");button.disabled=true;try{setStudentAuthPersistence(true);const result=await studentAuthSignUp(name,email,password);if(result?.session&&result?.user){await completeStudentAuth(result.user,true);return}if(Array.isArray(result?.user?.identities)&&result.user.identities.length===0)throw new Error("User already registered");studentAuthFlowContext={email,name,signup:true,mockCode:result?.mockCode||""};authUi("email-signup-code",MOCK_MODE?`Mock verification code: ${result?.mockCode||"123456"}`:"Verification code sent. Check your email.") }catch(error){setAuthStatus(gate,"studentRegisterStatus",studentAuthError(error),"error")}finally{if(button.isConnected)button.disabled=false}}
     }else if(isForgot){
-      gate.querySelector("#studentForgotForm").onsubmit=async event=>{event.preventDefault();const email=studentAuthIdentifier(gate.querySelector("#studentForgotIdentifier").value),button=event.submitter;if(!studentAuthValidIdentifier(email))return setAuthStatus(gate,"studentForgotStatus","Enter a valid email address.");button.disabled=true;try{if(MOCK_MODE){studentAuthFlowContext={email,reset:true,mockCode:"123456"};authUi("email-recovery-code","Mock verification code: 123456");return}const redirect=new URL(location.href);redirect.hash="";redirect.searchParams.set("student_recovery","1");redirect.searchParams.delete("recovery");const {error}=await service.client.auth.resetPasswordForEmail(email,{redirectTo:redirect.toString()});if(error)throw error;studentAuthFlowContext={email,reset:true};authUi("email-recovery-code","Verification code sent. Check your email.")}catch(error){setAuthStatus(gate,"studentForgotStatus",studentAuthError(error),"error")}finally{if(button?.isConnected)button.disabled=false}}
+      gate.querySelector("#studentForgotForm").onsubmit=async event=>{event.preventDefault();const email=studentAuthIdentifier(gate.querySelector("#studentForgotIdentifier").value),button=event.submitter;if(!studentAuthValidIdentifier(email))return setAuthStatus(gate,"studentForgotStatus","Enter a valid email address.");button.disabled=true;try{if(MOCK_MODE){studentAuthFlowContext={...studentAuthFlowContext,email,reset:true,mockCode:"123456"};authUi("email-recovery-code","Mock verification code: 123456");return}const redirect=new URL(location.href);redirect.hash="";redirect.searchParams.set("student_recovery","1");redirect.searchParams.delete("recovery");const {error}=await service.client.auth.resetPasswordForEmail(email,{redirectTo:redirect.toString()});if(error)throw error;studentAuthFlowContext={...studentAuthFlowContext,email,reset:true};authUi("email-recovery-code","Verification code sent. Check your email.")}catch(error){setAuthStatus(gate,"studentForgotStatus",studentAuthError(error),"error")}finally{if(button?.isConnected)button.disabled=false}}
     }else if(isSignupCode){
       startOtpCooldown(gate,"studentSignupResend");
       gate.querySelector("#studentSignupResend").onclick=async()=>{const button=gate.querySelector("#studentSignupResend");button.disabled=true;try{if(MOCK_MODE){setAuthStatus(gate,"studentSignupCodeStatus",`Mock verification code: ${studentAuthFlowContext.mockCode||"123456"}`,"success")}else{const {error}=await service.client.auth.resend({type:"signup",email:studentAuthFlowContext.email});if(error)throw error;setAuthStatus(gate,"studentSignupCodeStatus","A new verification code was sent.","success")}startOtpCooldown(gate,"studentSignupResend")}catch(error){setAuthStatus(gate,"studentSignupCodeStatus",studentAuthError(error),"error");button.disabled=false}};
@@ -7394,7 +7401,9 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
     }
     requestAnimationFrame(()=>gate.querySelector("input")?.focus())
   }
+  window.qlOpenStudentPasswordRecovery=onCancel=>{authUi("forgot","",{email:state.user?.email||"",fromProfile:true,onCancel});authGateVisible(true)};
   async function enforceLibraryAccess(){
+    const version=studentAuthUiVersion;
     if(window.__studentAuthUiTransition){authGateVisible(true);return}
     if(isStudentPasswordRecovery()){
       if(isStudentRecoveryUrl()&&!document.getElementById("studentResetPasswordForm"))authUi("reset-password");
@@ -7411,9 +7420,11 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
     if(!accountRequired||state.isAdmin){authGateVisible(false);return}
     try{
       const session=await studentAuthCurrentSession(),user=session?.user||null;
+      if(version!==studentAuthUiVersion)return;
       if(window.__studentAuthUiTransition||isStudentPasswordRecovery()){authGateVisible(true);return}
       if(user){state.user=user;syncMode();authGateVisible(false);if(!state.isAdmin&&!studentWelcomeShownThisLoad)showStudentWelcome(studentWelcomeRecord(user,false),true);if(new URLSearchParams(location.search).has("student_oauth")){try{sessionStorage.setItem("ql_fresh_login","1")}catch(e){}clearStudentAuthUrl()}return}
     }catch{}
+    if(version!==studentAuthUiVersion)return;
     if(window.__studentAuthUiTransition||isStudentPasswordRecovery()){authGateVisible(true);return}
     clearStudentAuthPersistence();authUi("login");authGateVisible(true)
   }
@@ -16620,7 +16631,7 @@ function openProfilePasswordEditor(hasPassword=profileHasPassword()){
         <input id="profileCurrentPassword" type="password" autocomplete="current-password" placeholder="Enter your current password">
         <button id="profileCurrentEye" class="profile-security-eye" type="button" aria-label="Show password">${profileEyeSvg}</button>
       </div>
-    </label>`:""}
+    </label><button id="profileForgotPassword" class="link-button" type="button">Forgot password?</button>`:""}
     <label class="profile-flow-field">New password
       <div class="profile-flow-input">
         <input id="profileNewPassword" type="password" autocomplete="off" readonly data-lpignore="true" data-1p-ignore="true" placeholder="Enter a new password">
@@ -16644,6 +16655,7 @@ function openProfilePasswordEditor(hasPassword=profileHasPassword()){
   modal?.classList.remove("profile-editor-modal");
   modal?.classList.add("profile-security-flow-modal","profile-password-final-modal");
   q("profilePasswordCancel").onclick=openProfileEditor;
+  if(hasPassword)q("profileForgotPassword").onclick=()=>{closeModal();window.qlOpenStudentPasswordRecovery(()=>openProfilePasswordEditor(true))};
   profileWirePasswordEye("profileNewEye","profileNewPassword");
   profileWirePasswordEye("profileConfirmEye","profileConfirmPassword");
   if(hasPassword)profileWirePasswordEye("profileCurrentEye","profileCurrentPassword");
