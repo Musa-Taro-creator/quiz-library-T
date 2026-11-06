@@ -161,7 +161,7 @@ with sync_playwright() as p:
         assert 'Password updated.' in page.locator('#studentLoginStatus').inner_text()
         assert not page.evaluate('isStudentPasswordRecovery()||!!state.user||!!authTest.session')
         assert 'student_recovery' not in page.url
-        assert calls(page, 'signout')[-1]['scope'] == 'local'
+        assert calls(page, 'signout')[-1]['scope'] == 'global'
 
     for delay in [0, 250]:
         for conflict in [False, True]:

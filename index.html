@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@800&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
-<meta name="ql-shell-generation" content="reliability-2026-11-06-v1">
+<meta name="ql-shell-generation" content="reliability-2026-11-06-v2">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -7380,7 +7380,7 @@ setTimeout(async()=>{try{if(state.isAdmin&&!(await service.isAdminDeviceAllowed(
             else{const {error}=await service.client.auth.updateUser({password});if(error)throw error}
             passwordSaved=true;passwordInput.disabled=true;confirmInput.disabled=true;
           }
-          if(!MOCK_MODE){const {error}=await service.client.auth.signOut({scope:"local"});if(error)throw error}
+          if(!MOCK_MODE){const {error}=await service.client.auth.signOut({scope:"global"});if(error)throw error}
           state.user=null;syncMode();clearStudentAuthPersistence();clearStudentAuthUrl();
           authUi("login","Password updated. Sign in with your new password.");
         }catch(error){
