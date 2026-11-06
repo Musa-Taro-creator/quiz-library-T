@@ -33,6 +33,7 @@ python tests/pdf-viewer.browser.py
 python tests/offline-upgrade.browser.py
 python tests/dashboard-posting.browser.py
 python tests/dashboard-appearance.browser.py
+python tests/dashboard-quiz-access.browser.py
 python tests/system-back.browser.py
 python tests/password-recovery.browser.py
 ```
@@ -67,6 +68,11 @@ It does not read PG* environment variables or accept a remote database URL.
 - Dashboard: a folder with 24 subfolders, 12 quizzes and 14 PDFs, Unicode/chunked
   uploads, failures at preparation/upload/finalization, duplicate retries, feature
   restrictions, ownership, and folder appearance when saving shared content.
+  Dashboard quiz access also covers account-private preferences/history,
+  server grading and repeat submissions, all taking tools, nested-folder Back,
+  update-refresh recovery, and Edit/Apply to All after saving an owned copy.
+  Activate this additive feature with `supabase/dashboard_quiz_access_v1.sql`;
+  the frontend retains the previous quiz-opening path until that SQL is installed.
 - System Back: nested screens, dialogs, shared folders, saved PDFs, quiz tools,
   editor save/draft failures, repeated Back during saving, reloads, folder
   Forward navigation, and the confirmation before leaving Documents. These

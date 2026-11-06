@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@800&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
-<meta name="ql-shell-generation" content="reliability-2026-11-06-v3">
+<meta name="ql-shell-generation" content="reliability-2026-11-06-v4">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -9373,6 +9373,21 @@ html,body{overscroll-behavior-y:none}
     const st=qzMockStore();
     return st.value.quizAttempts.filter(a=>a.item_id===itemId).slice().sort((a,b)=>new Date(b.submitted_at)-new Date(a.submitted_at));
   };
+  /* Dashboard attempts belong to the signed-in account, independently of
+     both the author's quiz and any copy saved to My Library. */
+  async function dashboardQuizRpc(item,name,extra={}){
+    const d=item._dashboard_share;
+    if(!d||!state.user?.id||String(state.user.id)!==d.owner)throw new Error("Sign in to the account that opened this quiz.");
+    const {data,error}=await service.client.rpc(name,{p_post_id:d.postId,p_quiz_ref:d.ref,...extra});
+    if(String(state.user?.id||"")!==d.owner)throw new Error("Account changed. Reopen the quiz.");
+    if(error)throw error;
+    return data;
+  }
+  service.getDashboardQuiz=(item)=>dashboardQuizRpc(item,"ql_dash_quiz_get_v1");
+  service.gradeDashboardQuizQuestion=(item,qid,given)=>dashboardQuizRpc(item,"ql_dash_quiz_grade_v1",{p_question_id:qid,p_given_answer:given??null,p_revision:item._dashboard_share.revision});
+  service.submitDashboardQuizAttempt=(item,answers,startedAt,sessionName,attemptId)=>dashboardQuizRpc(item,"ql_dash_quiz_submit_v1",{p_answers:answers,p_started_at:startedAt,p_session_name:sessionName||null,p_revision:item._dashboard_share.revision,p_attempt_id:attemptId});
+  service.listDashboardQuizAttempts=(item)=>dashboardQuizRpc(item,"ql_dash_quiz_history_v1");
+  service.saveDashboardQuizTools=(item,patch)=>dashboardQuizRpc(item,"ql_dash_quiz_tools_v1",{p_patch:patch});
   /* External quiz sharing is deliberately separate from the existing
      account-to-account quiz-copy feature. These RPCs are installed by the
      companion external-share SQL and only touch external quiz shares/results.
@@ -9847,6 +9862,8 @@ html,body{overscroll-behavior-y:none}
      never leaks from one screen to the next. */
   function qzOpenPage(fullscreen){
     const el=qzEnsurePage();
+    delete el.dataset.dashboardQuiz;
+    delete el.dataset.fullQuizTools;
     el.classList.add("show");
     if(!new URLSearchParams(location.search).has("quiz_share")&&!window.__qlShortShareToken)
       window.qlUiBack?.open("quiz",()=>el.classList.contains("show"),()=>{const b=document.getElementById("qzTopClose")||document.getElementById("qzExamHome");return b?.onclick?.call(b,new MouseEvent("click"))});
@@ -9959,7 +9976,7 @@ html,body{overscroll-behavior-y:none}
   function qzStopTimer(){if(qzTimerHandle){clearInterval(qzTimerHandle);qzTimerHandle=null}}
   function qzClosePage(){
     const el=document.getElementById("qzPageOverlay");
-    if(el){el.classList.remove("show");el.classList.remove("qz-fullscreen");el.innerHTML='<div class="qz-page-box" id="qzPageBody"></div>'}
+    if(el){delete el.dataset.dashboardQuiz;delete el.dataset.fullQuizTools;el.classList.remove("show");el.classList.remove("qz-fullscreen");el.innerHTML='<div class="qz-page-box" id="qzPageBody"></div>'}
     qzStopTimer();window.qlUiBack?.close("quiz");
   }
   /* Navigate "back" from a screen inside the page overlay: stop any running
@@ -13929,6 +13946,31 @@ Q5 Answer B
      everything else here only needs to be reachable from inside this
      module. */
   window.qzOpenRandomQuizGlobal=qzOpenRandomQuizGlobal;
+  let qzDashboardOpening=false;
+  async function qzOpenDashboardQuiz(postId,ref,opt={}){
+    if(qzDashboardOpening)return true;
+    const owner=String(state.user?.id||"");
+    if(!owner){toast("Sign in to take a Dashboard quiz.");return true}
+    qzDashboardOpening=true;
+    const item={id:`dashboard:${postId}:${ref}`,kind:"quiz",_dashboard_share:{postId:String(postId),ref:String(ref),owner}};
+    try{
+      const packet=await service.getDashboardQuiz(item);
+      if(!Array.isArray(packet?.questions)||!packet.questions.length)throw new Error("This posted quiz has no questions.");
+      if(opt.resume&&opt.resume.dashboard?.revision!==packet.revision)throw new Error("This post changed. Open it again to start the updated quiz.");
+      item._dashboard_share.revision=packet.revision;
+      item.title=packet.title||"Dashboard quiz";
+      item.quiz_settings=packet.settings||{};
+      if(opt.resume)window.__qzResume=opt.resume;
+      await qzBeginAttempt(item,"take",()=>{qzClosePage();if(!document.getElementById("qlDash"))window.qlOpenDash?.()},packet);
+      return true;
+    }catch(error){
+      /* Keep the published Dashboard usable while the additive SQL is
+         being installed. Only a missing new RPC uses the old opening path. */
+      if(!opt.resume&&/PGRST202|42883/.test(String(error?.code||"")))return false;
+      alert(friendlyError(error));return true;
+    }finally{qzDashboardOpening=false}
+  }
+  window.qlTakeDashboardQuiz=qzOpenDashboardQuiz;
   let qzExternalRouteOpened=false;
   /* Kuza: on a shared link the Home icon goes back to exactly where the
      student was before opening the link (Telegram, Safari page, or this app)
@@ -14020,6 +14062,13 @@ Q5 Answer B
     if(!snap||!snap.itemId||Date.now()-(Number(snap.at)||0)>6*3600e3)return;
     const t0=Date.now();
     const tick=()=>{
+      if(snap.dashboard){
+        if(String(state.user?.id||"")===snap.dashboard.owner){
+          if(document.getElementById("qzPageOverlay")?.classList.contains("show"))return;
+          qzOpenDashboardQuiz(snap.dashboard.postId,snap.dashboard.ref,{resume:snap});return;
+        }
+        if(Date.now()-t0<30000)setTimeout(tick,300);return;
+      }
       const it=state.user&&Array.isArray(state.items)?state.items.find(x=>x.id===snap.itemId&&!x.is_trashed):null;
       if(!it){if(Date.now()-t0<30000)setTimeout(tick,300);return}
       if(document.getElementById("qzPageOverlay")?.classList.contains("show"))return; /* she already opened something */
@@ -14034,6 +14083,9 @@ Q5 Answer B
   })();
   async function qzBeginAttempt(item,mode,onDone,overrideData){
     qzOpenPage(true);
+    const page=document.getElementById("qzPageOverlay");
+    if(item._dashboard_share)page.dataset.dashboardQuiz=item._dashboard_share.owner;
+    if(item._dashboard_share||item.ql_from_dash)page.dataset.fullQuizTools="1";
     const bodyEl=document.getElementById("qzPageBody");
     /* shown only if loading takes a moment, so a quick start doesn't flash it */
     bodyEl.innerHTML=qzPageTopbar()+'<div class="qz-runner-start"><div class="status qz-load-late">Loading quiz…</div></div>';
@@ -14072,9 +14124,20 @@ Q5 Answer B
        through qzRunQuestions -> submit -> qzShowResult. */
     function showStartScreen(activeQuestions,sessionName,effectiveSettings){
       const runSettings=effectiveSettings||quiz.settings;
-      const onRestart=()=>{qzBeginAttempt(item,mode,onDone,overrideData)};
+      const onRestart=async()=>{
+        if(item._dashboard_share){
+          await item._dashboardToolsPending;
+          qzOpenDashboardQuiz(item._dashboard_share.postId,item._dashboard_share.ref);
+        }else qzBeginAttempt(item,mode,onDone,overrideData);
+      };
       if(mode==="preview"){
         qzRunQuestions(item,{...quiz,questions:activeQuestions,allQuestions:quiz.questions,settings:runSettings,rawSettings:quiz.settings},"Preview",null,true,onDone,sessionName,{name:"Preview",identityMode:"preview",owner:false},onRestart);
+        return;
+      }
+      if(item._dashboard_share){
+        const taker={...qzStoredTaker(item),owner:false};
+        if(!taker.authenticated||taker.userId!==item._dashboard_share.owner){qzExit(onDone);return}
+        qzRunQuestions(item,{...quiz,questions:activeQuestions,allQuestions:quiz.questions,settings:runSettings,rawSettings:quiz.settings},taker.name,taker.identifier,false,onDone,sessionName,taker,onRestart);
         return;
       }
       const shareMode=qzExternalIdentityMode();
@@ -14261,10 +14324,10 @@ Q5 Answer B
     let historyError="",identityAttempts=[];
     if(!isPreview){
       try{
-        const rows=currentIdentity.externalShareToken
+        const rows=item._dashboard_share?await service.listDashboardQuizAttempts(item):currentIdentity.externalShareToken
           ?await service.listExternalQuizAttemptsForParticipant(currentIdentity.externalShareToken,currentIdentity.identifier)
           :await service.listQuizAttempts(item.id);
-        identityAttempts=currentIdentity.externalShareToken?(rows||[]):(rows||[]).filter(attempt=>qzSameAttemptIdentity(attempt,currentIdentity));
+        identityAttempts=item._dashboard_share||currentIdentity.externalShareToken?(rows||[]):(rows||[]).filter(attempt=>qzSameAttemptIdentity(attempt,currentIdentity));
       }catch(error){historyError=friendlyError(error)}
       const targetStart=startedAt?new Date(startedAt).getTime():NaN;
       const matchingNow=identityAttempts.find(a=>{
@@ -14603,6 +14666,7 @@ Q5 Answer B
     let startedAt=nowIso();
     let startedMs=Date.now();
     let curIdx=0;
+    let attemptId=uid();
     /* Kuza: "after refresh (new version) stay exactly as it is" -- pick the
        attempt back up: same question order and option order, answers,
        graded feedback, bookmarks/flags, section, current question and
@@ -14618,6 +14682,7 @@ Q5 Answer B
         return q;
       }).filter(Boolean);
       if(restored.length){
+        if(qzResume.attemptId)attemptId=qzResume.attemptId;
         questions=restored;
         sessionName=qzResume.sessionName||null;
         const keep=new Set(restored.map(q=>q.id));
@@ -14638,7 +14703,7 @@ Q5 Answer B
         order:questions.map(q=>q.id),
         opt:Object.fromEntries(questions.filter(q=>Array.isArray(q._origIndex)).map(q=>[q.id,q._origIndex])),
         answers,graded:gradedCache,bookmarks:[...bookmarks],flags:[...flags],locked:[...lockedQuestions],
-        curIdx,startedAt,elapsedMs:Date.now()-startedMs,scroll:sc?sc.scrollTop:0};
+        curIdx,attemptId,dashboard:item._dashboard_share||null,startedAt,elapsedMs:Date.now()-startedMs,scroll:sc?sc.scrollTop:0};
     };
     const prefs=qzExamPrefs((state.items.find(x=>x.id===item.id)||item).quiz_settings||rawSettings);
     /* Saves this quiz's look (page style / navigation side / text size) to
@@ -14646,7 +14711,14 @@ Q5 Answer B
     /* Kuza: tools changed during a quiz are remembered by that quiz (saved
        to its settings in the account), not just for this attempt. Only the
        given keys are written, on top of the quiz's stored settings. */
+    let dashboardToolSaves=Promise.resolve();
+    function qzSaveDashboardTools(patch){
+      dashboardToolSaves=dashboardToolSaves.catch(()=>{}).then(()=>service.saveDashboardQuizTools(item,patch));
+      item._dashboardToolsPending=dashboardToolSaves.catch(()=>{});
+      return dashboardToolSaves.then(()=>true,()=>{toast("Could not save your Dashboard quiz settings. Try again.");return false});
+    }
     async function qzSaveQuizTools(newSettings,keys){
+      if(item._dashboard_share){const patch={};keys.forEach(k=>{if(newSettings[k]!==undefined)patch[k]=newSettings[k]});return qzSaveDashboardTools(patch)}
       if(isExternal){const patch={};keys.forEach(k=>{patch[k]=newSettings[k]});qzExtToolsSave(item,patch);return true}
       const idx=state.items.findIndex(x=>x.id===item.id);
       if(idx<0)return false;
@@ -14663,6 +14735,7 @@ Q5 Answer B
     function qzSaveQuizLook(){
       clearTimeout(qzLookTimer);
       qzLookTimer=setTimeout(async()=>{
+        if(item._dashboard_share){await qzSaveDashboardTools({exam_ui:{theme:prefs.theme,navSide:prefs.navSide,textSize:Number(prefs.textSize)||0}});return}
         if(isExternal){qzExtToolsSave(item,{exam_ui:{theme:prefs.theme,navSide:prefs.navSide,textSize:Number(prefs.textSize)||0}});return}
         const idx=state.items.findIndex(x=>x.id===item.id);
         if(idx<0)return;
@@ -14834,6 +14907,7 @@ Q5 Answer B
       let g=null;
       try{
         if(isPreview)g={correct:qzGradeQuestion(q,given),correct_answer:q.correct_answer,explanation:q.explanation||null};
+        else if(item._dashboard_share)g=await service.gradeDashboardQuizQuestion(item,q.id,given);
         else if(takerMeta?.externalShareToken)g=await service.gradeExternalQuizQuestion(takerMeta.externalShareToken,q.id,given);
         /* Random Quiz (pooled across multiple source quizzes): each question
            remembers which real quiz it actually came from in _sourceItemId,
@@ -15024,7 +15098,9 @@ Q5 Answer B
         }else{
           const answersArr=questions.map(q=>({question_id:q.id,given_answer:answers[q.id]===undefined?null:answers[q.id]}));
           const identity=takerMeta||qzAttemptIdentity({taker_name:takerName,taker_identifier:takerIdentifier});
-          if(identity.externalShareToken){
+          if(item._dashboard_share){
+            result=await service.submitDashboardQuizAttempt(item,answersArr,startedAt,sessionName,attemptId);
+          }else if(identity.externalShareToken){
             result=await service.submitExternalQuizAttempt(identity.externalShareToken,identity,answersArr,startedAt,sessionName||null);
           }else{
             const storedIdentifier=qzIdentifierWithSession(takerIdentifier,sessionName||"");
@@ -15074,7 +15150,7 @@ Q5 Answer B
               result=await service.submitQuizAttempt(onlySourceId,takerName,storedIdentifier,answersArr,startedAt,attemptMeta);
             }
           }
-          logActivity("quiz_attempt",{item,details:{percent:result.percent,passed:result.passed}}).catch(()=>{});
+          logActivity("quiz_attempt",{item:item._dashboard_share?{...item,id:null}:item,details:{percent:result.percent,passed:result.passed,...(item._dashboard_share?{dashboard_post_id:item._dashboard_share.postId,dashboard_quiz_ref:item._dashboard_share.ref}:{})}}).catch(()=>{});
           if(sessionName)qzMarkSessionComplete(item.id,qzTakerDeviceId(),sessionName);
         }
         const resultIdentity={...(takerMeta||qzAttemptIdentity({taker_name:takerName,taker_identifier:takerIdentifier})),currentAttemptId:result?.attempt_id||""};
@@ -15236,7 +15312,7 @@ Q5 Answer B
          Prev/Next session controls still call qzSwitchSession directly. */
       document.getElementById("qzToolsPanel").innerHTML=`
         <div class="qz-tools-head"><span class="qz-tools-head-title"><span class="qz-tools-head-icon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3"/><circle cx="4" cy="12" r="2.2" fill="currentColor" stroke="none"/><circle cx="12" cy="10" r="2.2" fill="currentColor" stroke="none"/><circle cx="20" cy="14" r="2.2" fill="currentColor" stroke="none"/></svg></span>Tools</span><button type="button" class="qz-tools-close" id="qzToolsClose" aria-label="Close">✕</button></div>
-        ${qlCanMutate()&&!isExternal?`<div class="qz-tools-section qz-tools-links">
+        ${qlCanMutate()&&!isExternal&&!item._dashboard_share?`<div class="qz-tools-section qz-tools-links">
           <button type="button" class="qz-tools-row-icon" id="qzToolsApplyAll"><span class="qz-tools-row-badge" style="background:#0ea5b8"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><rect x="7" y="7" width="13" height="13" rx="2"/><path d="M4 15V5a2 2 0 0 1 2-2h10"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Apply to All Quizzes</span><span class="qz-tools-row-t2">Copies these tools to every quiz you own</span></span><span class="qz-tools-row-chev">›</span></button>
         </div>`:""}
         ${qzEffectiveNavMode(prefs)==="side"?`<div class="qz-tools-section">
@@ -15258,7 +15334,7 @@ Q5 Answer B
           <button type="button" class="qz-tools-row-icon" id="qzToolsMood"><span class="qz-tools-row-badge" style="background:#5856d6"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="19" cy="12" r="2" fill="currentColor" stroke="none"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Quiz Behavior</span><span class="qz-tools-row-t2">Layout &amp; feedback timing</span></span><span class="qz-tools-row-chev">›</span></button>
           <button type="button" class="qz-tools-row-icon" id="qzToolsAutoAdv"><span class="qz-tools-row-badge" style="background:#ff2d55"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m6 5 7 7-7 7M13 5l7 7-7 7"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Auto-Advance</span><span class="qz-tools-row-t2">Move on automatically after answering</span></span><span class="qz-tools-row-chev">›</span></button>
           <button type="button" class="qz-tools-row-icon" id="qzToolsShuffle"><span class="qz-tools-row-badge" style="background:#0369a1"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M3 7h3l12 10h3"/><path d="m18 14 3 3-3 3"/><path d="M3 17h3l12-10h3"/><path d="m18 10 3-3-3-3"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Shuffle</span><span class="qz-tools-row-t2">Randomize question or answer order</span></span><span class="qz-tools-row-chev">›</span></button>
-          ${qlCanMutate()&&!isExternal?'<button type="button" class="qz-tools-row-icon" id="qzToolsEdit"><span class="qz-tools-row-badge" style="background:#8e8e93"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m4 20 4.5-1 10-10-3.5-3.5-10 10z"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Edit Quiz</span><span class="qz-tools-row-t2">Change questions &amp; answers</span></span><span class="qz-tools-row-chev">›</span></button>':""}
+          ${qlCanMutate()&&!isExternal&&!item._dashboard_share?'<button type="button" class="qz-tools-row-icon" id="qzToolsEdit"><span class="qz-tools-row-badge" style="background:#8e8e93"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m4 20 4.5-1 10-10-3.5-3.5-10 10z"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Edit Quiz</span><span class="qz-tools-row-t2">Change questions &amp; answers</span></span><span class="qz-tools-row-chev">›</span></button>':""}
         </div>
       `;
       el.classList.add("show");
@@ -15310,6 +15386,7 @@ Q5 Answer B
         closeToolsPanel();
         openQuizBehaviorSettings(quiz.settings,newSettings=>{
           quiz.settings=newSettings;
+          rawSettings={...rawSettings,layout:newSettings.layout,show_answer_immediately:newSettings.show_answer_immediately};
           /* Round 4 note 1 fix: re-derive the mutable horizontal/immediate
              flags (see their declaration above) so the layout/instant-
              feedback switch actually takes effect immediately. */
@@ -15325,6 +15402,7 @@ Q5 Answer B
         closeToolsPanel();
         openAutoAdvanceSettings(quiz.settings,newSettings=>{
           quiz.settings=newSettings;
+          rawSettings={...rawSettings,auto_advance:newSettings.auto_advance};
           autoAdvance=qzBehaviorAutoAdvance(quiz.settings);
           clearTimeout(qzAutoAdvanceTimer);
           qzSaveQuizTools(newSettings,["auto_advance"]).then(ok=>ok&&toast("Auto-advance saved for this quiz"));
@@ -18699,7 +18777,10 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     if(!root){v.innerHTML=frame(`<div class="ql-iv-msg err">This shared link is empty.</div>`);return}
     const kids=ref=>nodes.filter(x=>x.parent_ref===ref).sort((a,b)=>(a.kind==="folder"?0:1)-(b.kind==="folder"?0:1)||String(a.title).localeCompare(String(b.title)));
     const countIn=ref=>{let c=0;const w=r=>kids(r).forEach(x=>{c++;if(x.kind==="folder")w(x.ref)});w(ref);return c};
-    const open=x=>{if(x.kind==="link"&&qlSafeUrl(x.url))window.open(qlSafeUrl(x.url),"_blank","noopener");else if(x.kind==="pdf"&&qlSafeUrl(x.pdf_url))window.open(qlSafeUrl(x.pdf_url),"_blank","noopener");else if(x.kind==="quiz"&&qlSafeUrl(x.quiz_link)){if(opt.inApp)window.open(qlSafeUrl(x.quiz_link),"_blank","noopener");else location.href=qlSafeUrl(x.quiz_link)}else alert("This item can't be opened.")};
+    const open=async x=>{
+      if(x.kind==="quiz"&&opt.onQuiz&&await opt.onQuiz(x))return;
+      if(x.kind==="link"&&qlSafeUrl(x.url))window.open(qlSafeUrl(x.url),"_blank","noopener");else if(x.kind==="pdf"&&qlSafeUrl(x.pdf_url))window.open(qlSafeUrl(x.pdf_url),"_blank","noopener");else if(x.kind==="quiz"&&qlSafeUrl(x.quiz_link)){if(opt.inApp)window.open(qlSafeUrl(x.quiz_link),"_blank","noopener");else location.href=qlSafeUrl(x.quiz_link)}else alert("This item can't be opened.");
+    };
     const sub=x=>x.kind==="folder"?plural(kids(x.ref).length,"item"):x.kind==="pdf"?(x.file_size?fmtBytes(x.file_size)+" · PDF":"PDF"):x.kind==="quiz"?"Quiz":String(x.url||"Link").replace(/^https?:\/\//,"").slice(0,48);
     const go={folder:"Open",pdf:"View",link:"Open",quiz:"Start"};
     const rowHtml=x=>opt.inApp&&typeof iconMarkup==="function"?`<article tabindex="0" class="item-card qd-item" data-ref="${h(x.ref)}">${iconMarkup({kind:x.kind,id:"v_"+x.ref,title:x.title,color:x.color||null,icon:x.icon||""})}<div class="item-title">${h(x.title||KN[x.kind])}</div><div class="item-sub">${h(sub(x))}</div></article>`:`<button type="button" class="ql-iv-row" data-ref="${h(x.ref)}">${kIco(x.kind)}<span><b>${h(x.title||KN[x.kind])}</b><small>${h(sub(x))}</small></span><span class="ql-iv-go">${go[x.kind]}</span></button>`;
@@ -18828,9 +18909,12 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
   async function openPost(r){
     const load=async()=>{const {data,error}=await service.client.rpc("ql_dash_open",{p_id:r.id});if(error)throw error;return {payload:data.payload}};
     if(r.kind==="quiz"){
-      try{const x=await load();const n=(x.payload.nodes||[])[0];if(n&&qlSafeUrl(n.quiz_link)){window.open(qlSafeUrl(n.quiz_link),"_blank","noopener");return}throw new Error("This quiz can't be opened.")}catch(e){return alert(friendlyError(e))}
+      try{const x=await load();const n=(x.payload.nodes||[]).find(n=>n.ref===x.payload.root_ref)||(x.payload.nodes||[])[0];
+        if(n&&await window.qlTakeDashboardQuiz?.(r.id,n.ref))return;
+        if(n&&qlSafeUrl(n.quiz_link)){window.open(qlSafeUrl(n.quiz_link),"_blank","noopener");return}throw new Error("This quiz can't be opened.")}catch(e){return alert(friendlyError(e))}
     }
     await openViewer(null,{inApp:true,load,sub:`by ${r.author_name||"a student"}`,
+      onQuiz:x=>window.qlTakeDashboardQuiz?.(r.id,x.ref),
       extra:`<button type="button" class="row-btn ql-dash-more ql-iv-more" aria-label="More">⋮</button>`,
       onShow:v=>{const b=v.querySelector(".ql-iv-more");if(b)b.onclick=e=>{e.stopPropagation();if(b.classList.contains("ql-locked"))return;dashMenu(b,[["Save to my library",()=>saveDash(r),"","dash_save"]])}}});
   }
@@ -19177,7 +19261,11 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     if(reg&&allowed("signup")==="off"&&!document.getElementById("qlSignupClosed")){const n=document.createElement("div");n.id="qlSignupClosed";n.className="status error";n.textContent=cfg&&cfg.signups_full?"Quiz Library is full right now. New sign-ups are closed — please try again later.":"New sign-ups are closed right now.";reg.parentNode.insertBefore(n,reg)}
     if(!reg||allowed("signup")!=="off")document.getElementById("qlSignupClosed")?.remove();
     const hide=[],lock=[];
-    for(const k in SEL){const a=allowed(k);if(a==="off")hide.push(...SEL[k]);else if(a==="locked"||a==="frozen")lock.push(...SEL[k].map(s=>[s,k,a==="frozen"]))}
+    const fullQuizTools=!!state.user&&document.querySelector('#qzPageOverlay.show[data-full-quiz-tools="1"]');
+    for(const k in SEL){
+      if(fullQuizTools&&["quiz_autoadv","quiz_shuffle","quiz_bookmark","quiz_summary"].includes(k))continue;
+      const a=allowed(k);if(a==="off")hide.push(...SEL[k]);else if(a==="locked"||a==="frozen")lock.push(...SEL[k].map(s=>[s,k,a==="frozen"]));
+    }
     let st=document.getElementById("qlFeatHide");if(!st){st=document.createElement("style");st.id="qlFeatHide";document.head.appendChild(st)}
     const css=hide.length?hide.map(x=>"html body:not(.ql-feat-none) "+x).join(",")+"{display:none!important}":"";if(st.textContent!==css)st.textContent=css;
     document.querySelectorAll(".ql-locked").forEach(e=>{e.classList.remove("ql-locked");delete e.dataset.qlLock;delete e.dataset.qlFrozen});
