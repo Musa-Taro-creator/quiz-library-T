@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@800&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
-<meta name="ql-shell-generation" content="reliability-2026-11-07-v1">
+<meta name="ql-shell-generation" content="reliability-2026-11-07-v2">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -18498,6 +18498,11 @@ body.ql-skin .ql-is-person{background:color-mix(in srgb,var(--sk-accent) 12%,tra
 /* ---------- Dashboard (in-app) ---------- */
 #qlDash{z-index:96}#qlItemViewer.ql-iv-inapp{z-index:97}
 .ql-iv-close{margin-left:auto;width:38px;height:38px;border-radius:50%;border:0;background:rgba(15,23,42,.08);font-size:22px;line-height:1;cursor:pointer;color:inherit}
+.ql-dash-back{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;min-height:44px;padding:0 12px;border:1px solid rgba(100,116,139,.22);border-radius:999px;background:rgba(255,255,255,.7);color:inherit;font:inherit;font-size:14px;font-weight:700;line-height:1;cursor:pointer}
+.ql-dash-back svg{width:18px;height:18px;flex-shrink:0}.ql-dash-back:focus-visible{outline:2px solid #6478ff;outline-offset:3px}
+body.ql-neon .ql-dash-back,body.ql-ocean .ql-dash-back{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25)}
+#qlDash .qd-heading{flex:1;min-width:0}#qlDash .qd-top>.nav-icon{flex-shrink:0}
+@media(max-width:560px){#qlDash .qd-top>.nav-icon,.ql-iv-inapp .ql-iv-top>img{display:none}}
 #qlDash{position:fixed;inset:0;overflow:auto;background:linear-gradient(160deg,#eef4ff,#fdf2f8 60%,#ecfeff);color:#0f172a;-webkit-overflow-scrolling:touch}
 #qlDash .qd-wrap{max-width:1100px;margin:0 auto;padding:18px 16px 60px}
 #qlDash .qd-top{display:flex;align-items:center;gap:12px;margin-bottom:6px}
@@ -18780,6 +18785,7 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
   setTimeout(refreshCount,4000);
 
   /* ---------- public link page ---------- */
+  const dashBackButton='<button type="button" class="ql-dash-back" data-ql-dash-back aria-label="Go back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg><span>Back</span></button>';
   async function openViewer(token,opt={}){
     if(!opt.inApp){
     document.getElementById("setupScreen")?.classList.remove("show");
@@ -18788,18 +18794,19 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     let v=document.getElementById("qlItemViewer");if(!v){v=document.createElement("div");v.id="qlItemViewer";document.body.appendChild(v)}
     v.classList.toggle("ql-iv-inapp",!!opt.inApp);
     const logo=document.querySelector('link[rel="apple-touch-icon"]')?.href||"";
-    const frame=inner=>`<div class="ql-iv-wrap"><div class="ql-iv-top">${logo?`<img src="${logo}" alt="">`:""}<span class="ql-iv-brand">${opt.inApp?"DASHBOARD":"QUIZ LIBRARY"}</span>${opt.inApp?`<button type="button" class="ql-iv-close" aria-label="Close">×</button>`:""}</div>${inner}</div>`;
+    const frame=inner=>`<div class="ql-iv-wrap"><div class="ql-iv-top">${opt.inApp?dashBackButton:""}${logo?`<img src="${logo}" alt="">`:""}<span class="ql-iv-brand">${opt.inApp?"DASHBOARD":"QUIZ LIBRARY"}</span>${opt.inApp?`<button type="button" class="ql-iv-close" aria-label="Close">×</button>`:""}</div>${inner}</div>`;
     let backToParent=null;
     const closeSharedViewer=()=>{v.remove();window.qlUiBack?.close("shared-viewer")};
-    if(opt.inApp)window.qlUiBack?.open("shared-viewer",()=>document.getElementById("qlItemViewer")===v,()=>backToParent?backToParent():closeSharedViewer());
-    const wire=()=>{const c=v.querySelector(".ql-iv-close");if(c)c.onclick=closeSharedViewer};
+    const goBack=()=>backToParent?backToParent():closeSharedViewer();
+    if(opt.inApp)window.qlUiBack?.open("shared-viewer",()=>document.getElementById("qlItemViewer")===v,goBack);
+    const wire=()=>{const c=v.querySelector(".ql-iv-close");if(c)c.onclick=closeSharedViewer;const b=v.querySelector("[data-ql-dash-back]");if(b)b.onclick=goBack};
     v.innerHTML=frame(`<div class="ql-iv-msg">Loading…</div>`);wire();
     let share;
     try{if(opt.load)share=await opt.load();else{const {data,error}=await service.client.rpc("ql_get_external_item_share",{p_token:String(token)});if(error)throw error;if(!data)throw new Error("This shared link is invalid or no longer available.");share=data}}
     catch(e){v.innerHTML=frame(`<div class="ql-iv-msg err">${h(friendlyError(e))}</div>`);wire();return}
     const p=share.payload||{},nodes=Array.isArray(p.nodes)?p.nodes:[];
     const root=nodes.find(x=>x.ref===p.root_ref)||nodes[0];
-    if(!root){v.innerHTML=frame(`<div class="ql-iv-msg err">This shared link is empty.</div>`);return}
+    if(!root){v.innerHTML=frame(`<div class="ql-iv-msg err">This shared link is empty.</div>`);wire();return}
     const kids=ref=>nodes.filter(x=>x.parent_ref===ref).sort((a,b)=>(a.kind==="folder"?0:1)-(b.kind==="folder"?0:1)||String(a.title).localeCompare(String(b.title)));
     const countIn=ref=>{let c=0;const w=r=>kids(r).forEach(x=>{c++;if(x.kind==="folder")w(x.ref)});w(ref);return c};
     const open=async x=>{
@@ -18884,21 +18891,24 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     let d=document.getElementById("qlDash");if(!d){d=document.createElement("div");d.id="qlDash";document.body.appendChild(d)}
     const closeDash=()=>{document.getElementById("qlDashMenu")?.remove();d.remove();window.qlUiBack?.close("dashboard")};
     window.qlUiBack?.open("dashboard",()=>document.getElementById("qlDash")===d,closeDash);
-    d.innerHTML=`<div class="qd-wrap"><div class="qd-empty">Loading…</div></div>`;
+    const header=`<div class="qd-top">${dashBackButton}<span class="nav-icon" style="width:40px;height:40px">${dashIcon}</span><div class="qd-heading"><h1>Dashboard</h1><p>Quizzes, PDFs, links and folders shared by students</p></div><button type="button" class="ql-iv-close" data-qd-close aria-label="Close">×</button></div>`;
+    const wireExit=()=>d.querySelectorAll("[data-qd-close],[data-ql-dash-back]").forEach(b=>b.onclick=closeDash);
+    d.innerHTML=`<div class="qd-wrap">${header}<div class="qd-empty">Loading…</div></div>`;wireExit();
     let data;try{const r=await service.client.rpc("ql_dash_list");if(r.error)throw r.error;data=r.data||{}}
-    catch(e){d.innerHTML=`<div class="qd-wrap"><div class="qd-top"><div><h1>Dashboard</h1></div><button type="button" class="ql-iv-close" data-qd-close>×</button></div><div class="qd-empty">${/ql_dash_list|PGRST202|42883/.test(String(e&&e.message))?"Dashboard is not set up yet (admin: run dashboard.sql).":h(friendlyError(e))}</div></div>`;d.querySelector("[data-qd-close]").onclick=closeDash;return}
+    catch(e){d.innerHTML=`<div class="qd-wrap">${header}<div class="qd-empty">${/ql_dash_list|PGRST202|42883/.test(String(e&&e.message))?"Dashboard is not set up yet (admin: run dashboard.sql).":h(friendlyError(e))}</div></div>`;wireExit();return}
+    if(!d.isConnected)return;
     const draw=()=>{
       const mine=dashTab==="mine",list=(mine?data.mine:data.posts)||[];
       const q=dashQ.trim().toLowerCase();
       const rows=list.filter(r=>(!dashKind||r.kind===dashKind)&&(!q||String(r.title).toLowerCase().includes(q)||String(r.author_name||"").toLowerCase().includes(q)));
       const sub=r=>r.kind==="folder"?(r.item_count>1?plural(r.item_count-1,"item")+" inside":"Folder"):KN[r.kind];
       const card=r=>`<article tabindex="0" class="item-card qd-item" data-post="${h(r.id)}"><div class="card-actions"><span></span><button type="button" class="row-btn ql-dash-more" data-qd-more="${h(r.id)}" aria-label="More">⋮</button></div>${typeof iconMarkup==="function"?iconMarkup({kind:r.kind,id:"dash_"+r.id,title:r.title,color:r.appearance?.color||null,icon:r.appearance?.icon||""}):kIco(r.kind)}<div class="item-title">${h(r.title||KN[r.kind])}</div><div class="item-sub">${h(sub(r))}${mine?"":` · ${h(r.author_name||"a student")}`}</div>${mine?`<div class="item-sub"><span class="qd-tag ${h(r.status)}">${r.status==="pending"?"Waiting for approval":r.status==="approved"?"On the Dashboard":"Not approved"}</span></div>${r.admin_note?`<div class="item-sub">${h(r.admin_note)}</div>`:""}`:""}</article>`;
-      d.innerHTML=`<div class="qd-wrap"><div class="qd-top"><span class="nav-icon" style="width:40px;height:40px">${dashIcon}</span><div><h1>Dashboard</h1><p>Quizzes, PDFs, links and folders shared by students</p></div><button type="button" class="ql-iv-close" data-qd-close aria-label="Close">×</button></div>
+      d.innerHTML=`<div class="qd-wrap">${header}
         <div class="qd-tabs"><button type="button" data-qd-tab="all" class="${mine?"":"on"}">All posts</button><button type="button" data-qd-tab="mine" class="${mine?"on":""}">My posts (${(data.mine||[]).length})</button></div>
         <input class="qd-search" placeholder="Search title or name…" value="${h(dashQ)}">
         <div class="qd-kinds">${[["","All"],["quiz","Quizzes"],["pdf","PDFs"],["link","Links"],["folder","Folders"]].map(([k,l])=>`<button type="button" data-qd-kind="${k}" class="${dashKind===k?"on":""}">${l}</button>`).join("")}</div>
         ${rows.length?`<div class="content grid qd-grid">${rows.map(card).join("")}</div>`:`<div class="qd-empty">${mine?"You haven't posted anything yet. Use ⋮ → Post to Dashboard on any quiz, PDF, link or folder.":"Nothing here yet."}</div>`}</div>`;
-      d.querySelector("[data-qd-close]").onclick=closeDash;
+      wireExit();
       d.querySelectorAll("[data-qd-tab]").forEach(b=>b.onclick=()=>{dashTab=b.dataset.qdTab;draw()});
       d.querySelectorAll("[data-qd-kind]").forEach(b=>b.onclick=()=>{dashKind=b.dataset.qdKind;draw()});
       const si=d.querySelector(".qd-search");si.oninput=()=>{dashQ=si.value;clearTimeout(si.t);si.t=setTimeout(()=>{const pos=si.selectionStart;draw();const n=d.querySelector(".qd-search");n.focus();try{n.setSelectionRange(pos,pos)}catch{}},250)};

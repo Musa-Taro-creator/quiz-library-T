@@ -35,6 +35,7 @@ python tests/dashboard-posting.browser.py
 python tests/dashboard-appearance.browser.py
 python tests/dashboard-quiz-access.browser.py
 python tests/dashboard-instant-feedback.browser.py
+python tests/dashboard-back.browser.py
 python tests/system-back.browser.py
 python tests/password-recovery.browser.py
 ```
