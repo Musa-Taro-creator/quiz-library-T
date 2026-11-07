@@ -95,6 +95,7 @@ const top=(title,sub,extra='')=>`<header class="rm-top"><button class="rm-back" 
 function wireTop(){screen.querySelector('[data-rm-back]').onclick=back;screen.querySelector('[data-rm-close]').onclick=close;screen.querySelectorAll('[data-rm-all]').forEach(b=>b.onclick=returnToList)}
 function showError(e){const m=String(e?.message||e);return /ql_room_v1|PGRST202|42883/.test(m)?'Rooms needs its one-time Supabase setup. Your personal library is available with Back.':friendlyError(e)}
 export async function openRooms(){
+ if(window.qlCanOpenRooms?.()===false)return;
  if(!who())return toast('Sign in to use Rooms.');if(screen?.isConnected)return;
  screen=document.createElement('section');screen.id='qlRooms';document.body.append(screen);window.qlUiBack?.open('rooms',()=>!!screen?.isConnected,back);await showList();
 }

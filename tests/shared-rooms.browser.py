@@ -46,6 +46,16 @@ try:
    return context,page,errors,dialogs
   context,page,errors,dialogs=boot(A)
   personal=page.evaluate('state.items.map(x=>x.id)')
+  page.wait_for_function('qlPlansState()?.mine?.plan');page.locator('[data-rm-close]').click()
+  page.evaluate('''()=>{window.roomFeatureMode='on';window.roomFeatureGrant=false;qlPlansState().cfg.plans.forEach(p=>p.visibility='public');const prior=service.client.rpc;service.client.rpc=async(name,args)=>{const r=await prior(name,args);if(name==='ql_public_config')r.data.settings.features.nav_rooms=roomFeatureMode;if(name==='ql_my_plan')r.data.plan.features.nav_rooms=roomFeatureGrant;return r}}''')
+  def room_mode(mode,grant=False):
+   page.evaluate('''([mode,grant])=>{roomFeatureMode=mode;roomFeatureGrant=grant;const x=qlPlansState();x.cfg.settings.features.nav_rooms=mode;x.mine.plan.features.nav_rooms=grant;render()}''',[mode,grant])
+  room_mode('off');page.locator('#qlRoomsNav').wait_for(state='hidden');page.evaluate('qlOpenRooms()');assert page.locator('#qlRooms').count()==0;assert page.locator('#qlDashNav').is_visible()
+  room_mode('lock');page.locator('#qlRoomsNav.ql-locked').wait_for();page.locator('#qlRoomsNav').click();assert page.locator('#qlRooms').count()==0;assert page.locator('.qu-plans').count()==0
+  room_mode('plan');page.locator('#qlRoomsNav').click();
+  page.locator('.qu-plans').wait_for();assert page.locator('#qlRooms').count()==0;page.locator('#modalClose').click()
+  room_mode('plan',True);page.locator('#qlRoomsNav:not(.ql-locked)').click();page.locator('[data-rm-create]').wait_for();page.locator('[data-rm-close]').click()
+  room_mode('on',False);page.locator('#qlRoomsNav').click();page.locator('[data-rm-create]').wait_for();ok('Rooms button obeys Hidden, Lock, By plan with/without access, and Everyone; Dashboard remains available')
   page.locator('#studentWelcomeFloat').wait_for(state='detached')
   for theme in ['white','neon','ocean']:
    for width in [390,1280]:
@@ -120,7 +130,7 @@ try:
   ok('Image-heavy quizzes save through byte-sized batches without exceeding request limits')
   # Admin screens use the same actual disposable database.
   tree=ast.parse((ROOT/'tests/admin-message-drafts.browser.py').read_text());admin_stub=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='stub' for t in n.targets))
-  ac=browser.new_context(viewport={'width':1024,'height':850},service_workers='block');ac.add_init_script(admin_stub+f"\nconst previousClient=window.supabase.createClient;window.supabase.createClient=(...args)=>{{const c=previousClient(...args),prior=c.rpc;c.rpc=(name,args)=>name==='ql_room_v1'?(window.missingRooms?Promise.resolve({{data:null,error:{{message:'ql_room_v1 missing',code:'PGRST202'}}}}):fetch('/rpc',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{user:'{C}',args}})}}).then(r=>r.json())):prior(name,args);return c}};Object.defineProperty(navigator,'clipboard',{{value:{{writeText:async text=>window.copiedSetup=text}}}});")
+  ac=browser.new_context(viewport={'width':1024,'height':850},service_workers='block');ac.add_init_script(admin_stub+f"\nwindow.adminFixture={{settings:fakeSettings,plan:fakePlan}};const previousClient=window.supabase.createClient;window.supabase.createClient=(...args)=>{{const c=previousClient(...args),previousRpc=c.rpc,prior=(name,args)=>{{if(name==='ql_admin_set_setting'){{rpcCalls.push({{name,args:structuredClone(args)}});const row=fakeSettings.find(x=>x.key===args.p_key);if(row)row.value=structuredClone(args.p_value);return Promise.resolve({{data:true,error:null}})}}if(name==='ql_admin_save_plan'){{rpcCalls.push({{name,args:structuredClone(args)}});Object.assign(fakePlan,args.p);return Promise.resolve({{data:fakePlan,error:null}})}}return previousRpc(name,args)}};c.rpc=(name,args)=>name==='ql_room_v1'?(window.missingRooms?Promise.resolve({{data:null,error:{{message:'ql_room_v1 missing',code:'PGRST202'}}}}):fetch('/rpc',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{user:'{C}',args}})}}).then(r=>r.json())):prior(name,args);return c}};Object.defineProperty(navigator,'clipboard',{{value:{{writeText:async text=>window.copiedSetup=text}}}});")
   ap=ac.new_page();ae=[];ap.on('pageerror',lambda e:ae.append(str(e)));ap.on('dialog',lambda d:d.accept())
   def admin_route(r):
    u=r.request.url
@@ -144,6 +154,17 @@ try:
   ap.locator('[data-ra-status]').first.click();ap.wait_for_timeout(200);assert rpc(C,'open',rid)['room']['status']=='active'
   ap.locator('[data-ra-manage]').first.click();assert ap.locator('#raName').bounding_box()['height']>=44;ap.locator('#raLocked').check();ap.locator('#raRoomSave').click();ap.wait_for_timeout(200);assert rpc(C,'open',rid)['room']['locked'];rpc(C,'settings',rid,{'locked':False})
   ap.evaluate("missingRooms=true;go('rooms')");ap.locator('#raCopySetup').click();ap.wait_for_function('!!window.copiedSetup');assert ap.evaluate('window.copiedSetup')==(ROOT/'supabase/shared_rooms_v1.sql').read_text()
+  ap.evaluate("missingRooms=false;adminFixture.settings.find(x=>x.key==='features').value.other_feature='lock'")
+  ap.locator('.nav[data-v="ctl"]').click();row=ap.locator('.mode[data-k="nav_rooms"]');row.wait_for();assert row.locator('button').all_text_contents()==['Everyone','By plan','Lock','Hidden']
+  for mode in ['off','lock','plan','on']:
+   row.locator(f'[data-m="{mode}"]').click();ap.wait_for_function("(mode)=>adminFixture.settings.find(x=>x.key==='features').value.nav_rooms===mode",arg=mode)
+  assert ap.evaluate("adminFixture.settings.find(x=>x.key==='features').value.other_feature")=='lock'
+  ap.locator('[data-gall="Left menu & tabs"][data-m="off"]').click();ap.wait_for_function("adminFixture.settings.find(x=>x.key==='features').value.nav_rooms==='off'")
+  ap.locator('[data-gall="Left menu & tabs"][data-m="on"]').click();ap.wait_for_function("adminFixture.settings.find(x=>x.key==='features').value.nav_rooms==='on'")
+  ap.screenshot(path='/tmp/rooms-website-control.png')
+  ap.locator('.nav[data-v="plans"]').click();ap.locator('[data-edit="free"]').click();ap.locator('[data-feat="nav_rooms"]').check();ap.locator('#pSave').click();ap.wait_for_function('adminFixture.plan.features.nav_rooms===true')
+  ap.locator('[data-edit="free"]').click();ap.locator('[data-feat="nav_rooms"]').uncheck();ap.locator('#pSave').click();ap.wait_for_function('!adminFixture.plan.features.nav_rooms')
+  ok('Website Control saves all four Rooms modes, includes it in group controls, and plan permissions save correctly')
   assert not ae,ae;ac.close();ok('Website admin controls room limits, suspension and owner overrides; iPad setup copies the exact SQL')
   assert not errors,errors;assert not me,me;assert not dialogs,dialogs;assert not md,md
   context.close();member.close();browser.close()

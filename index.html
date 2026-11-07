@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-07-v6">
+<meta name="ql-shell-generation" content="reliability-2026-11-07-v7">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -19167,7 +19167,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     new_pdf:['#newMenu [data-new="pdf"]','#adminQuickActions [data-quick="pdf"]'],new_quiz:['#newMenu [data-quiz-new]','#adminQuickActions [data-quiz-quick]'],
     item_share_in:['#itemMenu [data-ql-feat="item_share_in"]'],item_share_ex:['#itemMenu [data-ql-feat="item_share_ex"]'],item_duplicate:['#itemMenu [data-ql-feat="item_duplicate"]'],
     item_move:['#itemMenu [data-ql-feat="item_move"]'],item_edit:['#itemMenu [data-ql-feat="item_edit"]'],item_trash:['#itemMenu [data-ql-feat="item_trash"]'],
-    nav_dashboard:['#qlDashNav'],nav_support:['#qlSupportNav','.ql-sup-pf'],item_share_dash:['#itemMenu [data-ql-feat="item_share_dash"]'],dash_menu:['.ql-dash-more'],dash_save:['.ql-dash-save'],
+    nav_dashboard:['#qlDashNav'],nav_rooms:['#qlRoomsNav'],nav_support:['#qlSupportNav','.ql-sup-pf'],item_share_dash:['#itemMenu [data-ql-feat="item_share_dash"]'],dash_menu:['.ql-dash-more'],dash_save:['.ql-dash-save'],
     sel_share_in:['#selShareInBtn'],sel_share_ex:['#selShareExBtn'],sel_copy:['#copySelectedBtn'],sel_duplicate:['#duplicateSelectedBtn'],sel_move:['#moveSelectedBtn'],sel_trash:['#trashSelectedBtn'],
     quiz_autoadv:['#qzToolsAutoAdv','#qzBtnAutoAdvance'],quiz_shuffle:['#qzToolsShuffle','#qzBtnShuffle'],quiz_bookmark:['#qzBookmarkBtn','#qzFlagBtn'],quiz_summary:['#qzSummaryBtn'],quiz_results:['#qzBtnResults'],
     ed_addnew:['#qzBtnAddNew'],ed_images:['#qzBtnImageManager'],ed_move:['#qzBtnMoveQuestions'],ed_sections:['#qzBtnSessions'],ed_find:['#qzFindBar'],ed_share_in:['#qzBtnShare'],ed_share_ex:['#qzBtnShareExternal'],
@@ -19188,6 +19188,8 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   const now=()=>Date.now()+skew;
   const featMode=k=>((cfg&&cfg.settings&&cfg.settings.features)||{})[k]||"on";
   function allowed(k){if(k==="signup"&&cfg&&cfg.signups_full)return "off";const m=featMode(k);if(m==="off")return "off";if(m==="lock")return k==="signup"?"on":"frozen";if(m==="plan"){if(k==="signup")return "on";const p=curPlan();return p&&p.features&&p.features[k]?"on":"locked"}return "on"}
+
+  window.qlCanOpenRooms=()=>{const mode=ready?allowed("nav_rooms"):"on";if(mode==="on")return true;if(mode==="locked")openUpgrade("Rooms is available on a higher plan.");else toast(mode==="frozen"?"🔒 Rooms is locked for now.":"Rooms is not available right now.");return false};
 
   /* ---------- load ---------- */
   async function loadCfg(){
@@ -19439,7 +19441,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     const names={nav_random:"Random Quiz",nav_inbox:"Shared with me",nav_favorites:"Favorites",nav_recent:"Recent",nav_shared_links:"Shared Links",nav_trash:"Trash",nav_install:"Install app",
       new_folder:"Create Folder",new_link:"Add Quiz Link",new_pdf:"Upload PDF",new_quiz:"Create Quiz",
       item_share_in:"Share internally",item_share_ex:"Share externally + QR",item_duplicate:"Duplicate",item_move:"Move",item_edit:"Edit",item_trash:"Move to trash",
-      nav_dashboard:"Dashboard",item_share_dash:"Post to Dashboard",dash_menu:"⋮ menu on Dashboard",dash_save:"Save from Dashboard to my library",sel_share_in:"Share many internally",sel_share_ex:"Share many externally",sel_copy:"Copy links of many",sel_duplicate:"Duplicate many",sel_move:"Move many",sel_trash:"Trash many",
+      nav_dashboard:"Dashboard",nav_rooms:"Rooms",item_share_dash:"Post to Dashboard",dash_menu:"⋮ menu on Dashboard",dash_save:"Save from Dashboard to my library",sel_share_in:"Share many internally",sel_share_ex:"Share many externally",sel_copy:"Copy links of many",sel_duplicate:"Duplicate many",sel_move:"Move many",sel_trash:"Trash many",
       quiz_autoadv:"Auto-advance",quiz_shuffle:"Shuffle",quiz_bookmark:"Bookmark & Flag",quiz_summary:"Quiz Summary",quiz_results:"Quiz Results",
       ed_addnew:"Add New Questions",ed_images:"Image Manager",ed_move:"Move Questions",ed_sections:"Sections",ed_find:"Find & check problems",ed_share_in:"Quiz editor: Share internally",ed_share_ex:"Quiz editor: Share externally",
       pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list",nav_support:"Help & Support"};
@@ -20026,7 +20028,7 @@ body.ql-neon .ql-off-sw.on{background:#00c8a0;box-shadow:0 0 12px rgba(0,229,255
 
 <script id="qlRoomsLoader">
 (function(){
- window.qlOpenRooms=async()=>{try{const m=await import(new URL("rooms.mjs",document.baseURI).href);await m.openRooms()}catch(e){alert(friendlyError(e))}};
+ window.qlOpenRooms=async()=>{if(window.qlCanOpenRooms?.()===false)return;try{const m=await import(new URL("rooms.mjs",document.baseURI).href);await m.openRooms()}catch(e){alert(friendlyError(e))}};
  const place=()=>{const n=document.querySelector(".sidebar .nav");if(!n||!state.user||document.getElementById("qlRoomsNav"))return;
  const b=document.createElement("button");b.id="qlRoomsNav";b.className="student-workspace-allowed";b.type="button";b.innerHTML='<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="7" r="4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 3a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.87"/></svg></span><span>Rooms</span>';b.onclick=()=>{try{closeSidebar()}catch{}qlOpenRooms()};
  const d=document.getElementById("qlDashNav");if(d)d.after(b);else n.prepend(b)};
