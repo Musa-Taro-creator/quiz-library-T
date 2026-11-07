@@ -5,9 +5,9 @@
    version (the update banner keeps working); the saved copy is only used offline.
    Supabase (login, data, files) is never cached here — the app keeps its own
    offline copy of the library and of saved PDFs. */
-const APP_CACHE = "ql-app-reliability-2026-11-07-v2";
-const SHELL_GENERATION = 'name="ql-shell-generation" content="reliability-2026-11-07-v2"';
-const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
+const APP_CACHE = "ql-app-reliability-2026-11-07-v3";
+const SHELL_GENERATION = 'name="ql-shell-generation" content="reliability-2026-11-07-v3"';
+const SHELL = ["./", "index.html", "rooms.mjs", "rooms.css", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 const LIBS = [
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2",
   "https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js",
@@ -93,6 +93,7 @@ self.addEventListener("fetch", (event) => {
     const p = url.pathname;
     if (req.mode === "navigate" ? !/admin\.html$/.test(p) : /\/(index\.html)?$/.test(p)) { event.respondWith(page(req)); return; }
     if (/\/vendor\/pdfjs-6\.4\.299\//.test(p)) { event.respondWith(asset(req)); return; }
+    if (/\/rooms\.(mjs|css)$/.test(p)) { event.respondWith(asset(req)); return; }
     if (/\/icons\/|\.webmanifest$/.test(p)) { event.respondWith(asset(req)); return; }
     return;
   }

@@ -24,6 +24,7 @@ From the repository root:
 ```sh
 QL_PGLITE_MODULE=/tmp/ql-reliability-deps/node_modules/@electric-sql/pglite/dist/index.js QL_EMBEDDED_POSTGRES_MODULE=/tmp/ql-reliability-deps/node_modules/embedded-postgres/dist/index.js QL_PG_MODULE=/tmp/ql-reliability-deps/node_modules/pg/lib/index.js node --test tests/*.test.cjs tests/*.test.mjs
 
+export QL_PGLITE_MODULE=/tmp/ql-reliability-deps/node_modules/@electric-sql/pglite/dist/index.js
 export PYTHONPATH=/tmp/ql-reliability-python
 export PYTHONDONTWRITEBYTECODE=1
 python tests/bulk-preview-scroll.test.py
@@ -35,6 +36,7 @@ python tests/dashboard-posting.browser.py
 python tests/dashboard-appearance.browser.py
 python tests/dashboard-quiz-access.browser.py
 python tests/dashboard-instant-feedback.browser.py
+python tests/shared-rooms.browser.py
 python tests/dashboard-back.browser.py
 python tests/system-back.browser.py
 python tests/password-recovery.browser.py
@@ -79,6 +81,14 @@ It does not read PG* environment variables or accept a remote database URL.
   for local instant feedback; final scores still use server grading. Its browser
   checks cover native touch events, feedback reuse, zero per-answer requests,
   server-mode compatibility, stale responses after clearing, and local latency.
+- Rooms: disposable PostgreSQL exercises membership, owner/admin restrictions,
+  private PDF access, staged saves and conflict receipts, personal quiz settings
+  and server-verified history. Browser integration uses the real editor and
+  runner against that local database. Activate with `supabase/shared_rooms_v1.sql`
+  after the Dashboard SQL. Rooms adds isolated tables/RPCs and a member-read
+  Storage policy; it leaves existing personal-library writers and grading intact.
+  Members collaborate on one shared copy; Save to My Library creates an independent
+  copy. Polling uses a version token and returns no item list when unchanged.
 - System Back: nested screens, dialogs, shared folders, saved PDFs, quiz tools,
   editor save/draft failures, repeated Back during saving, reloads, folder
   Forward navigation, and the confirmation before leaving Documents. These

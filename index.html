@@ -16,7 +16,8 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@800&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
-<meta name="ql-shell-generation" content="reliability-2026-11-07-v2">
+<link rel="stylesheet" href="rooms.css">
+<meta name="ql-shell-generation" content="reliability-2026-11-07-v3">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -9848,6 +9849,7 @@ html,body{overscroll-behavior-y:none}
   }
 
   /* ------------------------------ page overlay ---------------------------- */
+  function qzCanEditItem(item){return qlCanMutate()&&(!item?._room_id||window.qlRooms?.canEdit(item))}
   function qzEnsurePage(){
     let el=document.getElementById("qzPageOverlay");
     if(el)return el;
@@ -12265,7 +12267,7 @@ Q5 Answer B
 
   /* --------------------------- Quiz workspace (editor) ---------------------- */
   async function openQuizWorkspace(item){
-    if(!qlCanMutate())return toast("Sign in to edit your library");
+    if(!qzCanEditItem(item))return toast(item._room_id?"Editing is restricted for this room.":"Sign in to edit your library");
     qzOpenPage(true); /* Round 4 note 6: editor now opens full-screen, like the take-quiz view */
     const bodyEl=document.getElementById("qzPageBody");
     bodyEl.innerHTML=qzPageTopbar()+'<div class="status" style="margin:40px 18px">Loading quiz…</div>';
@@ -13355,7 +13357,7 @@ Q5 Answer B
     const settings=item.quiz_settings||{};
     const count=settings.question_count||0;
     bodyEl.innerHTML=`
-      ${qzPageTopbar(null,qlCanMutate()?'<button type="button" class="qz-page-edit-fab" id="qzLandingEdit"><svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m4 20 4.5-1 10-10-3.5-3.5-10 10z"/></svg>Edit</button>':"")}
+      ${qzPageTopbar(null,qzCanEditItem(item)?'<button type="button" class="qz-page-edit-fab" id="qzLandingEdit"><svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m4 20 4.5-1 10-10-3.5-3.5-10 10z"/></svg>Edit</button>':"")}
       <div class="qz-header-card">
         <div class="qz-page-head">
           <h2>${esc(item.title)}</h2>
@@ -13364,14 +13366,14 @@ Q5 Answer B
         ${count?`
           <div class="qz-page-actions">
             <button class="btn qz-take" id="qzLandTake" type="button"><svg viewBox="0 0 24 24"><path d="M6 3l14 9-14 9V3z" fill="currentColor" stroke="none"/></svg>Take quiz</button>
-            ${qlCanMutate()?'<button class="btn" id="qzLandPreview" type="button"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="2.6"/></svg>Preview</button>':""}
+            ${qzCanEditItem(item)?'<button class="btn" id="qzLandPreview" type="button"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="2.6"/></svg>Preview</button>':""}
           </div>
         `:""}
       </div>
       ${count?`
         <div class="qz-ready-panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>Ready to study! This quiz is saved in your Quiz Library and can be accessed on all your devices.</div>
       `:`
-        <div class="qz-empty-panel">This quiz has no questions yet.${qlCanMutate()?'<div><button class="btn primary" id="qzLandAddQuestions">Add Questions</button></div>':""}</div>
+        <div class="qz-empty-panel">This quiz has no questions yet.${qzCanEditItem(item)?'<div><button class="btn primary" id="qzLandAddQuestions">Add Questions</button></div>':""}</div>
       `}
     `;
     document.getElementById("qzTopClose").onclick=()=>qzClosePage();
@@ -14092,7 +14094,7 @@ Q5 Answer B
     qzOpenPage(true);
     const page=document.getElementById("qzPageOverlay");
     if(item._dashboard_share)page.dataset.dashboardQuiz=item._dashboard_share.owner;
-    if(item._dashboard_share||item.ql_from_dash)page.dataset.fullQuizTools="1";
+    if(item._dashboard_share||item.ql_from_dash||item._room_id)page.dataset.fullQuizTools="1";
     const bodyEl=document.getElementById("qzPageBody");
     /* shown only if loading takes a moment, so a quick start doesn't flash it */
     bodyEl.innerHTML=qzPageTopbar()+'<div class="qz-runner-start"><div class="status qz-load-late">Loading quiz…</div></div>';
@@ -15053,7 +15055,7 @@ Q5 Answer B
         }
         /* Dashboard uses the label/input's native change event. Forcing a
            second change here duplicated grading and prevented deselection. */
-        if(item._dashboard_share)return;
+        if(item._dashboard_share||item._room_id)return;
         input.checked=true;input.dispatchEvent(new Event("change",{bubbles:true}));
       });
       container.addEventListener("change",event=>{
@@ -15359,7 +15361,7 @@ Q5 Answer B
           <button type="button" class="qz-tools-row-icon" id="qzToolsMood"><span class="qz-tools-row-badge" style="background:#5856d6"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="19" cy="12" r="2" fill="currentColor" stroke="none"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Quiz Behavior</span><span class="qz-tools-row-t2">Layout &amp; feedback timing</span></span><span class="qz-tools-row-chev">›</span></button>
           <button type="button" class="qz-tools-row-icon" id="qzToolsAutoAdv"><span class="qz-tools-row-badge" style="background:#ff2d55"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m6 5 7 7-7 7M13 5l7 7-7 7"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Auto-Advance</span><span class="qz-tools-row-t2">Move on automatically after answering</span></span><span class="qz-tools-row-chev">›</span></button>
           <button type="button" class="qz-tools-row-icon" id="qzToolsShuffle"><span class="qz-tools-row-badge" style="background:#0369a1"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="M3 7h3l12 10h3"/><path d="m18 14 3 3-3 3"/><path d="M3 17h3l12-10h3"/><path d="m18 10 3-3-3-3"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Shuffle</span><span class="qz-tools-row-t2">Randomize question or answer order</span></span><span class="qz-tools-row-chev">›</span></button>
-          ${qlCanMutate()&&!isExternal&&!item._dashboard_share?'<button type="button" class="qz-tools-row-icon" id="qzToolsEdit"><span class="qz-tools-row-badge" style="background:#8e8e93"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m4 20 4.5-1 10-10-3.5-3.5-10 10z"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Edit Quiz</span><span class="qz-tools-row-t2">Change questions &amp; answers</span></span><span class="qz-tools-row-chev">›</span></button>':""}
+          ${qzCanEditItem(item)&&!isExternal&&!item._dashboard_share?'<button type="button" class="qz-tools-row-icon" id="qzToolsEdit"><span class="qz-tools-row-badge" style="background:#8e8e93"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.8"><path d="m4 20 4.5-1 10-10-3.5-3.5-10 10z"/></svg></span><span class="qz-tools-row-txt"><span class="qz-tools-row-t1">Edit Quiz</span><span class="qz-tools-row-t2">Change questions &amp; answers</span></span><span class="qz-tools-row-chev">›</span></button>':""}
         </div>
       `;
       el.classList.add("show");
@@ -16087,7 +16089,7 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
     const stale=rows.filter(r=>!r.personalized&&!globalIds.has(r.id)).map(r=>r.id);if(stale.length)await removeRows(stale);
     return (await fetchRows()).map(fromRow).sort((a,b)=>Number(a.position||0)-Number(b.position||0))
   }
-  async function refresh(){if(!isStudentAccount()||state.studentWorkspaceRefreshing)return;state.studentWorkspaceRefreshing=true;try{state.items=await reconcile();state.studentWorkspaceReady=true;state.studentWorkspaceError=null;document.body.classList.add("student-edit-mode");markUi();render()}catch(error){if(setupMissing(error))setupMessage(error);else{console.error("Student workspace refresh failed",error);state.studentWorkspaceError=error}}finally{state.studentWorkspaceRefreshing=false}}
+  async function refresh(){if(!isStudentAccount()||state.studentWorkspaceRefreshing)return;state.studentWorkspaceRefreshing=true;try{const personalRows=await reconcile();if(!window.qlRooms?.capturePersonalRefresh(personalRows))state.items=personalRows;state.studentWorkspaceReady=true;state.studentWorkspaceError=null;document.body.classList.add("student-edit-mode");markUi();render()}catch(error){if(setupMissing(error))setupMessage(error);else{console.error("Student workspace refresh failed",error);state.studentWorkspaceError=error}}finally{state.studentWorkspaceRefreshing=false}}
   function markUi(){
     const trash=document.querySelector('.sidebar [data-section="trash"]');trash?.classList.add("student-workspace-allowed");
     const brand=document.getElementById("brandName")?.parentElement;if(brand&&!document.getElementById("studentWorkspaceBadge")){const b=document.createElement("span");b.id="studentWorkspaceBadge";b.className="student-workspace-badge";b.textContent="My Library";brand.appendChild(b)}
@@ -20019,6 +20021,16 @@ body.ql-neon .ql-off-sw.on{background:#00c8a0;box-shadow:0 0 12px rgba(0,229,255
   let lastUid="";
   setInterval(()=>{const u=uid();if(u&&u!==lastUid){lastUid=u;loadMeta()}if(off.active)bar()},1000);
   setTimeout(()=>{bar();qlOffQueue.flush()},3000);
+})();
+</script>
+
+<script id="qlRoomsLoader">
+(function(){
+ window.qlOpenRooms=async()=>{try{const m=await import(new URL("rooms.mjs",document.baseURI).href);await m.openRooms()}catch(e){alert(friendlyError(e))}};
+ const place=()=>{const n=document.querySelector(".sidebar .nav");if(!n||!state.user||document.getElementById("qlRoomsNav"))return;
+ const b=document.createElement("button");b.id="qlRoomsNav";b.className="student-workspace-allowed";b.type="button";b.innerHTML='<span class="nav-icon">♧</span><span>Rooms</span>';b.onclick=()=>{try{closeSidebar()}catch{}qlOpenRooms()};
+ const d=document.getElementById("qlDashNav");if(d)d.after(b);else n.prepend(b)};
+ const prior=render;render=function(){const out=prior.apply(this,arguments);place();return out};setTimeout(place,900);
 })();
 </script>
 </body></html>

@@ -11,7 +11,7 @@ const legacyLibrary='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.
 const legacyWorker='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 const library=origin+'vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs';
 const worker=origin+'vendor/pdfjs-6.4.299/legacy/build/pdf.worker.min.mjs';
-const html='<meta name="ql-shell-generation" content="reliability-2026-11-07-v2"><script type="module">import * as pdfjsLib from "'+library+'";</script>';
+const html='<meta name="ql-shell-generation" content="reliability-2026-11-07-v3"><script type="module">import * as pdfjsLib from "'+library+'";</script>';
 const oldHtml='<script src="'+legacyLibrary+'"></script>';
 const key=x=>new URL(typeof x==='string'?x:x.url,origin).href;
 class LocalRequest extends Request {
@@ -231,7 +231,7 @@ test('a runtime with missing new-cache HTML never falls back to the old app gene
 });
 
 test('Core PDF files/fonts and the complete auxiliary-resource bundle are cached',()=>{
- const runtime=boot(storage());assert.equal(runtime.api.SHELL.length,6);assert.equal(runtime.api.LIBS.length,20);
+ const runtime=boot(storage());assert.equal(runtime.api.SHELL.length,8);assert.ok(runtime.api.SHELL.includes("rooms.mjs"));assert.ok(runtime.api.SHELL.includes("rooms.css"));assert.equal(runtime.api.LIBS.length,20);
  assert.ok(runtime.api.LIBS.includes('vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs'));
  assert.ok(runtime.api.LIBS.includes('vendor/pdfjs-6.4.299/legacy/build/pdf.worker.min.mjs'));
  assert.ok(runtime.api.LIBS.includes('vendor/pdfjs-6.4.299/standard_fonts/FoxitFixed.pfb'));
