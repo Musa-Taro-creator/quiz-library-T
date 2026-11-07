@@ -7,6 +7,7 @@ const db=new PGlite();
 const A='11111111-1111-4111-8111-111111111111',B='22222222-2222-4222-8222-222222222222';
 const POST='33333333-3333-4333-8333-333333333333',OTHER='44444444-4444-4444-8444-444444444444';
 const sql=fs.readFileSync(new URL('../supabase/dashboard_quiz_access_v1.sql',import.meta.url),'utf8');
+const fastSql=fs.readFileSync(new URL('../supabase/dashboard_quiz_instant_feedback_v1.sql',import.meta.url),'utf8');
 const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const grade=vm.runInNewContext(html.slice(html.indexOf('  function qzGradeQuestion('),html.indexOf('  function qzGradeAll('))+'\nqzGradeQuestion');
 let seq=0;const uuid=()=>`aaaaaaaa-aaaa-4aaa-8aaa-${String(++seq).padStart(12,'0')}`;
@@ -36,7 +37,7 @@ before(async()=>{
  `);
  await db.query('insert into ql_dash_posts values($1,$2,$3,$4)',[POST,A,'approved',JSON.stringify({root_ref:'root',nodes:[{ref:'root',kind:'folder'},node]})]);
  await db.query('insert into ql_dash_posts values($1,$2,$3,$4)',[OTHER,B,'pending',JSON.stringify({root_ref:'quiz',nodes:[node]})]);
- await db.exec(sql);await identity();
+ await db.exec(sql);await db.exec(fastSql);await identity();
 });
 after(()=>db.close());
 test('Migration is repeatable and leaves existing functions and posted content unchanged',async()=>{
@@ -59,6 +60,17 @@ test('Private Tools persist and merge without changing author settings or accept
  const original=await admin(async()=>(await db.query("select payload->'nodes'->1->'quiz_settings' settings from ql_dash_posts where id=$1",[POST])).rows[0].settings);
  assert.deepEqual(original,node.quiz_settings);
 });
+test('Fast feedback packet supplies answer keys only for an authorized approved quiz; legacy packet remains sanitized',async()=>{
+ const packet=await rpc('ql_dash_quiz_get_fast_v1',[POST,'quiz']);
+ assert.equal(packet.feedback_mode,'local');assert.deepEqual(packet.questions,questions);
+ assert.equal(packet.settings.layout,'horizontal');assert.equal(packet.revision,(await get()).revision);
+ await identity(B);const other=await rpc('ql_dash_quiz_get_fast_v1',[POST,'quiz']);assert.equal(other.settings.layout,'vertical');assert(!other.settings.exam_ui);await identity();
+ await assert.rejects(rpc('ql_dash_quiz_get_fast_v1',[OTHER,'quiz']),/no longer/);
+ await assert.rejects(rpc('ql_dash_quiz_get_fast_v1',[POST,'outside']),/no longer/);
+ await identity(null,'anon');await assert.rejects(rpc('ql_dash_quiz_get_fast_v1',[POST,'quiz']),/permission denied/);await identity();
+ await admin(()=>db.exec(fastSql));assert.equal((await rpc('ql_dash_quiz_get_fast_v1',[POST,'quiz'])).questions.length,4);
+ assert((await get()).questions.every(q=>!Object.hasOwn(q,'correct_answer')));
+});
 test('Dashboard server grading matches normal grading for 82 valid and invalid True/False, MCQ and short answers',async()=>{
  const cases=[];
  for(const ca of [true,false,'true','false'])for(const given of [true,false,'true','false',null,'','invalid',0,1,[],{},'False','TRUE'])cases.push([{type:'true_false',correct_answer:ca},given]);
@@ -80,6 +92,14 @@ test('Section attempts use only that section, preserve unanswered False, and rej
  for(const bad of [a.slice(0,1),[a[0],a[0]],[a[0],{question_id:'outside',given_answer:0}]])await assert.rejects(submit(bad,'A'),/Submit all/);
  await assert.rejects(submit(answers(),'Missing'),/no questions/);
 });
+test('Final score is recalculated from posted answers even if the browser answer key is changed',async()=>{
+ const packet=await rpc('ql_dash_quiz_get_fast_v1',[POST,'quiz']);
+ const wrong=[1,true,'London',[1]];
+ packet.questions.forEach((q,i)=>q.correct_answer=wrong[i]);
+ const given=packet.questions.map(q=>({question_id:q.id,given_answer:q.correct_answer}));
+ const result=await submit(given);assert.equal(result.percent,0);assert.equal(result.score,0);assert.equal(result.max_score,5);
+ assert.equal(result.detail[0].correct_answer,0);assert.equal(result.detail[1].correct_answer,false);
+});
 test('Anonymous calls, pending posts, missing quizzes, stale revisions and direct table reads are denied',async()=>{
  const p=await get();await assert.rejects(get(OTHER),/no longer/);await assert.rejects(get(POST,'outside'),/no longer/);
  await assert.rejects(rpc('ql_dash_quiz_grade_v1',[POST,'quiz','outside',0,p.revision]),/not found/);
@@ -89,7 +109,7 @@ test('Anonymous calls, pending posts, missing quizzes, stale revisions and direc
  await identity(null,'anon');await assert.rejects(get(),/permission denied/);await identity(null);await assert.rejects(get(),/Sign in/);await identity();
 });
 test('Removed posts and suspended accounts cannot take, grade, submit or read history',async()=>{
- await admin(()=>db.exec(`insert into ql_subscriptions values('${A}','suspended')`));await assert.rejects(get(),/suspended/);await admin(()=>db.exec('delete from ql_subscriptions'));
+ await admin(()=>db.exec(`insert into ql_subscriptions values('${A}','suspended')`));await assert.rejects(get(),/suspended/);await assert.rejects(rpc('ql_dash_quiz_get_fast_v1',[POST,'quiz']),/suspended/);await admin(()=>db.exec('delete from ql_subscriptions'));
  await admin(()=>db.query("update ql_dash_posts set status='removed' where id=$1",[POST]));await assert.rejects(get(),/no longer/);await assert.rejects(history(),/no longer/);await assert.rejects(submit(),/no longer/);
  await admin(()=>db.query("update ql_dash_posts set status='approved' where id=$1",[POST]));
 });

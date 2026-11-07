@@ -34,6 +34,7 @@ python tests/offline-upgrade.browser.py
 python tests/dashboard-posting.browser.py
 python tests/dashboard-appearance.browser.py
 python tests/dashboard-quiz-access.browser.py
+python tests/dashboard-instant-feedback.browser.py
 python tests/system-back.browser.py
 python tests/password-recovery.browser.py
 ```
@@ -73,6 +74,10 @@ It does not read PG* environment variables or accept a remote database URL.
   update-refresh recovery, and Edit/Apply to All after saving an owned copy.
   Activate this additive feature with `supabase/dashboard_quiz_access_v1.sql`;
   the frontend retains the previous quiz-opening path until that SQL is installed.
+  `supabase/dashboard_quiz_instant_feedback_v1.sql` adds the account-only packet
+  for local instant feedback; final scores still use server grading. Its browser
+  checks cover native touch events, feedback reuse, zero per-answer requests,
+  server-mode compatibility, stale responses after clearing, and local latency.
 - System Back: nested screens, dialogs, shared folders, saved PDFs, quiz tools,
   editor save/draft failures, repeated Back during saving, reloads, folder
   Forward navigation, and the confirmation before leaving Documents. These

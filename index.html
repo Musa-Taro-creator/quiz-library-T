@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@800&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
-<meta name="ql-shell-generation" content="reliability-2026-11-06-v4">
+<meta name="ql-shell-generation" content="reliability-2026-11-07-v1">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -9383,7 +9383,13 @@ html,body{overscroll-behavior-y:none}
     if(error)throw error;
     return data;
   }
-  service.getDashboardQuiz=(item)=>dashboardQuizRpc(item,"ql_dash_quiz_get_v1");
+  service.getDashboardQuiz=async(item)=>{
+    try{return await dashboardQuizRpc(item,"ql_dash_quiz_get_fast_v1")}
+    catch(error){
+      if(!["PGRST202","42883"].includes(String(error?.code||"")))throw error;
+      return await dashboardQuizRpc(item,"ql_dash_quiz_get_v1");
+    }
+  };
   service.gradeDashboardQuizQuestion=(item,qid,given)=>dashboardQuizRpc(item,"ql_dash_quiz_grade_v1",{p_question_id:qid,p_given_answer:given??null,p_revision:item._dashboard_share.revision});
   service.submitDashboardQuizAttempt=(item,answers,startedAt,sessionName,attemptId)=>dashboardQuizRpc(item,"ql_dash_quiz_submit_v1",{p_answers:answers,p_started_at:startedAt,p_session_name:sessionName||null,p_revision:item._dashboard_share.revision,p_attempt_id:attemptId});
   service.listDashboardQuizAttempts=(item)=>dashboardQuizRpc(item,"ql_dash_quiz_history_v1");
@@ -13958,6 +13964,7 @@ Q5 Answer B
       if(!Array.isArray(packet?.questions)||!packet.questions.length)throw new Error("This posted quiz has no questions.");
       if(opt.resume&&opt.resume.dashboard?.revision!==packet.revision)throw new Error("This post changed. Open it again to start the updated quiz.");
       item._dashboard_share.revision=packet.revision;
+      item._dashboard_share.localFeedback=packet.feedback_mode==="local";
       item.title=packet.title||"Dashboard quiz";
       item.quiz_settings=packet.settings||{};
       if(opt.resume)window.__qzResume=opt.resume;
@@ -14898,6 +14905,20 @@ Q5 Answer B
         icon.textContent=symbol;
       });
     }
+    const dashboardFeedbackCache=new Map(),dashboardFeedbackPending=new Map();
+    function dashboardFeedback(q,given){
+      const key=JSON.stringify([q.id,given]);
+      if(dashboardFeedbackCache.has(key))return dashboardFeedbackCache.get(key);
+      if(item._dashboard_share.localFeedback){
+        const result={correct:qzGradeQuestion(q,given),correct_answer:q.correct_answer,explanation:q.explanation||null,points:Number(q.points)||1};
+        dashboardFeedbackCache.set(key,result);return result;
+      }
+      if(dashboardFeedbackPending.has(key))return dashboardFeedbackPending.get(key);
+      const pending=service.gradeDashboardQuizQuestion(item,q.id,given).then(result=>{
+        dashboardFeedbackCache.set(key,result);return result;
+      }).finally(()=>dashboardFeedbackPending.delete(key));
+      dashboardFeedbackPending.set(key,pending);return pending;
+    }
     async function showFeedback(q){
       if(!immediate)return;
       const given=answers[q.id];
@@ -14907,7 +14928,7 @@ Q5 Answer B
       let g=null;
       try{
         if(isPreview)g={correct:qzGradeQuestion(q,given),correct_answer:q.correct_answer,explanation:q.explanation||null};
-        else if(item._dashboard_share)g=await service.gradeDashboardQuizQuestion(item,q.id,given);
+        else if(item._dashboard_share)g=await dashboardFeedback(q,given);
         else if(takerMeta?.externalShareToken)g=await service.gradeExternalQuizQuestion(takerMeta.externalShareToken,q.id,given);
         /* Random Quiz (pooled across multiple source quizzes): each question
            remembers which real quiz it actually came from in _sourceItemId,
@@ -14917,6 +14938,7 @@ Q5 Answer B
            so this is a no-op everywhere else. */
         else g=await service.gradeQuizQuestion(q._sourceItemId||item.id,q.id,given);
       }catch{g=null}
+      if(item._dashboard_share&&(JSON.stringify(answers[q.id])!==JSON.stringify(given)||!slot.isConnected||bodyEl.querySelector(`.qz-run-feedback-slot[data-fqid="${q.id}"]`)!==slot))return;
       slot.innerHTML=feedbackHtml(q,g);
       qzPaintAnswerColor(q,g);
       /* Kuza round 6: this resolves after qzSyncNavOne() already ran
@@ -15029,6 +15051,9 @@ Q5 Answer B
           event.preventDefault();
           return;
         }
+        /* Dashboard uses the label/input's native change event. Forcing a
+           second change here duplicated grading and prevented deselection. */
+        if(item._dashboard_share)return;
         input.checked=true;input.dispatchEvent(new Event("change",{bubbles:true}));
       });
       container.addEventListener("change",event=>{

@@ -52,6 +52,10 @@ window.auditRpc=async(name,args={})=>{
  if(name==='ql_dash_open')return {data:{payload:{root_ref:args.p_id==='folder-post'?'root':auditQuiz.id,nodes:[...(args.p_id==='folder-post'?[{ref:'root',kind:'folder',title:'Posted folder'},{ref:'nested',parent_ref:'root',kind:'folder',title:'Nested folder'}]:[]),{ref:auditQuiz.id,parent_ref:args.p_id==='folder-post'?'nested':null,kind:'quiz',title:auditQuiz.title,quiz_link:location.origin+'/?quiz_share=audit-token'}]}},error:null};
  if(name==='ql_dash_full')return {data:{root_ref:auditQuiz.id,nodes:[{ref:auditQuiz.id,kind:'quiz',title:auditQuiz.title,quiz_settings:structuredClone(auditQuiz.quiz_settings),questions:structuredClone(auditQuiz.questions)}]},error:null};
  if(audit.missingSql)return {data:null,error:{code:'PGRST202',message:'ql_dash_quiz_get_v1 missing'}};
+ if(name==='ql_dash_quiz_get_fast_v1'){
+  if(audit.noFastSql)return {data:null,error:{code:'PGRST202',message:'ql_dash_quiz_get_fast_v1 missing'}};
+  return {data:{title:auditQuiz.title,revision:'fixture-v1',feedback_mode:'local',settings:{...auditQuiz.quiz_settings,...auditDb.prefs[key()]},questions:structuredClone(auditQuiz.questions)},error:null};
+ }
  if(name==='ql_dash_quiz_get_v1')return {data:{title:auditQuiz.title,revision:'fixture-v1',settings:{...auditQuiz.quiz_settings,...auditDb.prefs[key()]},questions:auditQuiz.questions.map(q=>{const x={...q};delete x.correct_answer;delete x.explanation;return x})},error:null};
  if(name==='ql_dash_quiz_tools_v1'){
   auditDb.prefs[key()]={...auditDb.prefs[key()],...args.p_patch};writeAuditDb();return {data:auditDb.prefs[key()],error:null};
