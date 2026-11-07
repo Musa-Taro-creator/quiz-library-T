@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-07-v3">
+<meta name="ql-shell-generation" content="reliability-2026-11-07-v4">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -20028,7 +20028,7 @@ body.ql-neon .ql-off-sw.on{background:#00c8a0;box-shadow:0 0 12px rgba(0,229,255
 (function(){
  window.qlOpenRooms=async()=>{try{const m=await import(new URL("rooms.mjs",document.baseURI).href);await m.openRooms()}catch(e){alert(friendlyError(e))}};
  const place=()=>{const n=document.querySelector(".sidebar .nav");if(!n||!state.user||document.getElementById("qlRoomsNav"))return;
- const b=document.createElement("button");b.id="qlRoomsNav";b.className="student-workspace-allowed";b.type="button";b.innerHTML='<span class="nav-icon">♧</span><span>Rooms</span>';b.onclick=()=>{try{closeSidebar()}catch{}qlOpenRooms()};
+ const b=document.createElement("button");b.id="qlRoomsNav";b.className="student-workspace-allowed";b.type="button";b.innerHTML='<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="7" r="4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 3a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.87"/></svg></span><span>Rooms</span>';b.onclick=()=>{try{closeSidebar()}catch{}qlOpenRooms()};
  const d=document.getElementById("qlDashNav");if(d)d.after(b);else n.prepend(b)};
  const prior=render;render=function(){const out=prior.apply(this,arguments);place();return out};setTimeout(place,900);
 })();

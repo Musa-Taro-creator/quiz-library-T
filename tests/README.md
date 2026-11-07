@@ -37,6 +37,7 @@ python tests/dashboard-appearance.browser.py
 python tests/dashboard-quiz-access.browser.py
 python tests/dashboard-instant-feedback.browser.py
 python tests/shared-rooms.browser.py
+python tests/rooms-navigation.browser.py
 python tests/dashboard-back.browser.py
 python tests/system-back.browser.py
 python tests/password-recovery.browser.py
@@ -89,6 +90,9 @@ It does not read PG* environment variables or accept a remote database URL.
   Storage policy; it leaves existing personal-library writers and grading intact.
   Members collaborate on one shared copy; Save to My Library creates an independent
   copy. Polling uses a version token and returns no item list when unchanged.
+  Rooms navigation checks cover visible and system Back, nested breadcrumbs,
+  Trash, editor/settings returns, restored scroll/focus, and delayed room openings
+  at 320–1280px in all three themes.
 - System Back: nested screens, dialogs, shared folders, saved PDFs, quiz tools,
   editor save/draft failures, repeated Back during saving, reloads, folder
   Forward navigation, and the confirmation before leaving Documents. These

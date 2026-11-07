@@ -56,7 +56,7 @@ with sync_playwright() as p:
  page.evaluate('openSearch()');back();assert not page.evaluate('state.searchActive');ok('Existing search Back still works')
  page.evaluate("openFolderEditor()");page.locator('#folderEditorTitle').fill('Unsubmitted folder title')
  page.locator('#modalBody .ql-fp-field').click();page.locator('#qlLocSheet.show').wait_for();back()
- assert not page.locator('#qlLocSheet').evaluate("e=>e.classList.contains('show')") if page.locator('#qlLocSheet').count() else True
+ assert page.evaluate("!document.querySelector('#qlLocSheet.show')")
  assert page.locator('#folderEditorTitle').input_value()=='Unsubmitted folder title';back();ok('Location sheet closes before the folder editor and retains its fields')
  page.locator('#qlInstallNav').wait_for(state='attached');page.evaluate("document.querySelector('#qlInstallNav').click()")
  page.locator('.ql-inst-veil').wait_for();back();assert page.locator('.ql-inst-veil').count()==0;ok('Back closes the installation guide')
