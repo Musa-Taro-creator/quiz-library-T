@@ -46,9 +46,20 @@ try:
    return context,page,errors,dialogs
   context,page,errors,dialogs=boot(A)
   personal=page.evaluate('state.items.map(x=>x.id)')
+  page.locator('#studentWelcomeFloat').wait_for(state='detached')
+  for theme in ['white','neon','ocean']:
+   for width in [390,1280]:
+    page.set_viewport_size({'width':width,'height':900});page.evaluate('(t)=>{document.body.classList.remove("ql-white","ql-neon","ql-ocean");document.body.classList.add("ql-"+t)}',theme)
+    page.locator('[data-rm-create]').click();name=page.locator('#rmName');description=page.locator('#rmDesc');assert name.bounding_box()['height']>=44;assert description.bounding_box()['height']>=80
+    assert description.bounding_box()['y']-name.bounding_box()['y']-name.bounding_box()['height']>=15
+    name.fill('Study group');description.fill('Notes and revision');assert name.input_value()=='Study group';assert page.locator('#modalBody').evaluate('(e)=>e.scrollWidth<=e.clientWidth+1')
+    if width==1280:page.screenshot(path=f'/tmp/rooms-fields-create-{theme}.png')
+    page.locator('#rmCancel').click();page.locator('[data-rm-join]').click();assert page.locator('#rmCode').bounding_box()['height']>=44;page.locator('#rmCode').fill('ABCDE12345');page.locator('#rmCancel').click()
+  page.set_viewport_size({'width':1280,'height':900});page.evaluate('document.body.classList.remove("ql-ocean");document.body.classList.add("ql-white")');ok('Create/Join fields have full-size controls, proper spacing and no overflow in all themes on phone/tablet layouts')
   page.locator('[data-rm-create]').click();page.locator('#rmName').fill('MD-Y3-S2');page.locator('#rmSubmit').click();page.locator('[data-rm-manage]').wait_for()
   rid=page.evaluate('qlRooms.active()');room=rpc(A,'open',rid)['room'];code=room['invite_code']
   assert page.locator('[data-rm-tool]:enabled').count()==4;ok('Create Room exposes all four tools and owner controls')
+  page.locator('[data-rm-manage]').click();assert page.locator('#rmEditName').bounding_box()['height']>=44;page.locator('#rmManageClose').click()
   page.locator('[data-rm-tool="folder"]').click();page.locator('#folderEditorTitle').fill('Shared folder');page.locator('#folderEditorSave').click();page.locator('.rm-item .item-title',has_text='Shared folder').wait_for();folder=next(x for x in rpc(A,'open',rid)['items'] if x['kind']=='folder')
   page.locator('[data-rm-tool="link"]').click();page.locator('#editorTitle').fill('Study link');page.locator('#editorUrl').fill('https://example.test/study');page.locator('#editorSave').click();page.locator('.rm-item .item-title',has_text='Study link').wait_for()
   link=next(x for x in rpc(A,'open',rid)['items'] if x['kind']=='link');page.locator(f'[data-rm-more="{link["id"]}"]').click();page.locator('[data-room-action="move"]').click()
@@ -119,10 +130,19 @@ try:
    elif r.request.resource_type=='script':r.fulfill(status=200,content_type='application/javascript',body='/* mock transport */')
    else:r.abort()
   ac.route('**/*',admin_route);ap.goto(origin+'/admin.html');ap.locator('.nav[data-v="rooms"]').click();ap.locator('#raSave').wait_for()
+  for theme in ['white','neon','ocean']:
+   for width in [390,1280]:
+    ap.set_viewport_size({'width':width,'height':900});ap.evaluate('(t)=>{document.body.classList.remove("t-white","t-neon","t-ocean");document.body.classList.add("t-"+t)}',theme)
+    for field in ap.locator('.ra-limits input').all():
+     box=field.bounding_box();assert box['height']>=44 and box['x']>=0 and box['x']+box['width']<=width+1
+     styles=field.evaluate('(e)=>({fg:getComputedStyle(e).color,bg:getComputedStyle(e).backgroundColor})');assert styles['fg']!=styles['bg'];assert styles['bg']!='rgb(255, 255, 255)' if theme!='white' else styles['fg']!='rgb(255, 255, 255)'
+    assert ap.locator('.rooms-admin-controls').evaluate('(e)=>e.scrollWidth<=e.clientWidth+1')
+    if width==1280:ap.screenshot(path=f'/tmp/rooms-fields-admin-{theme}.png')
+  ok('Admin limits are readable and contained in the card in every theme and viewport')
   ap.locator('#ra_max_members').fill('25');ap.locator('#raSave').click();ap.wait_for_timeout(200);assert rpc(C,'admin_list')['config']['max_members']==25
   ap.locator('[data-ra-status]').first.click();ap.wait_for_timeout(200);assert rpc(C,'open',rid)['room']['status']=='suspended'
   ap.locator('[data-ra-status]').first.click();ap.wait_for_timeout(200);assert rpc(C,'open',rid)['room']['status']=='active'
-  ap.locator('[data-ra-manage]').first.click();ap.locator('#raLocked').check();ap.locator('#raRoomSave').click();ap.wait_for_timeout(200);assert rpc(C,'open',rid)['room']['locked'];rpc(C,'settings',rid,{'locked':False})
+  ap.locator('[data-ra-manage]').first.click();assert ap.locator('#raName').bounding_box()['height']>=44;ap.locator('#raLocked').check();ap.locator('#raRoomSave').click();ap.wait_for_timeout(200);assert rpc(C,'open',rid)['room']['locked'];rpc(C,'settings',rid,{'locked':False})
   ap.evaluate("missingRooms=true;go('rooms')");ap.locator('#raCopySetup').click();ap.wait_for_function('!!window.copiedSetup');assert ap.evaluate('window.copiedSetup')==(ROOT/'supabase/shared_rooms_v1.sql').read_text()
   assert not ae,ae;ac.close();ok('Website admin controls room limits, suspension and owner overrides; iPad setup copies the exact SQL')
   assert not errors,errors;assert not me,me;assert not dialogs,dialogs;assert not md,md
