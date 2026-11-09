@@ -23,9 +23,17 @@ revoke all on function public.ql_admin_payment_checks(uuid) from public, anon;
 grant execute on function public.ql_admin_payment_checks(uuid) to authenticated;
 
 -- the new-receipt notification opens the review window (only if notifications are set up)
+-- Skipped when khqr_auto_detect.sql's newer version is already installed: that version
+-- also opens the review window and knows the KHQR states. Replacing it with this simple
+-- one would notify "New payment receipt" for every QR shown and every status change.
 do $$
 begin
-  if to_regprocedure('public.ql__push(text,text,text,text)') is not null then
+  if to_regprocedure('public.ql__push(text,text,text,text)') is null then return; end if;
+  if to_regprocedure('public.ql__push_on_payment()') is not null
+     and pg_get_functiondef('public.ql__push_on_payment()'::regprocedure) like '%tg_op%' then
+    return;
+  end if;
+  begin
     execute $f$
       create or replace function public.ql__push_on_payment()
       returns trigger language plpgsql security definer set search_path = public as $b$
@@ -40,7 +48,7 @@ begin
       end;
       $b$;
     $f$;
-  end if;
+  end;
 end $$;
 
 notify pgrst, 'reload schema';
