@@ -17,13 +17,21 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-09-v6">
+<meta name="ql-shell-generation" content="reliability-2026-11-09-v7">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
 </script>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <style>
+/* While the app is starting (waiting for the server), say so instead of "0 items". */
+body.ql-booting #content::before{content:"Loading your library…";grid-column:1/-1;display:block;padding:48px 16px;text-align:center;color:var(--muted,#768196);font-weight:600;font-size:15px}
+body.ql-booting.ql-boot-slow #content::before{content:"Still loading… the connection is slow. Please wait.";}
+body.ql-booting #itemCount{visibility:hidden}
+/* Signed in, and the student's own items are still loading from the server. */
+body.ql-ws-loading #content:empty::before{content:"Loading your library…";grid-column:1/-1;display:block;padding:48px 16px;text-align:center;color:var(--muted,#768196);font-weight:600;font-size:15px}
+body.ql-ws-loading.ql-boot-slow #content:empty::before{content:"Still loading… the connection is slow. Please wait.";}
+body.ql-ws-loading #itemCount{visibility:hidden}
 /* Keep offscreen bulk-preview cards out of expensive layout and paint work. */
 
 :root{
@@ -3383,7 +3391,8 @@ select.qz-sec-chip-add{width:72px;flex:0 0 auto;padding:0 10px;background:transp
 }
 </style>
 </head>
-<body class="student-only-build">
+<body class="student-only-build ql-booting">
+<script>setTimeout(()=>{if(document.body.classList.contains("ql-booting"))document.body.classList.add("ql-boot-slow")},10000)</script>
 <div id="setupScreen" class="setup-screen">
   <div class="setup-card">
     <h1 id="setupTitle">Unable to open Quiz Library</h1>
@@ -4832,7 +4841,7 @@ const qlOff=(function(){
     return fetch(input,init);
   };
   setInterval(()=>{
-    if(!api.active||navigator.onLine===false)return;
+    if(!api.active||navigator.onLine===false||document.visibilityState!=="visible")return;
     fetch(SUPABASE_URL+"/auth/v1/health",{headers:{apikey:SUPABASE_KEY},cache:"no-store"}).then(r=>{if(r.status<500)window.dispatchEvent(new Event("online"))}).catch(()=>{});
   },20000);
   /* back online: leave offline mode and reload fresh data */
@@ -4873,7 +4882,7 @@ window.__quizTest={state,service,navigate,openAdmin,exitAdmin,openUpload,openEdi
   $("#setupError").textContent=friendlyError(error);
   $("#setupScreen").classList.add("show");
   setConnection(false)
-}})();
+}finally{document.body.classList.remove("ql-booting","ql-boot-slow")}})();
 </script>
 
 <script id="notes40to50Patch">
@@ -5228,8 +5237,13 @@ $("#content").onclick=async event=>{if(state.section==="activity"){try{if(await 
 const qlOldSearchKeydown=$("#searchInput").onkeydown;$("#searchInput").onkeydown=event=>{qlOldSearchKeydown?.(event);if(event.key==="Enter"&&$("#searchInput").value.trim())logActivity("search",{details:{query:$("#searchInput").value.trim()},section:state.section})};
 const qlOldToggleFavorite=toggleFavorite;toggleFavorite=async function(x){const was=isFavorite(x);await qlOldToggleFavorite(x);await logActivity(was?"favorite_remove":"favorite_add",{item:x})};
 
-/* Activity realtime refresh, separate from the original content channel. */
-if(service.client){service.client.channel(`activity-${LIBRARY_ID}`).on("postgres_changes",{event:"*",schema:"public",table:"library_devices",filter:`library_id=eq.${LIBRARY_ID}`},()=>{if(state.section==="activity")qlLoadActivity()}).on("postgres_changes",{event:"INSERT",schema:"public",table:"library_activity_logs",filter:`library_id=eq.${LIBRARY_ID}`},()=>{if(state.section==="activity"){state.activityDetails.clear();qlLoadActivity()}}).subscribe()}
+/* Activity realtime refresh, separate from the original content channel.
+   Only the Admin Activity page uses it, and the student-only build has no Admin, so it is
+   not opened there (each page load used to open it for nothing).
+   library_activity_logs has no library_id column (logs belong to a device), so its
+   updates are not filtered by library_id: Realtime refused that filter
+   ("invalid column for filter library_id"). */
+if(service.client&&!STUDENT_ONLY_BUILD){service.client.channel(`activity-${LIBRARY_ID}`).on("postgres_changes",{event:"*",schema:"public",table:"library_devices",filter:`library_id=eq.${LIBRARY_ID}`},()=>{if(state.section==="activity")qlLoadActivity()}).on("postgres_changes",{event:"INSERT",schema:"public",table:"library_activity_logs"},()=>{if(state.section==="activity"){state.activityDetails.clear();qlLoadActivity()}}).subscribe()}
 
 window.__quizTest={...window.__quizTest,state,service,render,navigate,openItem,openFolderEditor,shareOne,exportHtml,qlDuplicateGroups,isSelfReferentialUrl,qlMakeZip};
 
@@ -17387,7 +17401,8 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
     try{chan=cli().channel("ql-active-device-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_active_device",filter:"user_id=eq."+uid},p=>{const r=p.new;if(!multi&&r&&r.device_id&&r.device_id!==deviceId)kick(r)}).subscribe()}catch(e){}
     /* own channel, so a missing device-history table never affects the one above */
     try{chan2=cli().channel("ql-device-log-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_device_log",filter:"user_id=eq."+uid},p=>{const r=p.new;if(r&&r.device_id===deviceId&&r.blocked)return kick(null,true);try{window.qlDevicesRefresh&&qlDevicesRefresh()}catch(e){}}).subscribe()}catch(e){}
-    poll=setInterval(check,45000);
+    /* hidden tabs do not ask the server; the tab checks again as soon as it is visible */
+    poll=setInterval(()=>{if(document.visibilityState==="visible")check()},45000);
   }
   /* signing out frees this device's place */
   setInterval(()=>{const c=cli();if(!c||!c.auth||c.auth.__qlDevWrap)return;const orig=c.auth.signOut.bind(c.auth);
@@ -19613,7 +19628,9 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   }
   window.qlOpenSupport=openSupport;
   setInterval(()=>{try{place();listen()}catch{}},1500);
-  setInterval(refreshUnread,60000);setTimeout(refreshUnread,3000);
+  /* hidden tabs do not ask the server; refresh as soon as the tab is visible again */
+  setInterval(()=>{if(document.visibilityState==="visible")refreshUnread()},60000);setTimeout(refreshUnread,3000);
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refreshUnread()});
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refreshUnread()});
 })();
 </script>
@@ -19934,6 +19951,16 @@ body.ql-neon .ql-off-sw.on{background:#00c8a0;box-shadow:0 0 12px rgba(0,229,255
 })();
 </script>
 
+<script id="qlWorkspaceLoading">
+/* While a signed-in student's own items are loading, show "Loading your library…"
+   instead of an empty page with "0 items" (it looked as if everything was deleted). */
+(function(){
+  const waiting=()=>{try{return !!(state.user&&!state.isAdmin&&!state.user.__mock&&!state.studentWorkspaceReady&&!state.studentWorkspaceError&&!(window.qlOff&&qlOff.active))}catch(e){return false}};
+  const sync=()=>{const on=waiting();document.body.classList.toggle("ql-ws-loading",on);if(on&&!sync.slow)sync.slow=setTimeout(()=>{sync.slow=null;if(waiting())document.body.classList.add("ql-boot-slow");sync()},10000);if(!on&&!document.body.classList.contains("ql-booting"))document.body.classList.remove("ql-boot-slow")};
+  const prior=render;render=function(){const out=prior.apply(this,arguments);sync();return out};
+  setInterval(sync,1000);
+})();
+</script>
 <script id="qlRoomsLoader">
 (function(){
  window.qlOpenRooms=async()=>{if(window.qlCanOpenRooms?.()===false)return;const loading=qlLoadingDialog("Rooms","Opening Rooms…");try{const m=await import(new URL("rooms.mjs",document.baseURI).href);if(!loading.current())return;loading.close();await m.openRooms()}catch(e){if(loading.current()){loading.close();alert(friendlyError(e))}}};

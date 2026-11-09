@@ -41,6 +41,7 @@ before these files and are not in this repository.
 2. `plan_sale.sql`: discounts.
 3. `plan_limits_more.sql`: limits for quiz links and folders.
 4. `plan_limits_on_edit.sql`: limits also apply when items are restored, change type, or grow.
+4b. `questions_per_quiz_limit.sql`: the questions-per-quiz limit is checked by the database too.
 5. `admin_extras.sql`: storage numbers, permanent user delete.
 6. `hide_admins.sql`: keep admin accounts out of user lists and numbers.
 7. `gift_plans.sql`: gift a plan to a user.

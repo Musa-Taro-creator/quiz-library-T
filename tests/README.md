@@ -48,6 +48,7 @@ python tests/system-back.browser.py
 python tests/password-recovery.browser.py
 python tests/startup-library-missing.browser.py
 python tests/device-check-loop.browser.py
+python tests/hidden-tab-polling.browser.py
 ```
 
 For the additional supported text-ID schema compatibility check:
