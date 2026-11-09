@@ -157,6 +157,12 @@ with sync_playwright() as p:
         if field.evaluate('el=>el.readOnly'):
             field.focus()
             page.locator('.ql-strong-no').click()
+            # "No" focuses the password field on the next animation frame. Wait
+            # for it, or that focus can land while the confirm field is being
+            # filled and send the confirm text into the password field.
+            page.wait_for_function("document.activeElement?.id==='studentNewPassword'")
+        # Let any other focus scheduled for the next frame happen before typing.
+        page.evaluate('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))')
         page.locator('#studentNewPassword').fill(password)
         page.locator('#studentNewPasswordConfirm').fill(password if confirm is None else confirm)
 
