@@ -311,9 +311,10 @@ $("#loginForm").onsubmit=async ev=>{ev.preventDefault();const b=$("#lBtn");b.dis
 $("#signOut").onclick=async()=>{await sb.auth.signOut();msgDrafts.clear();msgUser=null;me=null;location.hash="";showLogin()};
 $$(".nav").forEach(n=>n.onclick=()=>go(n.dataset.v));
 async function loadCommon(){
+  const user=me?.id;
   const [p,cfg]=await Promise.all([rpc("ql_admin_plans").catch(()=>[]),sb.from("ql_site_settings").select("key,value")]);
-  plans=p||[];settings={};(cfg.data||[]).forEach(r=>settings[r.key]=r.value||{});
-  rpc("ql_admin_payments",{p_status:"waiting"}).then(r=>{const n=(r||[]).length;const pill=$("#payPill");pill.textContent=n;pill.classList.toggle("hidden",!n)}).catch(()=>{});
+  if(me?.id!==user)return;plans=p||[];settings={};(cfg.data||[]).forEach(r=>settings[r.key]=r.value||{});
+  rpc("ql_admin_payments",{p_status:"waiting"}).then(r=>{if(me?.id!==user)return;const n=(r||[]).length;const pill=$("#payPill");pill.textContent=n;pill.classList.toggle("hidden",!n)}).catch(()=>{});
   msgPill();
 }
 const planById=id=>plans.find(p=>p.id===id)||{id,name:id||"—",color:"#94a3b8"};
@@ -327,13 +328,17 @@ function go(v){
   $$(".nav").forEach(n=>n.classList.toggle("on",n.dataset.v===v));
   /* same page refreshing itself (filters, tabs, after saving): keep it on screen and keep the scroll position */
   if(same){$("#view").style.minHeight=$("#view").offsetHeight+"px"}else{$("#view").innerHTML=`<div class="loading">Loading…</div>`;window.scrollTo(0,0)}
-  views[map[v]]().then(()=>{if(serial!==viewSerial)return;if(same){window.scrollTo(0,y);requestAnimationFrame(()=>{window.scrollTo(0,y);$("#view").style.minHeight=""})}}).catch(e=>{if(serial!==viewSerial)return;$("#view").style.minHeight="";$("#view").innerHTML=`<div class="card"><div class="err">${h(errMsg(e))}</div></div>`});
+  views[map[v]]().then(()=>{if(serial!==viewSerial)return;if(same){window.scrollTo(0,y);requestAnimationFrame(()=>{if(serial!==viewSerial)return;window.scrollTo(0,y);$("#view").style.minHeight=""})}}).catch(e=>{if(serial!==viewSerial)return;$("#view").style.minHeight="";$("#view").innerHTML=`<div class="card"><div class="err">${h(errMsg(e))}</div></div>`});
 }
+function adminViewCurrent(){const serial=viewSerial,user=me?.id;return ()=>serial===viewSerial&&me?.id===user&&!$("#app").classList.contains("hidden")}
+function adminLoading(title,sub,controls=""){ $("#view").innerHTML=head(title,sub)+controls+'<div class="card loading" role="status" aria-live="polite">Loading…</div>'}
 const head=(t,s,r="")=>`<div class="top"><div><h1>${t}</h1><div class="sub">${s}</div></div><div class="sp"></div>${r}</div>`;
 
 /* ---------------- dashboard ---------------- */
 async function dash(){
+  const current=adminViewCurrent();
   const [s,waiting,st]=await Promise.all([rpc("ql_admin_stats"),rpc("ql_admin_payments",{p_status:"waiting"}),rpc("ql_admin_storage").catch(()=>null)]);
+  if(!current())return;
   const lim=(st&&st.limits)||{files_mb:1024,db_mb:500,warn_percent:90},warnAt=Number(lim.warn_percent||90);
   const filesB=st?Number(st.files_bytes):Number(s.storage_bytes||0),filesCap=Number(lim.files_mb||1024)*1048576,dbB=st?Number(st.db_bytes):0,dbCap=Number(lim.db_mb||500)*1048576;
   const fp=Math.min(100,filesB/filesCap*100),dp=Math.min(100,dbB/dbCap*100);
@@ -369,11 +374,20 @@ async function dash(){
 
 /* ---------------- users ---------------- */
 let usersFilter="all",usersSearch="",usersPage=0;
+function usersFilters(){return `<div class="filters">${[["all","All"],...plans.map(p=>[p.id,p.name]),["ending","Ending soon"],["suspended","Suspended"]].map(([k,l])=>`<button class="btn ${usersFilter===k?"on":""}" data-f="${h(k)}">${h(l)}</button>`).join("")}</div>`}
+function wireUsersFilters(){
+ const input=$("#uSearch");let timer;input.oninput=e=>{clearTimeout(timer);const value=e.target.value;timer=setTimeout(()=>{if(!input.isConnected||cur!=="users")return;usersSearch=value.trim();usersPage=0;go("users")},450)};
+ $$("[data-f]").forEach(b=>b.onclick=()=>{usersSearch=input.value.trim();usersFilter=b.dataset.f;usersPage=0;go("users")});
+}
 async function users(){
-  const rows=await rpc("ql_admin_users",{p_search:usersSearch,p_filter:usersFilter,p_limit:50,p_offset:usersPage*50});
+  const current=adminViewCurrent(),query={p_search:usersSearch,p_filter:usersFilter,p_limit:50,p_offset:usersPage*50};
+  $("#view").innerHTML=head("Users","Everyone who has a Quiz Library account",`<input id="uSearch" class="in" style="width:280px;max-width:100%" placeholder="Search name or email…" value="${h(usersSearch)}">`)+usersFilters()+'<div class="card loading" role="status" aria-live="polite">Loading users…</div>';wireUsersFilters();
+  const [rows,,all]=await Promise.all([rpc("ql_admin_users",query),loadCommon(),query.p_filter!=="all"||query.p_search?rpc("ql_admin_users",{p_search:"",p_filter:"all",p_limit:1,p_offset:0}).catch(()=>null):null]);
+  if(!current())return;
+  const pendingSearch=$("#uSearch").value;
   const total=rows[0]?Number(rows[0].total):0;
-  await loadCommon();const site={...(settings.site||{})},maxU=/^\d+$/.test(String(site.max_users??""))?Number(site.max_users):null;
-  let allUsers=total;if(usersFilter!=="all"||usersSearch){try{const a=await rpc("ql_admin_users",{p_search:"",p_filter:"all",p_limit:1,p_offset:0});allUsers=a[0]?Number(a[0].total):0}catch{}}
+  const site={...(settings.site||{})},maxU=/^\d+$/.test(String(site.max_users??""))?Number(site.max_users):null;
+  const allUsers=all?(all[0]?Number(all[0].total):0):total;
   const full=maxU!=null&&allUsers>=maxU;
   $("#view").innerHTML=head("Users","Everyone who has a Quiz Library account",`<input id="uSearch" class="in" style="width:280px;max-width:100%" placeholder="Search name or email…" value="${h(usersSearch)}">`)+`
   <div class="card" style="margin-bottom:14px"><div class="inline" style="gap:14px">
@@ -394,8 +408,7 @@ async function users(){
   const saveMax=async v=>{if(v!==""&&(!/^\d+$/.test(v)||Number(v)<1))return alert("Type a number, e.g. 500");if(v!==""&&Number(v)<allUsers&&!confirm(`There are already ${allUsers} accounts. Nobody new can sign up until some are deleted. Save anyway?`))return;
     await saveSetting("site",{...site,max_users:v===""?null:Number(v)},v===""?"Limit removed — anyone can sign up":"Account limit saved");go("users")};
   $("#uMaxSave").onclick=()=>saveMax($("#uMax").value.trim());$("#uMaxOff")&&($("#uMaxOff").onclick=()=>saveMax(""));
-  let t;$("#uSearch").oninput=e=>{clearTimeout(t);t=setTimeout(()=>{usersSearch=e.target.value.trim();usersPage=0;go("users")},450)};
-  $$("[data-f]").forEach(b=>b.onclick=()=>{usersFilter=b.dataset.f;usersPage=0;go("users")});
+  $("#uSearch").value=pendingSearch;wireUsersFilters();if(pendingSearch.trim()!==query.p_search)$("#uSearch").dispatchEvent(new Event("input"));
   $("#uPrev")&&($("#uPrev").onclick=()=>{usersPage--;go("users")});$("#uNext")&&($("#uNext").onclick=()=>{usersPage++;go("users")});
   $$("[data-u]").forEach(b=>b.onclick=()=>manageUser(rows.find(r=>r.user_id===b.dataset.u)));
 }
@@ -471,7 +484,8 @@ function manageUser(r){
 /* ---------------- plans ---------------- */
 let selPlan=null;
 async function plansView(){
-  plans=await rpc("ql_admin_plans");
+  const current=adminViewCurrent();
+  const rows=await rpc("ql_admin_plans");if(!current())return;plans=rows;
   const lim=(p,k)=>{const L=p.limits||{};if(k==="devices"&&!(k in L))return 1;const v=L[k];return v==null?"Unlimited":k==="storage_mb"?mb(v):v};
   $("#view").innerHTML=head("Plans &amp; Limits","Change a plan and it applies to everyone on it",`<button class="btn p" id="addPlan">＋ Add new plan</button>`)+`
   <div class="plans">${plans.map(p=>`<div class="plan" data-pick="${h(p.id)}" style="cursor:pointer;${(selPlan||plans.find(x=>x.badge)?.id||plans[0]?.id)===p.id?`border:2px solid ${p.color};box-shadow:0 12px 30px ${p.color}40`:""}">${p.badge?`<span class="badge" style="background:${p.color}">${h(p.badge)}</span>`:""}
@@ -709,7 +723,8 @@ function showGeneratedCodes(session){
 /* ---------------- website control ---------------- */
 async function saveSetting(key,value,msg="Saved — students see it within seconds"){settings[key]=value;await rpc("ql_admin_set_setting",{p_key:key,p_value:value});toast(msg)}
 async function ctl(){
-  await loadCommon();
+  const current=adminViewCurrent();
+  await loadCommon();if(!current())return;
   const site={open:true,message:"Quiz Library is under maintenance. Back soon!",close_at:null,...(settings.site||{})},F={...(settings.features||{})};
   const closingSoon=site.open!==false&&site.close_at&&new Date(site.close_at)>Date.now();
   $("#view").innerHTML=head("Website Control","Switch anything in the students' website on or off — students see changes within seconds")+`
@@ -733,7 +748,8 @@ async function ctl(){
 
 /* ---------------- announcements ---------------- */
 async function news(){
-  await loadCommon();const a={active:false,text:"",level:"info",...(settings.announcement||{})},gr=(settings.site||{}).greet||{};
+  const current=adminViewCurrent();
+  await loadCommon();if(!current())return;const a={active:false,text:"",level:"info",...(settings.announcement||{})},gr=(settings.site||{}).greet||{};
   $("#view").innerHTML=head("Announcements","A message shown at the top of the students' website")+`
   <div class="card" style="max-width:760px"><div class="fld"><label>Message</label><textarea id="aText" class="in" maxlength="300" placeholder="e.g. New: share whole folders with your friends!">${h(a.text)}</textarea></div>
    <div class="fld"><label>Colour</label><div class="seg" id="aLvl">${[["info","Blue · news"],["success","Green · good news"],["warning","Yellow · warning"]].map(([k,l])=>`<button type="button" data-l="${k}" class="${a.level===k?"on":""}">${l}</button>`).join("")}</div></div>
@@ -765,7 +781,8 @@ async function news(){
 
 /* ---------------- shared rooms: website admin controls ---------------- */
 async function roomsAdmin(){
- let data;try{data=await rpc("ql_room_v1",{p_action:"admin_list",p_room:null,p_data:{}})}catch(e){$("#view").innerHTML=head("Rooms","Owner-managed shared libraries")+`<div class="card err">${h(errMsg(e))}<p>Copy the Rooms SQL, paste it into Supabase → SQL Editor → New query, then Run. Return here after “Shared Rooms update complete”.</p><button class="btn g" id="raCopySetup">Copy Rooms SQL</button><textarea id="raSetupText" class="in hidden" readonly style="width:100%;height:240px" aria-label="Rooms SQL setup"></textarea></div>`;
+  const current=adminViewCurrent();
+ let data;try{data=await rpc("ql_room_v1",{p_action:"admin_list",p_room:null,p_data:{}});if(!current())return}catch(e){if(!current())return;$("#view").innerHTML=head("Rooms","Owner-managed shared libraries")+`<div class="card err">${h(errMsg(e))}<p>Copy the Rooms SQL, paste it into Supabase → SQL Editor → New query, then Run. Return here after “Shared Rooms update complete”.</p><button class="btn g" id="raCopySetup">Copy Rooms SQL</button><textarea id="raSetupText" class="in hidden" readonly style="width:100%;height:240px" aria-label="Rooms SQL setup"></textarea></div>`;
   $("#raCopySetup").onclick=async()=>{try{const response=await fetch("supabase/shared_rooms_v1.sql",{cache:"no-store"});if(!response.ok)throw Error("Could not load the SQL. Refresh and try again.");const sql=await response.text();if(!sql.startsWith("-- Shared Rooms."))throw Error("SQL file is unavailable. Refresh and try again.");try{await navigator.clipboard.writeText(sql);toast("Rooms SQL copied. Paste it into Supabase SQL Editor.")}catch{const box=$("#raSetupText");box.value=sql;box.classList.remove("hidden");box.focus();box.select();toast("Select and copy this SQL, then paste it into Supabase.")}}catch(error){alert(errMsg(error))}};return}
  const c=data?.config||{},rows=data?.rooms||[],permissions=c.permissions||{};
  $("#view").innerHTML=head("Rooms","Website controls take priority over room-owner permissions")+`
@@ -774,18 +791,21 @@ async function roomsAdmin(){
  const roomRpc=(action,id,payload)=>rpc("ql_room_v1",{p_action:action,p_room:id,p_data:payload||{}});
  $("#raSave").onclick=async()=>{const next={...c,enabled:$("#raEnabled").checked,permissions:{...permissions}};for(const key of ["max_rooms","max_members","max_items","max_questions","max_pdf_mb"])next[key]=Number($("#ra_"+key).value);$$("[data-ra-perm]").forEach(e=>next.permissions[e.dataset.raPerm]=e.checked);try{await roomRpc("admin_config",null,next);toast("Rooms controls saved")}catch(e){alert(errMsg(e))}};
  $$("[data-ra-status]").forEach(b=>b.onclick=async()=>{const r=rows.find(r=>r.id===b.dataset.raStatus);if(!confirm(r.status==="suspended"?"Restore this room?":"Suspend this room for all its members?"))return;try{await roomRpc("settings",r.id,{status:r.status==="suspended"?"active":"suspended"});go("rooms")}catch(e){alert(errMsg(e))}});
- $$("[data-ra-manage]").forEach(b=>b.onclick=async()=>{try{const data=await roomRpc("open",b.dataset.raManage),r=data.room;
+ $$("[data-ra-manage]").forEach(b=>b.onclick=async()=>{const pending=modal("Room settings",'<div role="status">Loading room settings…</div>');try{const data=await roomRpc("open",b.dataset.raManage);if(!current()||!pending.isConnected){pending.remove();return}pending.remove();const r=data.room;
  const o=modal("Manage room · "+h(r.name),`<div class="fld"><label for="raName">Room name</label><input class="in ra-room-name" id="raName" value="${h(r.name)}"></div><label><input type="checkbox" id="raLocked" ${r.locked?"checked":""}> Lock member editing</label><button class="btn g" id="raRoomSave">Save room settings</button><h3>Members</h3>${(data.members||[]).map(m=>`<div class="inline" style="padding:10px 0"><strong>${h(m.name)}</strong> ${m.user_id===r.owner_id?"Owner":`<button class="btn" data-ra-user="${h(m.user_id)}" data-ra-action="edit">${m.can_edit?"Read only":"Allow editing"}</button><button class="btn r" data-ra-user="${h(m.user_id)}" data-ra-action="block">${m.status==="blocked"?"Restore access":"Remove access"}</button>`}</div>`).join("")}`);
  o.querySelector("#raRoomSave").onclick=async()=>{try{await roomRpc("settings",r.id,{name:o.querySelector("#raName").value,locked:o.querySelector("#raLocked").checked});o.remove();go("rooms")}catch(e){alert(errMsg(e))}};
  o.querySelectorAll("[data-ra-user]").forEach(e=>e.onclick=async()=>{const m=data.members.find(x=>x.user_id===e.dataset.raUser);try{await roomRpc("member",r.id,{user_id:m.user_id,...(e.dataset.raAction==="edit"?{can_edit:!m.can_edit}:{status:m.status==="blocked"?"active":"blocked"})});o.remove();go("rooms")}catch(error){alert(errMsg(error))}});
- }catch(e){alert(errMsg(e))}});
+ }catch(e){if(current()&&pending.isConnected){pending.remove();alert(errMsg(e))}}});
 }
 
 /* ---------------- student dashboard (posts) ---------------- */
 let boardStatus="approved";
 const KIND={quiz:["Quiz","#8b5cf6"],pdf:["PDF","#f43f5e"],link:["Link","#10b981"],folder:["Folder","#f59e0b"]};
+function boardFilters(){return `<div class="filters">${[["approved","On the Dashboard"],["removed","Removed"]].map(([k,l])=>`<button class="btn ${boardStatus===k?"on":""}" data-bs="${k}">${l}</button>`).join("")}</div>`}
+function wireBoardFilters(){$$("[data-bs]").forEach(b=>b.onclick=()=>{boardStatus=b.dataset.bs;go("board")})}
 async function board(){
-  let rows;try{rows=await rpc("ql_admin_dash",{p_status:boardStatus})}catch(e){if(/ql_admin_dash|PGRST202|42883|does not exist/.test(errMsg(e))){$("#view").innerHTML=head("Student Dashboard","Posts students share with everyone")+`<div class="card"><div class="note" style="margin:0">Run <b>dashboard.sql</b> in Supabase → SQL Editor first.</div></div>`;return}throw e}
+  const current=adminViewCurrent(),status=boardStatus;adminLoading("Student Dashboard","What students posted for everyone",boardFilters());wireBoardFilters();
+  let rows;try{rows=await rpc("ql_admin_dash",{p_status:status});if(!current())return}catch(e){if(!current())return;if(/ql_admin_dash|PGRST202|42883|does not exist/.test(errMsg(e))){$("#view").innerHTML=head("Student Dashboard","Posts students share with everyone")+`<div class="card"><div class="note" style="margin:0">Run <b>dashboard.sql</b> in Supabase → SQL Editor first.</div></div>`;return}throw e}
   $("#view").innerHTML=head("Student Dashboard","What students posted for everyone — remove anything you don't want there")+`
   <div class="filters">${[["approved","On the Dashboard"],["removed","Removed"]].map(([k,l])=>`<button class="btn ${boardStatus===k?"on":""}" data-bs="${k}">${l}</button>`).join("")}</div>
   <div class="card"><div class="tbl"><table><tr><th>Post</th><th>By</th><th>Inside</th><th>Sent</th><th>Opened</th><th></th></tr>
@@ -794,7 +814,7 @@ async function board(){
      <td>${h(inside)}</td><td>${ago(r.created_at)}</td><td>${r.opens||0}</td>
      <td class="inline"><button class="btn" data-bprev="${r.id}">Preview</button>${r.status==="pending"?`<button class="btn g" data-bok="${r.id}">Approve</button><button class="btn r" data-bno="${r.id}">Reject</button>`:r.status==="approved"?`<button class="btn r" data-brm="${r.id}">Remove</button>`:`<button class="btn g" data-bok="${r.id}">Put on Dashboard</button>`}${r.admin_note?`<div class="note" style="margin:4px 0 0">${h(r.admin_note)}</div>`:""}</td></tr>`}).join(""):`<tr><td colspan="6" class="empty">Nothing here</td></tr>`}</table></div>
   <div class="note">On the Dashboard students can <b>take</b> quizzes and <b>open</b> PDFs, links and folders. "Save to my library" follows Website Control → Dashboard → Save to my library.</div></div>`;
-  $$("[data-bs]").forEach(b=>b.onclick=()=>{boardStatus=b.dataset.bs;go("board")});
+  wireBoardFilters();
   const act=async(id,a)=>{let note="";if(a!=="approve"){note=prompt(a==="reject"?"Reason (the student sees this):":"Reason (optional):",a==="reject"?"Not suitable for the Dashboard":"")??null;if(note===null)return}
     try{await rpc("ql_admin_dash_decide",{p_id:id,p_action:a,p_note:note});toast(a==="approve"?"Approved — everyone can see it now":a==="reject"?"Rejected":"Removed from the Dashboard");await loadCommon();go("board")}catch(e){alert(errMsg(e))}};
   $$("[data-bok]").forEach(b=>b.onclick=()=>act(b.dataset.bok,"approve"));$$("[data-bno]").forEach(b=>b.onclick=()=>act(b.dataset.bno,"reject"));$$("[data-brm]").forEach(b=>b.onclick=()=>act(b.dataset.brm,"remove"));
@@ -812,7 +832,7 @@ function kqOnline(c){return !!(c&&c.last_seen&&new Date(c.now||Date.now())-new D
 function kqChip(c){if(!c||c.missing||!c.has_secret)return "";const on=kqOnline(c),bad=on&&c.last_note&&c.last_note!=="ok";
   return `<span class="tag ${on&&!bad?"ok":"no"}" title="${h(c.last_note||"")}">⚡ Auto-check ${on?(bad?"has a problem":"online"):"offline"}</span>`}
 async function kqAuto(){
-  const box=$("#kqAuto");if(!box)return;const c=await kqStatus();
+  const box=$("#kqAuto");if(!box)return;const current=adminViewCurrent();const c=await kqStatus();if(!current()||!box.isConnected)return;
   if(c.missing){box.innerHTML=`<div class="note" style="margin:0">One-time setup first: run <b>khqr_autocheck.sql</b> in Supabase → SQL Editor.</div>`;return}
   const on=kqOnline(c),bad=on&&c.last_note&&c.last_note!=="ok";
   box.innerHTML=`<div class="inline" style="flex-wrap:wrap;margin-bottom:8px">${c.has_secret?kqChip(c):`<span class="tag no">Not set up</span>`}
@@ -840,7 +860,8 @@ async function kqAuto(){
 
 /* ---------------- settings ---------------- */
 async function settingsView(){
-  await loadCommon();const p={bank:"",account_name:"",account_number:"",qr_image:"",note:"",receipts:true,...(settings.payment||{})};
+  const current=adminViewCurrent();
+  await loadCommon();if(!current())return;const p={bank:"",account_name:"",account_number:"",qr_image:"",note:"",receipts:true,...(settings.payment||{})};
   const sup={files_mb:1024,db_mb:500,warn_percent:90,...(settings.supabase||{})};
   const ct=((settings.site||{}).contact)||{};
   const curTheme=(document.body.className.match(/t-(\w+)/)||[])[1]||"white";
@@ -919,10 +940,11 @@ setInterval(msgPill,60000);
 function msgListen(){if(msgChan)return;try{msgChan=sb.channel("ql-admin-support").on("postgres_changes",{event:"INSERT",schema:"public",table:"ql_support_msgs"},()=>{msgPill();if(cur==="msgs")go("msgs")}).subscribe()}catch{}}
 const msgWhen=t=>{const d=new Date(t);return d.toDateString()===new Date().toDateString()?d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}):d.toLocaleDateString([],{day:"numeric",month:"short"})};
 async function msgs(){
+  const current=adminViewCurrent();
   const generation=++msgRenderGeneration;
   msgListen();
-  let list;try{list=await rpc("ql_admin_support_list")}catch(e){if(/ql_admin_support_list|PGRST202|42883|does not exist/.test(String(e.message||e))){$("#view").innerHTML=head("Messages","Questions from students")+`<div class="card"><div class="note" style="margin:0">Run <b>support_messages.sql</b> in Supabase first, then reload.</div></div>`;return}throw e}
-  if(cur!=="msgs"||generation!==msgRenderGeneration)return;
+  let list;try{list=await rpc("ql_admin_support_list");if(!current())return}catch(e){if(!current())return;if(/ql_admin_support_list|PGRST202|42883|does not exist/.test(String(e.message||e))){$("#view").innerHTML=head("Messages","Questions from students")+`<div class="card"><div class="note" style="margin:0">Run <b>support_messages.sql</b> in Supabase first, then reload.</div></div>`;return}throw e}
+  if(!current()||cur!=="msgs"||generation!==msgRenderGeneration)return;
   msgCaptureDraft();
   if(msgUser&&!list.some(r=>r.user_id===msgUser))msgUser=null;
   const wide=matchMedia("(min-width:901px)").matches;if(!msgUser&&wide&&list[0])msgUser=list[0].user_id;
@@ -942,7 +964,7 @@ async function msgs(){
   input.oninput=()=>{draft.text=input.value};
   const box=$("#msgBox");
   const th=await rpc("ql_admin_support_thread",{p_user:sel.user_id});msgPill();
-  if(cur!=="msgs"||generation!==msgRenderGeneration)return;
+  if(!current()||cur!=="msgs"||generation!==msgRenderGeneration)return;
   box.innerHTML=th.map(m=>`<div class="msgm ${m.from_admin?"me":"them"}"><div class="b">${m.body?h(m.body).replace(/\n/g,"<br>"):""}${m.image?`<img src="${h(m.image)}" alt="photo" data-big>`:""}</div><small>${new Date(m.created_at).toLocaleString([],{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${m.from_admin&&m.read_at?" · Seen":""}</small></div>`).join("")||`<div class="empty">No messages.</div>`;
   box.querySelectorAll("[data-big]").forEach(i=>i.onclick=()=>openPic(i.src));box.scrollTop=box.scrollHeight;
   let pic=draft.pic;const pv=$("#msgPic");
@@ -966,9 +988,9 @@ async function makeVapid(){const k=await crypto.subtle.generateKey({name:"ECDSA"
 async function mySub(){if(!pushOk())return null;const reg=await navigator.serviceWorker.getRegistration();return reg?await reg.pushManager.getSubscription():null}
 async function pushCard(){
   const box=$("#pushBody");if(!box)return;
-  let info;try{info=await rpc("ql_admin_push_info")}catch(e){box.innerHTML=`<div class="note" style="margin:0">One-time setup first: run <b>admin_push.sql</b> in Supabase and create the Edge Function <b>ql-push</b> (see the steps I sent you).</div>`;return}
+  const current=adminViewCurrent();let info;try{info=await rpc("ql_admin_push_info");if(!current()||!box.isConnected)return}catch(e){if(!current()||!box.isConnected)return;box.innerHTML=`<div class="note" style="margin:0">One-time setup first: run <b>admin_push.sql</b> in Supabase and create the Edge Function <b>ql-push</b> (see the steps I sent you).</div>`;return}
   const sub=await mySub().catch(()=>null),on=!!(sub&&info.devices.some(d=>d.endpoint===sub.endpoint)&&typeof Notification!=="undefined"&&Notification.permission==="granted");
-  const iosNeedsApp=isIOS()&&!isStandalone();
+  if(!current()||!box.isConnected)return;const iosNeedsApp=isIOS()&&!isStandalone();
   box.innerHTML=`<div class="inline" style="flex-wrap:wrap;margin-bottom:8px"><span class="tag ${on?"ok":"no"}">${on?"On for this device":"Off for this device"}</span>
     ${on?`<button class="btn" id="pushTest">Send a test</button><button class="btn r" id="pushOff">Turn off here</button>`:`<button class="btn p" id="pushOn" ${!pushOk()&&!iosNeedsApp?"disabled":""}>🔔 Turn on notifications</button>`}</div>
     ${iosNeedsApp?`<div class="note" style="margin:0 0 8px">On iPad / iPhone, notifications only work in the installed app: tap <b>📲 Install admin app</b> (below), open <b>QL Admin</b> from your home screen, then turn them on there.</div>`:""}

@@ -5,9 +5,10 @@ The new app, service worker, PDF modules/worker/fonts/decoders are actual reposi
 from pathlib import Path
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from threading import Thread
-import json,mimetypes
+import json,mimetypes,re
 from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1]
+current_cache=re.search(r'const APP_CACHE = "([^"]+)"',(root/'sw.js').read_text())[1]
 mode={'version':'old','failure':''}
 old_html='<html><body>Legacy application fixture</body></html>'
 old_sw='''self.addEventListener('install',e=>e.waitUntil(caches.open('ql-app-v1').then(c=>c.addAll(['./','index.html'])).then(()=>self.skipWaiting())));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{if(e.request.mode==='navigate')e.respondWith(fetch(e.request).catch(()=>caches.match('index.html')))});'''
@@ -56,7 +57,7 @@ try:
     assert page.evaluate("async()=>await caches.has('ql-app-v1')")
     context.set_offline(True);page.close();page=context.new_page();page.goto(url+'index.html');assert 'Legacy application fixture' in page.locator('body').inner_text()
     context.set_offline(False);mode['failure']='';page.evaluate("async()=>await(await navigator.serviceWorker.getRegistration()).update()")
-   wait_async(page,"async()=>!await caches.has('ql-app-v1')&&await caches.has('ql-app-reliability-2026-11-09-v1')")
+   wait_async(page,"async()=>!await caches.has('ql-app-v1')&&await caches.has("+json.dumps(current_cache)+")")
    wait_async(page,"async()=>{const r=await navigator.serviceWorker.getRegistration();return r.active&&r.active.state==='activated'&&!r.installing}")
    assert page.evaluate("localStorage.getItem('protected-account-draft')")=='keep'
    assert page.evaluate("async()=>!!await(await caches.open('ql-off-pdf-fixture-user')).match('https://ql-offline.invalid/fixture.pdf')")

@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-09-v1">
+<meta name="ql-shell-generation" content="reliability-2026-11-09-v2">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -3875,6 +3875,15 @@ function closeModal(){
   $("#modalBody").innerHTML="";
   $(".modal").classList.remove("admin-settings-modal","folder-editor-modal","profile-editor-modal","profile-security-flow-modal","qz-qm-wide");
   document.querySelectorAll(".modal-head-extra").forEach(el=>el.remove());
+}
+/* An opening request belongs to this visible dialog and account. Closing it
+   cancels navigation even when the server response arrives later. */
+function qlLoadingDialog(title,message){
+ openModal(title,`<div class="status" role="status" aria-live="polite" data-ql-opening>${esc(message)}</div><div class="form-actions"><button type="button" class="btn" data-ql-opening-cancel>Cancel</button></div>`);
+ const marker=document.querySelector('[data-ql-opening]'),user=state.user?.id;
+ document.querySelector('[data-ql-opening-cancel]').onclick=closeModal;
+ const current=()=>marker.isConnected&&document.getElementById('modalOverlay').classList.contains('show')&&state.user?.id===user;
+ return {current,close:()=>{if(current())closeModal()}};
 }
 function openSidebar(){$("#sidebar").classList.add("open");$("#sidebarShade").classList.add("show")}
 function closeSidebar(){$("#sidebar").classList.remove("open");$("#sidebarShade").classList.remove("show")}
@@ -9878,6 +9887,7 @@ html,body{overscroll-behavior-y:none}
      never leaks from one screen to the next. */
   function qzOpenPage(fullscreen){
     const el=qzEnsurePage();
+    el._qlAttemptLoad=null;
     delete el.dataset.dashboardQuiz;
     delete el.dataset.fullQuizTools;
     el.classList.add("show");
@@ -13962,15 +13972,15 @@ Q5 Answer B
      everything else here only needs to be reachable from inside this
      module. */
   window.qzOpenRandomQuizGlobal=qzOpenRandomQuizGlobal;
-  let qzDashboardOpening=false;
+  let qzDashboardOpening=null;
   async function qzOpenDashboardQuiz(postId,ref,opt={}){
-    if(qzDashboardOpening)return true;
+    if(qzDashboardOpening?.current())return true;
     const owner=String(state.user?.id||"");
     if(!owner){toast("Sign in to take a Dashboard quiz.");return true}
-    qzDashboardOpening=true;
+    const loading=qlLoadingDialog("Open quiz","Loading quiz…");qzDashboardOpening=loading;let handedOff=false;
     const item={id:`dashboard:${postId}:${ref}`,kind:"quiz",_dashboard_share:{postId:String(postId),ref:String(ref),owner}};
     try{
-      const packet=await service.getDashboardQuiz(item);
+      const packet=await service.getDashboardQuiz(item);if(!loading.current())return true;
       if(!Array.isArray(packet?.questions)||!packet.questions.length)throw new Error("This posted quiz has no questions.");
       if(opt.resume&&opt.resume.dashboard?.revision!==packet.revision)throw new Error("This post changed. Open it again to start the updated quiz.");
       item._dashboard_share.revision=packet.revision;
@@ -13978,14 +13988,15 @@ Q5 Answer B
       item.title=packet.title||"Dashboard quiz";
       item.quiz_settings=packet.settings||{};
       if(opt.resume)window.__qzResume=opt.resume;
-      await qzBeginAttempt(item,"take",()=>{qzClosePage();if(!document.getElementById("qlDash"))window.qlOpenDash?.()},packet);
+      handedOff=true;loading.close();await qzBeginAttempt(item,"take",()=>{qzClosePage();if(!document.getElementById("qlDash"))window.qlOpenDash?.()},packet);
       return true;
     }catch(error){
+      if((!handedOff&&!loading.current())||String(state.user?.id||"")!==owner)return true;loading.close();
       /* Keep the published Dashboard usable while the additive SQL is
          being installed. Only a missing new RPC uses the old opening path. */
       if(!opt.resume&&/PGRST202|42883/.test(String(error?.code||"")))return false;
       alert(friendlyError(error));return true;
-    }finally{qzDashboardOpening=false}
+    }finally{if(qzDashboardOpening===loading)qzDashboardOpening=null}
   }
   window.qlTakeDashboardQuiz=qzOpenDashboardQuiz;
   let qzExternalRouteOpened=false;
@@ -14103,7 +14114,8 @@ Q5 Answer B
     const page=document.getElementById("qzPageOverlay");
     if(item._dashboard_share)page.dataset.dashboardQuiz=item._dashboard_share.owner;
     if(item._dashboard_share||item.ql_from_dash||item._room_id)page.dataset.fullQuizTools="1";
-    const bodyEl=document.getElementById("qzPageBody");
+    const bodyEl=document.getElementById("qzPageBody"),loadUser=state.user?.id,request={};page._qlAttemptLoad=request;
+    const current=()=>bodyEl.isConnected&&page.classList.contains("show")&&page._qlAttemptLoad===request&&state.user?.id===loadUser;
     /* shown only if loading takes a moment, so a quick start doesn't flash it */
     bodyEl.innerHTML=qzPageTopbar()+'<div class="qz-runner-start"><div class="status qz-load-late">Loading quiz…</div></div>';
     document.getElementById("qzTopClose").onclick=()=>{qzExit(onDone)};
@@ -14120,10 +14132,12 @@ Q5 Answer B
         quizTitle=data.title;settings=data.settings;questions=data.questions;
       }
     }catch(error){
+      if(!current())return;
       bodyEl.innerHTML=qzPageTopbar()+`<div class="qz-runner-start"><h2>${esc(item.title)}</h2><div class="status error">${esc(friendlyError(error))}</div></div>`;
       document.getElementById("qzTopClose").onclick=()=>{qzExit(onDone)};
       return;
     }
+    if(!current())return;
     if(!questions.length){
       bodyEl.innerHTML=qzPageTopbar()+`<div class="qz-runner-start"><h2>${esc(item.title)}</h2><p>This quiz has no questions yet.</p></div>`;
       document.getElementById("qzTopClose").onclick=()=>{qzExit(onDone)};
@@ -18802,6 +18816,8 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     const gate=document.getElementById("studentAccessGate");if(gate){gate.classList.remove("show");gate.setAttribute("aria-hidden","true")}
     }
     let v=document.getElementById("qlItemViewer");if(!v){v=document.createElement("div");v.id="qlItemViewer";document.body.appendChild(v)}
+    const request={},owner=state.user?.id;v._qlLoad=request;
+    const current=()=>v.isConnected&&v._qlLoad===request&&(!opt.inApp||state.user?.id===owner);
     v.classList.toggle("ql-iv-inapp",!!opt.inApp);
     const logo=document.querySelector('link[rel="apple-touch-icon"]')?.href||"";
     const frame=inner=>`<div class="ql-iv-wrap"><div class="ql-iv-top">${opt.inApp?dashBackButton:""}${logo?`<img src="${logo}" alt="">`:""}<span class="ql-iv-brand">${opt.inApp?"DASHBOARD":"QUIZ LIBRARY"}</span>${opt.inApp?`<button type="button" class="ql-iv-close" aria-label="Close">×</button>`:""}</div>${inner}</div>`;
@@ -18813,7 +18829,8 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     v.innerHTML=frame(`<div class="ql-iv-msg">Loading…</div>`);wire();
     let share;
     try{if(opt.load)share=await opt.load();else{const {data,error}=await service.client.rpc("ql_get_external_item_share",{p_token:String(token)});if(error)throw error;if(!data)throw new Error("This shared link is invalid or no longer available.");share=data}}
-    catch(e){v.innerHTML=frame(`<div class="ql-iv-msg err">${h(friendlyError(e))}</div>`);wire();return}
+    catch(e){if(!current())return;v.innerHTML=frame(`<div class="ql-iv-msg err">${h(friendlyError(e))}</div>`);wire();return}
+    if(!current())return;
     const p=share.payload||{},nodes=Array.isArray(p.nodes)?p.nodes:[];
     const root=nodes.find(x=>x.ref===p.root_ref)||nodes[0];
     if(!root){v.innerHTML=frame(`<div class="ql-iv-msg err">This shared link is empty.</div>`);wire();return}
@@ -18899,15 +18916,17 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
   let dashTab="all",dashKind="",dashQ="";
   async function openDash(){
     let d=document.getElementById("qlDash");if(!d){d=document.createElement("div");d.id="qlDash";document.body.appendChild(d)}
+    const request={},owner=state.user?.id;d._qlLoad=request;const current=()=>d.isConnected&&d._qlLoad===request&&state.user?.id===owner;
     const closeDash=()=>{document.getElementById("qlDashMenu")?.remove();d.remove();window.qlUiBack?.close("dashboard")};
     window.qlUiBack?.open("dashboard",()=>document.getElementById("qlDash")===d,closeDash);
     const header=`<div class="qd-top">${dashBackButton}<span class="nav-icon" style="width:40px;height:40px">${dashIcon}</span><div class="qd-heading"><h1>Dashboard</h1><p>Quizzes, PDFs, links and folders shared by students</p></div><button type="button" class="ql-iv-close" data-qd-close aria-label="Close">×</button></div>`;
     const wireExit=()=>d.querySelectorAll("[data-qd-close],[data-ql-dash-back]").forEach(b=>b.onclick=closeDash);
     d.innerHTML=`<div class="qd-wrap">${header}<div class="qd-empty">Loading…</div></div>`;wireExit();
     let data;try{const r=await service.client.rpc("ql_dash_list");if(r.error)throw r.error;data=r.data||{}}
-    catch(e){d.innerHTML=`<div class="qd-wrap">${header}<div class="qd-empty">${/ql_dash_list|PGRST202|42883/.test(String(e&&e.message))?"Dashboard is not set up yet (admin: run dashboard.sql).":h(friendlyError(e))}</div></div>`;wireExit();return}
-    if(!d.isConnected)return;
+    catch(e){if(!current())return;d.innerHTML=`<div class="qd-wrap">${header}<div class="qd-empty">${/ql_dash_list|PGRST202|42883/.test(String(e&&e.message))?"Dashboard is not set up yet (admin: run dashboard.sql).":h(friendlyError(e))}</div></div>`;wireExit();return}
+    if(!current())return;
     const draw=()=>{
+      if(!current())return;
       const mine=dashTab==="mine",list=(mine?data.mine:data.posts)||[];
       const q=dashQ.trim().toLowerCase();
       const rows=list.filter(r=>(!dashKind||r.kind===dashKind)&&(!q||String(r.title).toLowerCase().includes(q)||String(r.author_name||"").toLowerCase().includes(q)));
@@ -18954,9 +18973,12 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
   async function openPost(r){
     const load=async()=>{const {data,error}=await service.client.rpc("ql_dash_open",{p_id:r.id});if(error)throw error;return {payload:data.payload}};
     if(r.kind==="quiz"){
-      try{const x=await load();const n=(x.payload.nodes||[]).find(n=>n.ref===x.payload.root_ref)||(x.payload.nodes||[])[0];
-        if(n&&await window.qlTakeDashboardQuiz?.(r.id,n.ref))return;
-        if(n&&qlSafeUrl(n.quiz_link)){window.open(qlSafeUrl(n.quiz_link),"_blank","noopener");return}throw new Error("This quiz can't be opened.")}catch(e){return alert(friendlyError(e))}
+      const loading=qlLoadingDialog("Open quiz","Loading quiz…");
+      try{const x=await load();if(!loading.current())return;const n=(x.payload.nodes||[]).find(n=>n.ref===x.payload.root_ref)||(x.payload.nodes||[])[0];
+        if(!n)throw new Error("This quiz can't be opened.");loading.close();
+        if(await window.qlTakeDashboardQuiz?.(r.id,n.ref))return;
+        if(qlSafeUrl(n.quiz_link))window.open(qlSafeUrl(n.quiz_link),"_blank","noopener");else alert("This quiz can't be opened.");
+      }catch(e){if(loading.current()){loading.close();alert(friendlyError(e))}}return;
     }
     await openViewer(null,{inApp:true,load,sub:`by ${r.author_name||"a student"}`,
       onQuiz:x=>window.qlTakeDashboardQuiz?.(r.id,x.ref),
@@ -19611,9 +19633,10 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   }
   async function openHistory(){
     openModal("Payment history",`<div id="qhBody"><div class="status">Loading…</div></div>`);
-    try{let {data,error}=await cli().rpc("ql_my_payments");if(error)throw error;const b=document.getElementById("qhBody");data=(data||[]).filter(r=>r.status!=="qr"&&r.status!=="expired");
+    const b=document.getElementById("qhBody"),owner=state.user?.id;
+    try{let {data,error}=await cli().rpc("ql_my_payments");if(!b.isConnected||owner!==state.user?.id)return;if(error)throw error;data=(data||[]).filter(r=>r.status!=="qr"&&r.status!=="expired");
       b.innerHTML=(data||[]).length?(data||[]).map(r=>{const p=plans().find(x=>x.id===r.plan_id);return `<div class="qh-row"><span><b>${h(p?p.name:r.plan_id)}</b> · ${r.period==="year"?"1 year":r.period==="lifetime"?"lifetime":"1 month"} · ${money(r.amount)}<br><small style="opacity:.7">${new Date(r.created_at).toLocaleString()}${r.admin_note?" · "+h(r.admin_note):""}</small></span><span class="qh-tag ${r.status}">${r.status==="waiting"?"Waiting":r.status==="approved"?"Approved":"Rejected"}</span></div>`}).join(""):`<div class="status">No payments yet.</div>`}
-    catch(e){document.getElementById("qhBody").innerHTML=`<div class="status error">${h(String(e.message||e))}</div>`}
+    catch(e){if(!b.isConnected||owner!==state.user?.id)return;b.innerHTML=`<div class="status error">${h(String(e.message||e))}</div>`}
   }
   function showActivated(gift){
     const p=curPlan(),s=sub();if(!p||p.is_default)return;const end=s&&s.ends_at?new Date(s.ends_at).getTime():null;
@@ -19680,15 +19703,16 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     try{chan=cli().channel("ql-support-"+u).on("postgres_changes",{event:"*",schema:"public",table:"ql_support_msgs",filter:"user_id=eq."+u},()=>{if(open)loadChat();else refreshUnread()}).subscribe()}catch{}}
   function shrink(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1200/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.72))};im.onerror=()=>rej(new Error("That file is not a photo."));im.src=r.result};r.onerror=rej;r.readAsDataURL(file)})}
   async function loadChat(){
-    const box=document.getElementById("qlSupMsgs");if(!box)return;
-    try{const {data,error}=await cli().rpc("ql_support_mine");if(error)throw error;unread=0;badge();
+    const box=document.getElementById("qlSupMsgs"),owner=state.user?.id;if(!box)return;
+    try{const {data,error}=await cli().rpc("ql_support_mine");if(!box.isConnected||state.user?.id!==owner)return;if(error)throw error;unread=0;badge();
       box.innerHTML=(data||[]).length?data.map(m=>`<div class="ql-sup-m ${m.from_admin?"them":"me"}"><div class="b">${m.body?H(m.body).replace(/\n/g,"<br>"):""}${m.image?`<img src="${H(m.image)}" alt="photo" data-big>`:""}</div><small>${m.from_admin?"Admin · ":""}${H(when(m.created_at))}${!m.from_admin&&m.read_at?" · Seen":""}</small></div>`).join(""):`<div class="ql-sup-empty">👋 Hi! Ask anything — about plans, payments or how to use Quiz Library. The admin will answer here.</div>`;
       box.querySelectorAll("[data-big]").forEach(i=>i.onclick=()=>{if(/^data:image\//i.test(i.src))window.open(i.src,"_blank","noopener")});
       box.scrollTop=box.scrollHeight}
-    catch(e){box.innerHTML=`<div class="ql-sup-empty">Messages are not available right now.</div>`}
+    catch(e){if(!box.isConnected||state.user?.id!==owner)return;box.innerHTML=`<div class="ql-sup-empty">Messages are not available right now.</div>`}
   }
   async function openSupport(){
-    if(!signedIn())return;if(chatOk===null)await refreshUnread();
+    if(!signedIn())return;
+    if(chatOk===null){const loading=qlLoadingDialog("Help & Support","Loading support…");await refreshUnread();if(!loading.current())return;loading.close()}
     const links=contactLinks();open=true;pic=null;
     openModal("Help & Support",`<div class="ql-sup">
       ${links.length?`<div class="ql-sup-ct"><div class="t">Contact the admin</div><div class="row">${links.map(([l,u,c,e])=>`<a href="${H(u)}" target="_blank" rel="noopener" style="--c:${c}">${e}<span>${H(l)}</span></a>`).join("")}</div>${contact().note?`<div class="n">${H(contact().note)}</div>`:""}</div>`:""}
@@ -20036,7 +20060,7 @@ body.ql-neon .ql-off-sw.on{background:#00c8a0;box-shadow:0 0 12px rgba(0,229,255
 
 <script id="qlRoomsLoader">
 (function(){
- window.qlOpenRooms=async()=>{if(window.qlCanOpenRooms?.()===false)return;try{const m=await import(new URL("rooms.mjs",document.baseURI).href);await m.openRooms()}catch(e){alert(friendlyError(e))}};
+ window.qlOpenRooms=async()=>{if(window.qlCanOpenRooms?.()===false)return;const loading=qlLoadingDialog("Rooms","Opening Rooms…");try{const m=await import(new URL("rooms.mjs",document.baseURI).href);if(!loading.current())return;loading.close();await m.openRooms()}catch(e){if(loading.current()){loading.close();alert(friendlyError(e))}}};
  const place=()=>{const n=document.querySelector(".sidebar .nav");if(!n||!state.user||document.getElementById("qlRoomsNav"))return;
  const b=document.createElement("button");b.id="qlRoomsNav";b.className="student-workspace-allowed";b.type="button";b.innerHTML='<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="7" r="4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 3a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.87"/></svg></span><span>Rooms</span>';b.onclick=()=>{try{closeSidebar()}catch{}qlOpenRooms()};
  const d=document.getElementById("qlDashNav");if(d)d.after(b);else n.prepend(b)};
