@@ -269,7 +269,12 @@ const FEAT_LIMITS={new_folder:[["folders","How many folders"]],new_link:[["links
 const COLORS=["#94a3b8","#6366f1","#0ea5e9","#a855f7","#ec4899","#f59e0b","#10b981","#ef4444"];
 
 if(!window.supabase){const st=document.getElementById("adminStartStatus"),er=document.getElementById("adminStartError");if(st)st.textContent="Could not connect";if(er){er.textContent="The Supabase library did not load. Check the internet, then tap Reload Admin.";er.classList.remove("hidden")}throw new Error("Supabase library did not load")}
-const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"ql-admin-auth"}});
+/* A sign-in (token) request that never answers keeps Supabase's sign-in lock taken, and
+   every later request waits behind it: the page looks frozen until it is reloaded. This
+   happens on weak phone connections. Sign-in requests get a time limit, so a stuck one
+   is cancelled and the next request can run. Other requests (uploads etc.) are unchanged. */
+function qlAuthTimeLimit(fetchFn,ms=20000){return (input,init={})=>{const url=String(input&&input.url||input);if(!url.includes("/auth/v1/"))return fetchFn(input,init);const c=new AbortController(),outer=init&&init.signal,t=setTimeout(()=>c.abort(),ms);if(outer){if(outer.aborted)c.abort();else outer.addEventListener("abort",()=>c.abort(),{once:true})}return Promise.resolve().then(()=>fetchFn(input,{...init,signal:c.signal})).finally(()=>clearTimeout(t))}}
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"ql-admin-auth"},global:{fetch:qlAuthTimeLimit((...a)=>fetch(...a))}});
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const h=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money=v=>v==null||v===""?"—":"$"+Number(v).toFixed(Number(v)%1?2:0);

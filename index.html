@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-09-v4">
+<meta name="ql-shell-generation" content="reliability-2026-11-09-v5">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -3919,6 +3919,11 @@ function createMockService(){
 /* If the Supabase library failed to download, return an empty service instead of
    throwing here: a throw would stop this whole script, so startup could not show the
    "Unable to open" screen and students would see an empty library. */
+/* A sign-in (token) request that never answers keeps Supabase's sign-in lock taken, and
+   every later request waits behind it: the page looks frozen until it is reloaded. This
+   happens on weak phone connections. Sign-in requests get a time limit, so a stuck one
+   is cancelled and the next request can run. Other requests (uploads etc.) are unchanged. */
+function qlAuthTimeLimit(fetchFn,ms=20000){return (input,init={})=>{const url=String(input&&input.url||input);if(!url.includes("/auth/v1/"))return fetchFn(input,init);const c=new AbortController(),outer=init&&init.signal,t=setTimeout(()=>c.abort(),ms);if(outer){if(outer.aborted)c.abort();else outer.addEventListener("abort",()=>c.abort(),{once:true})}return Promise.resolve().then(()=>fetchFn(input,{...init,signal:c.signal})).finally(()=>clearTimeout(t))}}
 let qlServiceStartError=null;
 function createSupabaseService(){
   if(!window.supabase){qlServiceStartError=new Error("Supabase library did not load. Check the internet.");return {}}
@@ -3929,7 +3934,7 @@ function createSupabaseService(){
      one-at-a-time guarantee inside this page, no cross-tab waiting). */
   const qlAuthLocks={};
   const qlAuthLock=async(name,acquireTimeout,fn)=>{const prev=qlAuthLocks[name]||Promise.resolve();let release;const mine=new Promise(r=>release=r);qlAuthLocks[name]=prev.then(()=>mine,()=>mine);try{await prev}catch(e){}try{return await fn()}finally{release()}};
-  const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,lock:qlAuthLock},global:{fetch:(...a)=>window.qlOffFetch?window.qlOffFetch(...a):fetch(...a)}});
+  const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,lock:qlAuthLock},global:{fetch:qlAuthTimeLimit((...a)=>window.qlOffFetch?window.qlOffFetch(...a):fetch(...a))}});
   return {
     client,
     async getLibrary(){const {data,error}=await client.from("libraries").select("*").eq("id",LIBRARY_ID).maybeSingle();if(error)throw error;if(!data)throw new Error("Library setup is missing.");return data},
