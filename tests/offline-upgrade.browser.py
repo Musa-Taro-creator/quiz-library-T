@@ -12,7 +12,7 @@ current_cache=re.search(r'const APP_CACHE = "([^"]+)"',(root/'sw.js').read_text(
 mode={'version':'old','failure':''}
 old_html='<html><body>Legacy application fixture</body></html>'
 old_sw='''self.addEventListener('install',e=>e.waitUntil(caches.open('ql-app-v1').then(c=>c.addAll(['./','index.html'])).then(()=>self.skipWaiting())));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{if(e.request.mode==='navigate')e.respondWith(fetch(e.request).catch(()=>caches.match('index.html')))});'''
-cdn={'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2':'deps/supabase.js','https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js':'deps/tus.js','https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js':'deps/pdf-lib.js'}
+cdn={'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0':'deps/supabase.js','https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js':'deps/tus.js','https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js':'deps/pdf-lib.js'}
 def app():
  s=(root/'index.html').read_text().replace('const MOCK_MODE=false;','const MOCK_MODE=true;',1)
  for a,b in cdn.items():s=s.replace(a,b)

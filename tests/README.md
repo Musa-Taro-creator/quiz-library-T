@@ -46,6 +46,7 @@ python tests/rooms-navigation.browser.py
 python tests/dashboard-back.browser.py
 python tests/system-back.browser.py
 python tests/password-recovery.browser.py
+python tests/startup-library-missing.browser.py
 ```
 
 For the additional supported text-ID schema compatibility check:

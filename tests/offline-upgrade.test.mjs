@@ -113,7 +113,7 @@ const failures=[
   ['module',library],['worker',worker],
   ['icon','icons/icon-192.png'],
   ['font',origin+'vendor/pdfjs-6.4.299/standard_fonts/FoxitFixed.pfb'],
-  ['Supabase','https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2']
+  ['Supabase','https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0']
 ];
 for(const [label,url]of failures)for(const status of [200,404]){
   test('failed '+label+' '+(status===200?'network request':'HTTP response')+' prevents installation and preserves the old generation',async()=>{
@@ -232,7 +232,11 @@ test('a runtime with missing new-cache HTML never falls back to the old app gene
 });
 
 test('Core PDF files/fonts and the complete auxiliary-resource bundle are cached',()=>{
- const runtime=boot(storage());assert.equal(runtime.api.SHELL.length,8);assert.ok(runtime.api.SHELL.includes("rooms.mjs"));assert.ok(runtime.api.SHELL.includes("rooms.css"));assert.equal(runtime.api.LIBS.length,20);
+ const runtime=boot(storage());
+ // The 8 app files plus every picture in assets/ (they were moved out of index.html).
+ const assets=fs.readdirSync(new URL('../assets/',import.meta.url),{recursive:true}).map(String).map(p=>'assets/'+p.split('\\').join('/')).filter(p=>fs.statSync(new URL('../'+p,import.meta.url)).isFile());
+ assert.ok(assets.length>0);for(const a of assets)assert.ok(runtime.api.SHELL.includes(a),'not cached offline: '+a);
+ assert.equal(runtime.api.SHELL.length,8+assets.length);assert.ok(runtime.api.SHELL.includes("rooms.mjs"));assert.ok(runtime.api.SHELL.includes("rooms.css"));assert.equal(runtime.api.LIBS.length,20);
  assert.ok(runtime.api.LIBS.includes('vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs'));
  assert.ok(runtime.api.LIBS.includes('vendor/pdfjs-6.4.299/legacy/build/pdf.worker.min.mjs'));
  assert.ok(runtime.api.LIBS.includes('vendor/pdfjs-6.4.299/standard_fonts/FoxitFixed.pfb'));
