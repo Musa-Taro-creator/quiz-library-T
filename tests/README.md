@@ -49,6 +49,9 @@ python tests/password-recovery.browser.py
 python tests/startup-library-missing.browser.py
 python tests/device-check-loop.browser.py
 python tests/hidden-tab-polling.browser.py
+python tests/student-features.browser.py
+python tests/student-server-features.browser.py
+python tests/admin-all-pages.browser.py
 ```
 
 For the additional supported text-ID schema compatibility check:

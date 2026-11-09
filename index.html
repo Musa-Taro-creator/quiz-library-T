@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-09-v7">
+<meta name="ql-shell-generation" content="reliability-2026-11-09-v8">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -18555,17 +18555,22 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     let who=null;const st=$("#qlIsStatus"),send=$("#qlIsSend"),inp=$("#qlIsTo");
     const say=(t,cls)=>{st.className="status"+(cls?" "+cls:"");st.innerHTML=t};
     $("#qlIsCancel").onclick=closeModal;
+    /* Typing a full ID also searches by itself after 350 ms. Pressing Search cancels that,
+       the same ID is not searched twice, only the newest search counts, and nothing runs
+       after the window is closed (it used to clear the found person and disable Send). */
+    let findSerial=0,autoT=null,autoLast="";
     const find=async()=>{
-      const id=String(inp.value||"").trim().toUpperCase().replace(/\s+/g,"");who=null;send.disabled=true;$("#qlIsPerson").innerHTML="";
+      clearTimeout(autoT);if(!inp.isConnected)return;
+      const id=String(inp.value||"").trim().toUpperCase().replace(/\s+/g,"");autoLast=id;const mine=++findSerial;who=null;send.disabled=true;$("#qlIsPerson").innerHTML="";
       if(!/^QL-[A-Z0-9]{8}$/.test(id))return say("Enter a valid Quiz ID, for example QL-7K4P9M2Q.","error");
       say("Searching…");
-      try{const {data,error}=await service.client.rpc("ql_find_student_by_share_id",{p_share_id:id});if(error)throw error;const row=Array.isArray(data)?data[0]:data;if(!row)throw new Error("No student was found with that Quiz ID.");
+      try{const {data,error}=await service.client.rpc("ql_find_student_by_share_id",{p_share_id:id});if(mine!==findSerial||!inp.isConnected)return;if(error)throw error;const row=Array.isArray(data)?data[0]:data;if(!row)throw new Error("No student was found with that Quiz ID.");
         who=row;st.className="status hidden";
         $("#qlIsPerson").innerHTML=`<div class="ql-is-person"><div class="ql-is-avatar">${h(String(row.display_name||"S").slice(0,1).toUpperCase())}</div><div><b>${h(row.display_name||"Student")}</b><small>${h(row.share_id||id)}${row.masked_email?" · "+h(row.masked_email):""}</small></div></div>`;send.disabled=false}
-      catch(e){say(h(friendlyError(e)),"error")}
+      catch(e){if(mine===findSerial&&inp.isConnected)say(h(friendlyError(e)),"error")}
     };
     $("#qlIsFind").onclick=find;inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();find()}};
-    let autoT=null,autoLast="";inp.oninput=()=>{const v=String(inp.value||"").trim().toUpperCase().replace(/\s+/g,"");clearTimeout(autoT);if(/^QL-[A-Z0-9]{8}$/.test(v)&&v!==autoLast)autoT=setTimeout(()=>{autoLast=v;find()},350)};
+    inp.oninput=()=>{const v=String(inp.value||"").trim().toUpperCase().replace(/\s+/g,"");clearTimeout(autoT);if(/^QL-[A-Z0-9]{8}$/.test(v)&&v!==autoLast)autoT=setTimeout(find,350)};
     send.onclick=async()=>{
       if(!who)return;send.disabled=true;
       try{
