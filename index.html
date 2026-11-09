@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-09-v8">
+<meta name="ql-shell-generation" content="reliability-2026-11-09-v9">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -17574,13 +17574,29 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
   function establishBaseline(){
     return headCheck().then(function(m){baseline=m}).catch(function(){baseline=null});
   }
+  /* Compare the version written in THIS page with the server's newest copy. The old way
+     (server version at load time vs. later) missed one case: a browser that opened an
+     older cached copy while the server already had the new one took the new one as its
+     baseline and never showed the banner. Reads only the start of the file. */
+  const OWN_VERSION=(document.querySelector('meta[name="ql-shell-generation"]')||{}).content||"";
+  function serverVersion(){
+    return fetch(SELF_URL+"?_qlv="+Date.now(),{cache:"no-store",headers:{Range:"bytes=0-8191"}}).then(function(res){
+      if(!res.ok)return null;
+      return res.text().then(function(t){const m=/name="ql-shell-generation" content="([^"]+)"/.exec(t);return m?m[1]:null});
+    });
+  }
   function checkForUpdate(){
-    if(checking||!baseline||Date.now()<dismissedUntil)return;
+    if(checking||Date.now()<dismissedUntil)return;
     checking=true;
-    headCheck().then(function(current){
-      if(isNewer(current,baseline))showBanner();
-      checking=false;
-    }).catch(function(){checking=false});
+    const done=function(){checking=false};
+    const byEtag=function(){
+      if(!baseline)return done();
+      return headCheck().then(function(current){if(isNewer(current,baseline))showBanner();done()});
+    };
+    (OWN_VERSION?serverVersion():Promise.resolve(null)).then(function(v){
+      if(v){if(v!==OWN_VERSION)showBanner();return done()}
+      return byEtag();
+    }).catch(done);
   }
   establishBaseline().then(function(){
     setTimeout(checkForUpdate,3*1000);

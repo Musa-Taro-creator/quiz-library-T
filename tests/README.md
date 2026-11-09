@@ -52,6 +52,7 @@ python tests/hidden-tab-polling.browser.py
 python tests/student-features.browser.py
 python tests/student-server-features.browser.py
 python tests/admin-all-pages.browser.py
+python tests/update-banner.browser.py
 ```
 
 For the additional supported text-ID schema compatibility check:
