@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-09-v5">
+<meta name="ql-shell-generation" content="reliability-2026-11-09-v6">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -17353,8 +17353,19 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
     document.body.appendChild(ov);
     document.getElementById("qlKickLogin").onclick=()=>location.reload();
   }
-  function stop(){if(poll){clearInterval(poll);poll=null}if(chan){try{cli().removeChannel(chan)}catch(e){}chan=null}if(chan2){try{cli().removeChannel(chan2)}catch(e){}chan2=null}if(chan3){try{cli().removeChannel(chan3)}catch(e){}chan3=null}}
-  async function check(){if(!uid||kicked||isStudentPasswordRecovery())return;try{
+  function stop(){if(checkAgain){clearTimeout(checkAgain);checkAgain=null}if(poll){clearInterval(poll);poll=null}if(chan){try{cli().removeChannel(chan)}catch(e){}chan=null}if(chan2){try{cli().removeChannel(chan2)}catch(e){}chan2=null}if(chan3){try{cli().removeChannel(chan3)}catch(e){}chan3=null}}
+  /* One check at a time, and not more than once every 5 s: checks are also started by
+     live updates, and overlapping checks of one account wait on each other's row locks. */
+  let checking=null,lastCheck=0,checkAgain=null;
+  function check(){
+    if(checking)return checking;
+    const wait=lastCheck+5000-Date.now();
+    if(wait>0){if(!checkAgain)checkAgain=setTimeout(()=>{checkAgain=null;check()},wait);return Promise.resolve()}
+    lastCheck=Date.now();
+    checking=checkNow().finally(()=>{checking=null;lastCheck=Date.now()});
+    return checking;
+  }
+  async function checkNow(){if(!uid||kicked||isStudentPasswordRecovery())return;try{
     if(multi){const d=await mCheck();if(!d.signed_in)kick(d.newest?{device_label:d.newest.label,signed_in_at:d.newest.at}:null);return}
     if(await blockedNow())return kick(null,true);const row=await current();if(row&&row.device_id!==deviceId)kick(row)}catch(e){if(isBlockedErr(e))kick(null,true)}}
   async function start(u){
@@ -17370,7 +17381,9 @@ body.student-edit-mode .selection-bar .ql-sel-btn.admin-only.ql-sel-can{display:
       else if(row.device_id!==deviceId)return kick(row);
       else{try{await touch()}catch(e){if(isBlockedErr(e))return kick(null,true)}} /* device history SQL may not be installed yet */
     }catch(e){if(isBlockedErr(e))return kick(null,true);return} /* SQL not installed or offline: leave things as they are */
-    if(multi)try{chan3=cli().channel("ql-signed-devices-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_signed_devices",filter:"user_id=eq."+uid},()=>check()).subscribe()}catch(e){}
+    /* Only a device added or removed matters here. Each check itself updates last_seen;
+       reacting to those updates made every tab check again and again without a pause. */
+    if(multi)try{chan3=cli().channel("ql-signed-devices-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_signed_devices",filter:"user_id=eq."+uid},p=>{if(p&&p.eventType==="UPDATE")return;check()}).subscribe()}catch(e){}
     try{chan=cli().channel("ql-active-device-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_active_device",filter:"user_id=eq."+uid},p=>{const r=p.new;if(!multi&&r&&r.device_id&&r.device_id!==deviceId)kick(r)}).subscribe()}catch(e){}
     /* own channel, so a missing device-history table never affects the one above */
     try{chan2=cli().channel("ql-device-log-"+uid).on("postgres_changes",{event:"*",schema:"public",table:"ql_device_log",filter:"user_id=eq."+uid},p=>{const r=p.new;if(r&&r.device_id===deviceId&&r.blocked)return kick(null,true);try{window.qlDevicesRefresh&&qlDevicesRefresh()}catch(e){}}).subscribe()}catch(e){}
