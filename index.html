@@ -3546,6 +3546,7 @@ select.qz-sec-chip-add{width:72px;flex:0 0 auto;padding:0 10px;background:transp
     <div class="form-actions"><button class="btn primary" id="retrySetup">Retry</button></div>
   </div>
 </div>
+<script>document.getElementById("retrySetup").addEventListener("click",()=>location.reload());</script>
 
 <div class="app">
   <aside id="sidebar" class="sidebar">
@@ -4069,8 +4070,12 @@ function createMockService(){
     async insertMany(rows){db.items.push(...rows);save();return clone(rows)}
   }
 }
+/* If the Supabase library failed to download, return an empty service instead of
+   throwing here: a throw would stop this whole script, so startup could not show the
+   "Unable to open" screen and students would see an empty library. */
+let qlServiceStartError=null;
 function createSupabaseService(){
-  if(!window.supabase)throw new Error("Supabase library did not load. Check the internet.");
+  if(!window.supabase){qlServiceStartError=new Error("Supabase library did not load. Check the internet.");return {}}
   /* Kuza: logins sometimes waited ~10 s on iPads. supabase-js guards auth
      with a cross-tab navigator.locks lock, which on iPad/iPhone Safari can be
      left held after the page was in the background, so sign-in / getSession
@@ -4987,6 +4992,7 @@ const qlOff=(function(){
 window.qlOff=qlOff;
 window.__quizTest={state,service,navigate,openAdmin,exitAdmin,openUpload,openEditor,openMove,duplicateItems,trashItems,restoreItems,deletePermanent,render,visibleItems,exportHtml};
 (async()=>{try{
+  if(qlServiceStartError)throw qlServiceStartError;
   bindStatic();
   state.library=await service.getLibrary();
   state.items=await service.getItems();

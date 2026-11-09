@@ -268,6 +268,7 @@ const LIMITS=[["storage_mb","Storage","MB"],["results_kept","Results kept per qu
 const FEAT_LIMITS={new_folder:[["folders","How many folders"]],new_link:[["links","How many quiz links"]],new_pdf:[["pdfs","How many PDFs"]],new_quiz:[["quizzes","How many quizzes"],["questions_per_quiz","Questions per quiz"]]};
 const COLORS=["#94a3b8","#6366f1","#0ea5e9","#a855f7","#ec4899","#f59e0b","#10b981","#ef4444"];
 
+if(!window.supabase){const st=document.getElementById("adminStartStatus"),er=document.getElementById("adminStartError");if(st)st.textContent="Could not connect";if(er){er.textContent="The Supabase library did not load. Check the internet, then tap Reload Admin.";er.classList.remove("hidden")}throw new Error("Supabase library did not load")}
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"ql-admin-auth"}});
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const h=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
