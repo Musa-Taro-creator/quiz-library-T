@@ -9,8 +9,8 @@ const APP_CACHE = "ql-app-reliability-2026-11-09-v3";
 const SHELL_GENERATION = 'name="ql-shell-generation" content="reliability-2026-11-09-v3"';
 const SHELL = ["./", "index.html", "rooms.mjs", "rooms.css", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 const LIBS = [
-  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2",
-  "https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js",
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0",
+  "https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js",
   "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js",
   "vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",
   "vendor/pdfjs-6.4.299/legacy/build/pdf.worker.min.mjs",

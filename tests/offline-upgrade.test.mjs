@@ -113,7 +113,7 @@ const failures=[
   ['module',library],['worker',worker],
   ['icon','icons/icon-192.png'],
   ['font',origin+'vendor/pdfjs-6.4.299/standard_fonts/FoxitFixed.pfb'],
-  ['Supabase','https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2']
+  ['Supabase','https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0']
 ];
 for(const [label,url]of failures)for(const status of [200,404]){
   test('failed '+label+' '+(status===200?'network request':'HTTP response')+' prevents installation and preserves the old generation',async()=>{
