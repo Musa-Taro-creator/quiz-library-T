@@ -34,6 +34,7 @@ python tests/admin-payments.browser.py
 python tests/admin-controls.browser.py
 python tests/library-workflows.browser.py
 python tests/navigation-responsiveness.browser.py
+python tests/stalled-loading.browser.py
 python tests/pdf-viewer.browser.py
 python tests/offline-upgrade.browser.py
 python tests/dashboard-posting.browser.py
@@ -77,6 +78,9 @@ It does not read PG* environment variables or accept a remote database URL.
   and Student Dashboard, library quizzes, Rooms, Help, and payment history.
   They check immediate feedback, local filters, cancellation/Back, retry, and
   compatibility of the Rooms module with a page already open before an update.
+  Stalled-loading tests hold Admin session/permission reads and quiz data, and
+  stall or block the optional quiz cache. They verify visible startup recovery,
+  cache fallback, retry/Back, and rejection of late replies after a timeout.
   Admin form checks exercise plan changes, greetings, device limits, gifts,
   plan editing, website switches, announcements, and payment/contact settings
   against simulated RPCs. They never modify real accounts or payment settings.

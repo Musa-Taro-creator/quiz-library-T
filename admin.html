@@ -212,6 +212,9 @@ body.t-ocean .bars div{background:linear-gradient(180deg,#fdba74,#0e6377)}
 </style>
 </head>
 <body class="t-white">
+<div id="adminStarting" class="login">
+ <div class="login-card"><div class="brand"><img src="icons/admin-apple-touch-icon.png" alt=""><div><h1>Quiz Library Admin</h1><p id="adminStartStatus" role="status" aria-live="polite">Connecting to your account…</p></div></div><p id="adminStartError" class="err hidden"></p><button class="btn p big" type="button" onclick="location.reload()">Reload Admin</button></div>
+</div>
 <div id="login" class="login hidden">
   <div class="login-card">
     <div class="brand"><img src="icons/admin-apple-touch-icon.png" alt=""><div><h1>Quiz Library Admin</h1><p>Sign in with your admin account</p></div></div>
@@ -294,17 +297,21 @@ try{setTheme(localStorage.getItem("ql_admin_theme")||"white")}catch{setTheme("wh
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-th]");if(b)setTheme(b.dataset.th)});
 
 /* ---------------- auth ---------------- */
-let me=null,plans=[],settings={},cur="dash",viewSerial=0;
+let me=null,plans=[],settings={},cur="dash",viewSerial=0,bootSerial=0;
+async function adminReadDeadline(work){let timer;try{return await Promise.race([Promise.resolve(work),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("The connection timed out. Reload Admin to try again. Your account has not been signed out.")),20000)})])}finally{clearTimeout(timer)}}
+function adminStartError(error){$("#adminStarting").classList.remove("hidden");$("#login").classList.add("hidden");$("#app").classList.add("hidden");$("#adminStartStatus").textContent="Admin could not finish connecting.";$("#adminStartError").classList.remove("hidden");$("#adminStartError").textContent=errMsg(error)}
 async function boot(){
-  const {data:{session}}=await sb.auth.getSession();
-  if(!session)return showLogin();
-  me=session.user;
-  let ok=false;try{ok=await rpc("ql_am_i_admin")}catch(e){return showLogin(errMsg(e))}
-  if(!ok){await sb.auth.signOut();return showLogin("This account is not an admin. Use the account set in plans_admin.sql.")}
-  $("#login").classList.add("hidden");$("#app").classList.remove("hidden");$("#meEmail").textContent=me.email||"";
-  await loadCommon();go((location.hash||"#dash").slice(1));
+ const request=++bootSerial;$("#adminStarting").classList.remove("hidden");$("#login").classList.add("hidden");$("#adminStartError").classList.add("hidden");$("#adminStartStatus").textContent="Connecting to your account…";
+ try{
+  const {data:{session},error}=await adminReadDeadline(sb.auth.getSession());if(request!==bootSerial)return;if(error)throw error;
+  if(!session)return showLogin();me=session.user;
+  const ok=await adminReadDeadline(rpc("ql_am_i_admin"));if(request!==bootSerial)return;
+  if(!ok)return showLogin("This account is not an admin. Sign in with an admin account.");
+  await adminReadDeadline(loadCommon());if(request!==bootSerial)return;
+  $("#adminStarting").classList.add("hidden");$("#login").classList.add("hidden");$("#app").classList.remove("hidden");$("#meEmail").textContent=me.email||"";go((location.hash||"#dash").slice(1));
+ }catch(error){if(request===bootSerial){bootSerial++;adminStartError(error)}}
 }
-function showLogin(msg){resetPayments();viewSerial++;$("#app").classList.add("hidden");$("#login").classList.remove("hidden");const e=$("#lErr");e.classList.toggle("hidden",!msg);e.textContent=msg||""}
+function showLogin(msg){bootSerial++;$("#adminStarting").classList.add("hidden");resetPayments();viewSerial++;$("#app").classList.add("hidden");$("#login").classList.remove("hidden");const e=$("#lErr");e.classList.toggle("hidden",!msg);e.textContent=msg||""}
 $("#loginForm").onsubmit=async ev=>{ev.preventDefault();const b=$("#lBtn");b.disabled=true;b.textContent="Signing in…";
   const {error}=await sb.auth.signInWithPassword({email:$("#lEmail").value.trim(),password:$("#lPass").value});
   b.disabled=false;b.textContent="Sign in";if(error)return showLogin(error.message);boot()};

@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-09-v2">
+<meta name="ql-shell-generation" content="reliability-2026-11-09-v3">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -14124,17 +14124,18 @@ Q5 Answer B
       if(overrideData){
         quizTitle=overrideData.title;settings=overrideData.settings;questions=overrideData.questions;
       }else if(mode==="preview"){
-        const rows=await service.getQuizQuestionsAdmin(item.id);
+        const rows=await qlReadDeadline(service.getQuizQuestionsAdmin(item.id));
         quizTitle=item.title;settings=item.quiz_settings||{};
         questions=rows.map(r=>({id:r.id,type:r.type,prompt:r.prompt,options:r.options,points:r.points,image:r.image,images:r.images||[],explanation:r.explanation,correct_answer:r.correct_answer,allow_multiple:!!r.allow_multiple,session_label:r.session_label||null,session_labels:qzSessOf(r)}));
       }else{
-        const data=await service.getQuizForTaking(item.id);
+        const data=await qlReadDeadline(service.getQuizForTaking(item.id));
         quizTitle=data.title;settings=data.settings;questions=data.questions;
       }
     }catch(error){
       if(!current())return;
-      bodyEl.innerHTML=qzPageTopbar()+`<div class="qz-runner-start"><h2>${esc(item.title)}</h2><div class="status error">${esc(friendlyError(error))}</div></div>`;
-      document.getElementById("qzTopClose").onclick=()=>{qzExit(onDone)};
+      bodyEl.innerHTML=qzPageTopbar()+`<div class="qz-runner-start"><h2>${esc(item.title)}</h2><div class="status error">${esc(friendlyError(error))}</div><div class="form-actions"><button type="button" class="btn" id="qzLoadBack">Go back</button><button type="button" class="btn primary" id="qzLoadRetry">Try again</button></div></div>`;
+      const back=()=>{qzExit(onDone)};document.getElementById("qzTopClose").onclick=back;document.getElementById("qzLoadBack").onclick=back;
+      document.getElementById("qzLoadRetry").onclick=()=>{if(current())qzBeginAttempt(item,mode,onDone,overrideData)};
       return;
     }
     if(!current())return;
@@ -16065,6 +16066,9 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
 </style>
 <script id="studentWorkspaceFeatureScript">
 "use strict";
+async function qlReadDeadline(work,milliseconds=20000){
+ let timer;try{return await Promise.race([Promise.resolve(work),new Promise((_,reject)=>{timer=setTimeout(()=>{const error=new Error("The connection timed out. Please try again.");error.code="QL_READ_TIMEOUT";reject(error)},milliseconds)})])}finally{clearTimeout(timer)}
+}
 (function(){
   if(window.__studentWorkspaceInstalled)return;window.__studentWorkspaceInstalled=true;
   Object.assign(state,{studentWorkspaceReady:false,studentWorkspaceError:null,studentWorkspaceChannel:null,studentWorkspaceRefreshing:false});
@@ -16212,13 +16216,13 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
       const probe=(async()=>{
         /* a plain GET, not a HEAD request: a HEAD to a missing table comes
            back with no body, which supabase-js reports as no error */
-        const {error,status}=await service.client.from(QTABLE).select("id").eq("user_id",state.user.id).limit(1);
+        const {error,status}=await qlReadDeadline(service.client.from(QTABLE).select("id").eq("user_id",state.user.id).limit(1));
         if(!error&&status<400){try{localStorage.setItem("ql_split_ready_v1","1")}catch(e){}return true}
         const raw=`${error?.code||""} ${error?.message||""}`;
         if(status===404||/42P01|PGRST205|PGRST106|does not exist|Could not find the table|schema cache/i.test(raw)){try{localStorage.removeItem("ql_split_ready_v1")}catch(e){}return false}
         splitReadyPromise=null; /* transient (network) -- ask again next time */
         throw error;
-      })();
+      })().catch(error=>{splitReadyPromise=null;throw error});
       /* once this device has seen the tables, don't make every fresh page
          load wait for the check again (it still runs, in the background) */
       let known=false;try{known=localStorage.getItem("ql_split_ready_v1")==="1"}catch(e){}
@@ -16244,12 +16248,13 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
   function qzDiskOpen(){
     if(qzDiskDb)return qzDiskDb;
     qzDiskDb=new Promise((resolve,reject)=>{
+      let settled=false;const fail=error=>{if(settled)return;settled=true;clearTimeout(timer);reject(error)},timer=setTimeout(()=>fail(new Error("Quiz cache timed out")),1000);
       try{
         const req=indexedDB.open("ql_quiz_cache",1);
-        req.onupgradeneeded=()=>{req.result.createObjectStore("q")};
-        req.onsuccess=()=>resolve(req.result);
-        req.onerror=()=>reject(req.error);
-      }catch(e){reject(e)}
+        req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains("q"))req.result.createObjectStore("q")};
+        req.onsuccess=()=>{const db=req.result;if(settled){db.close();return}settled=true;clearTimeout(timer);db.onversionchange=()=>{db.close();qzDiskDb=null};resolve(db)};
+        req.onerror=()=>fail(req.error);req.onblocked=()=>fail(new Error("Quiz cache is busy"));
+      }catch(e){fail(e)}
     }).catch(e=>{qzDiskDb=null;throw e});
     return qzDiskDb;
   }
@@ -16270,8 +16275,8 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
     try{
       const db=await qzDiskOpen();
       return await new Promise(resolve=>{
-        const req=db.transaction("q","readonly").objectStore("q").get(qzDiskKey(String(itemId)));
-        req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>resolve(null);
+        let settled=false;const finish=value=>{if(settled)return;settled=true;clearTimeout(timer);resolve(value)},timer=setTimeout(()=>finish(null),1000);
+        try{const tx=db.transaction("q","readonly"),req=tx.objectStore("q").get(qzDiskKey(String(itemId)));req.onsuccess=()=>finish(req.result||null);req.onerror=()=>finish(null);tx.onabort=()=>finish(null)}catch{finish(null)}
       });
     }catch(e){return null}
   }
@@ -16279,7 +16284,8 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
   const revisionKey=id=>`${state.user?.id||""}:${LIBRARY_ID}:${id}`;
   async function quizRpc(name,args){
     const owner=state.user?.id;
-    const {data,error}=await service.client.rpc(name,args);
+    const operation=service.client.rpc(name,args);
+    const {data,error}=await (name==="student_read_quiz_page_v2"?qlReadDeadline(operation):operation);
     if(owner!==state.user?.id)throw new Error("QL_CONFLICT: Account changed during this operation.");
     if(error)throw error;return data;
   }
@@ -16310,7 +16316,7 @@ body.student-only-build #adminQuickActions [data-quick="access"]{display:none!im
     if(!splitCache.has(key)){const disk=await qzDiskCacheGet(itemId);if(disk?.list?.length)splitCache.set(key,{list:disk.list,byId:new Map(disk.list.map(q=>[q.id,q])),stamp:disk.stamp})}
     const cached=splitCache.get(key);
     if(cached){
-      try{const head=await readQuizPage(itemId,1000000000);if(cached.stamp?.revision===head.revision&&head.count===cached.list.length){rememberQuizRead(itemId,head);return cached.list}}
+      try{const head=await qlReadDeadline(readQuizPage(itemId,1000000000),5000);if(cached.stamp?.revision===head.revision&&head.count===cached.list.length){rememberQuizRead(itemId,head);return cached.list}}
       catch(error){if(window.qlOff&&qlOff.isNetError(error))return cached.list;throw error}
     }
     return await loadSplitQuestions(itemId);
