@@ -151,9 +151,11 @@ with sync_playwright() as p:
         page.locator('#studentRecoveryCodeForm button[type="submit"]').click()
 
     def fill_password(page, password='New-password-456!', confirm=None):
-        if not page.locator('.ql-strong-no').is_visible():
-            page.locator('#studentNewPassword').click()
-        if page.locator('.ql-strong-no').is_visible():
+        # Verification may focus the readonly field on the next animation frame.
+        # Focus it directly so an automatic prompt cannot race a physical click.
+        field=page.locator('#studentNewPassword')
+        if field.evaluate('el=>el.readOnly'):
+            field.focus()
             page.locator('.ql-strong-no').click()
         page.locator('#studentNewPassword').fill(password)
         page.locator('#studentNewPasswordConfirm').fill(password if confirm is None else confirm)

@@ -31,6 +31,8 @@ python tests/bulk-preview-scroll.test.py
 python tests/editor-persistence.browser.py
 python tests/admin-message-drafts.browser.py
 python tests/admin-payments.browser.py
+python tests/admin-controls.browser.py
+python tests/library-workflows.browser.py
 python tests/navigation-responsiveness.browser.py
 python tests/pdf-viewer.browser.py
 python tests/offline-upgrade.browser.py
@@ -75,6 +77,14 @@ It does not read PG* environment variables or accept a remote database URL.
   and Student Dashboard, library quizzes, Rooms, Help, and payment history.
   They check immediate feedback, local filters, cancellation/Back, retry, and
   compatibility of the Rooms module with a page already open before an update.
+  Admin form checks exercise plan changes, greetings, device limits, gifts,
+  plan editing, website switches, announcements, and payment/contact settings
+  against simulated RPCs. They never modify real accounts or payment settings.
+- Personal library: phone/tablet workflows create nested folders and links,
+  upload a PDF, star items, move, duplicate, trash, restore, delete a separate
+  copy, and reload saved data. Random Quiz checks search, custom counts and
+  per-quiz splits, quiz tools, answering, and scores. These use local account
+  and Storage mocks; real file upload transport remains a live check.
 - PDF: matching real 6.4.299 library/worker, three-page rendering, navigation by
   scrolling, zoom, text extraction, cancellation, native fallback and cleanup.
   Upgrade tests cover failed downloads, integrity errors, interruption, quota
