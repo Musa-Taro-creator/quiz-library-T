@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<rect width="256" height="256" rx="128" fill="#fff0f5"/>
+<circle cx="128" cy="112" r="55" fill="#b97655"/><path d="M80 83c7-34 29-51 51-51 30 0 48 21 49 55-17-15-36-20-58-15-16 4-28 9-42 11z" fill="#3a241b"/>
+<path d="M99 111c10 6 48 6 58 0" fill="none" stroke="#d58a74" stroke-width="3" opacity=".35"/>
+<ellipse cx="108" cy="111" rx="4.7" ry="6" fill="#25314a"/><ellipse cx="148" cy="111" rx="4.7" ry="6" fill="#25314a"/>
+<path d="M116 136c8 7 16 7 24 0" fill="none" stroke="#9d4e58" stroke-width="4" stroke-linecap="round"/>
+<path d="M80 236c5-51 28-76 48-76s43 25 48 76" fill="#8b5cf6"/>
+<path d="M113 161l15 19 15-19 11 8-26 31-26-31z" fill="#fff" opacity=".95"/>
+<circle cx="198" cy="193" r="32" fill="#fff" stroke="#8b5cf6" stroke-width="5"/><text x="198" y="201" text-anchor="middle" font-size="23" font-family="Arial,sans-serif" font-weight="800" fill="#8b5cf6">ED</text>
+</svg>
