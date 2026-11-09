@@ -30,6 +30,7 @@ export PYTHONDONTWRITEBYTECODE=1
 python tests/bulk-preview-scroll.test.py
 python tests/editor-persistence.browser.py
 python tests/admin-message-drafts.browser.py
+python tests/admin-payments.browser.py
 python tests/pdf-viewer.browser.py
 python tests/offline-upgrade.browser.py
 python tests/dashboard-posting.browser.py
@@ -66,6 +67,9 @@ It does not read PG* environment variables or accept a remote database URL.
   scroll/focus on desktop, phone and tablet-sized Chromium viewports.
 - Admin: nine sections render with simulated RPCs; text/photo drafts survive
   refresh and conversation changes; failed/pending replies preserve new edits.
+  Payments checks cover immediate tab selection, cached code filters, refresh,
+  slow/out-of-order responses, retries, account isolation, code generation and
+  cancellation, and receipt approval/rejection with unchanged RPC parameters.
 - PDF: matching real 6.4.299 library/worker, three-page rendering, navigation by
   scrolling, zoom, text extraction, cancellation, native fallback and cleanup.
   Upgrade tests cover failed downloads, integrity errors, interruption, quota

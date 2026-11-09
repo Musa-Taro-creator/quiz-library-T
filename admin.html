@@ -294,7 +294,7 @@ try{setTheme(localStorage.getItem("ql_admin_theme")||"white")}catch{setTheme("wh
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-th]");if(b)setTheme(b.dataset.th)});
 
 /* ---------------- auth ---------------- */
-let me=null,plans=[],settings={},cur="dash";
+let me=null,plans=[],settings={},cur="dash",viewSerial=0;
 async function boot(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session)return showLogin();
@@ -304,7 +304,7 @@ async function boot(){
   $("#login").classList.add("hidden");$("#app").classList.remove("hidden");$("#meEmail").textContent=me.email||"";
   await loadCommon();go((location.hash||"#dash").slice(1));
 }
-function showLogin(msg){$("#app").classList.add("hidden");$("#login").classList.remove("hidden");const e=$("#lErr");e.classList.toggle("hidden",!msg);e.textContent=msg||""}
+function showLogin(msg){resetPayments();viewSerial++;$("#app").classList.add("hidden");$("#login").classList.remove("hidden");const e=$("#lErr");e.classList.toggle("hidden",!msg);e.textContent=msg||""}
 $("#loginForm").onsubmit=async ev=>{ev.preventDefault();const b=$("#lBtn");b.disabled=true;b.textContent="Signing in…";
   const {error}=await sb.auth.signInWithPassword({email:$("#lEmail").value.trim(),password:$("#lPass").value});
   b.disabled=false;b.textContent="Sign in";if(error)return showLogin(error.message);boot()};
@@ -319,7 +319,7 @@ async function loadCommon(){
 const planById=id=>plans.find(p=>p.id===id)||{id,name:id||"—",color:"#94a3b8"};
 const planTag=(id,extra="")=>{const p=planById(id);return `<span class="tag" style="background:${p.color}22;color:${p.color}">${h(p.name)}${extra}</span>`};
 function go(v){
-  msgCaptureDraft();
+  const serial=++viewSerial;msgCaptureDraft();capturePaymentDraft();
   const views={dash,users,plansView,pay,ctl,news,settingsView,board,msgs,roomsAdmin};
   const map={dash:"dash",users:"users",plans:"plansView",pay:"pay",ctl:"ctl",news:"news",settings:"settingsView",board:"board",msgs:"msgs",rooms:"roomsAdmin"};
   if(v==="review"){autoReview=true;payTab="receipts";payStatus="waiting";v="pay"}
@@ -327,7 +327,7 @@ function go(v){
   $$(".nav").forEach(n=>n.classList.toggle("on",n.dataset.v===v));
   /* same page refreshing itself (filters, tabs, after saving): keep it on screen and keep the scroll position */
   if(same){$("#view").style.minHeight=$("#view").offsetHeight+"px"}else{$("#view").innerHTML=`<div class="loading">Loading…</div>`;window.scrollTo(0,0)}
-  views[map[v]]().then(()=>{if(same){window.scrollTo(0,y);requestAnimationFrame(()=>{window.scrollTo(0,y);$("#view").style.minHeight=""})}}).catch(e=>{$("#view").style.minHeight="";$("#view").innerHTML=`<div class="card"><div class="err">${h(errMsg(e))}</div></div>`});
+  views[map[v]]().then(()=>{if(serial!==viewSerial)return;if(same){window.scrollTo(0,y);requestAnimationFrame(()=>{window.scrollTo(0,y);$("#view").style.minHeight=""})}}).catch(e=>{if(serial!==viewSerial)return;$("#view").style.minHeight="";$("#view").innerHTML=`<div class="card"><div class="err">${h(errMsg(e))}</div></div>`});
 }
 const head=(t,s,r="")=>`<div class="top"><div><h1>${t}</h1><div class="sub">${s}</div></div><div class="sp"></div>${r}</div>`;
 
@@ -558,23 +558,43 @@ function editPlan(p,clone){
 const modeLabel=m=>m==="off"?"Hidden":m==="plan"?"By plan":m==="lock"?"Locked":"Everyone";
 
 /* ---------------- payments + codes ---------------- */
-let payTab="receipts",payStatus="waiting",codeFilter="active";
-async function pay(){
-  const tabs=`<div class="filters"><button class="btn ${payTab==="receipts"?"on":""}" data-t="receipts">Receipts</button><button class="btn ${payTab==="codes"?"on":""}" data-t="codes">Activation codes</button></div>`;
-  if(payTab==="receipts")return receipts(tabs);return codes(tabs);
+let payTab="receipts",payStatus="waiting",codeFilter="active",payRequest=0,paymentCache=null;
+const paymentGenDefaults=()=>({plan:null,days:30,uses:1,valid:7,count:1,dUnit:1,dN:""});
+function resetPayments(){paymentCache=null;payRequest++;gen=paymentGenDefaults()}
+function paymentSession(){const uid=me?.id||"";if(!paymentCache||paymentCache.uid!==uid){paymentCache={uid,rows:null,at:0,epoch:0,pending:null,note:"",custom:"",output:null,creating:false};gen=paymentGenDefaults()}return paymentCache}
+function capturePaymentDraft(){if(!paymentCache||paymentCache.uid!==me?.id)return;const note=$("#gNote"),custom=$("#gCustom");if(note)paymentCache.note=note.value;if(custom)paymentCache.custom=custom.value}
+function paymentCurrent(t){return cur==="pay"&&me?.id===t.uid&&payRequest===t.request}
+function invalidateCodeRows(){const c=paymentSession();c.rows=null;c.at=0;c.epoch++;c.pending=null}
+async function loadCodeRows(){
+ const c=paymentSession();if(c.rows&&Date.now()-c.at<15000)return c.rows;
+ if(c.pending?.epoch===c.epoch)return c.pending.promise;
+ const epoch=c.epoch;const promise=rpc("ql_admin_codes").then(rows=>{if(paymentCache!==c||me?.id!==c.uid||c.epoch!==epoch)return null;c.rows=rows||[];c.at=Date.now();return c.rows}).finally(()=>{if(c.pending?.promise===promise)c.pending=null});c.pending={epoch,promise};return promise;
 }
-async function receipts(tabs){
-  const rows=await rpc("ql_admin_payments",{p_status:payStatus});
-  $("#view").innerHTML=head("Payments","Approve a receipt, or give an activation code")+tabs+`
+function paymentHead(){return head("Payments","Approve a receipt, or give an activation code",'<button class="btn" id="payRefresh">↻ Refresh</button>')}
+function paymentTabs(){return `<div class="filters"><button class="btn ${payTab==="receipts"?"on":""}" data-t="receipts">Receipts</button><button class="btn ${payTab==="codes"?"on":""}" data-t="codes">Activation codes</button></div>`}
+function paymentStatuses(){return `<div class="filters">${[["waiting","Waiting"],["approved","Approved"],["rejected","Rejected"]].map(([k,l])=>`<button class="btn ${payStatus===k?"on":""}" data-s="${k}">${l}</button>`).join("")}<span id="kqPayChip" style="margin-left:auto"></span></div>`}
+function wirePaymentTabs(){
+ $$("[data-t]").forEach(b=>b.onclick=()=>{payTab=b.dataset.t;go("pay")});
+ $$("[data-s]").forEach(b=>b.onclick=()=>{payStatus=b.dataset.s;go("pay")});
+ $("#payRefresh").onclick=()=>{if(payTab==="codes")invalidateCodeRows();go("pay")};
+}
+async function pay(){
+ paymentSession();const t={uid:me?.id,request:++payRequest,tab:payTab,status:payStatus};const tabs=paymentTabs();
+ $("#view").innerHTML=paymentHead()+tabs+(payTab==="receipts"?paymentStatuses():"")+`<div class="card" role="status" aria-live="polite">Loading ${payTab==="codes"?"activation codes":"receipts"}…</div>`;wirePaymentTabs();
+ try{if(t.tab==="receipts")await receipts(tabs,t);else await codes(tabs,t)}
+ catch(e){if(!paymentCurrent(t))return;$("#view").innerHTML=paymentHead()+tabs+(payTab==="receipts"?paymentStatuses():"")+`<div class="card"><div class="err">${h(errMsg(e))}</div><button class="btn" id="payRetry">Try again</button></div>`;wirePaymentTabs();$("#payRetry").onclick=()=>go("pay")}
+}
+async function receipts(tabs,ticket){
+  const rows=await rpc("ql_admin_payments",{p_status:ticket.status});if(!paymentCurrent(ticket))return;
+  $("#view").innerHTML=paymentHead()+tabs+`
   <div class="filters">${[["waiting","Waiting"],["approved","Approved"],["rejected","Rejected"]].map(([k,l])=>`<button class="btn ${payStatus===k?"on":""}" data-s="${k}">${l}</button>`).join("")}<span id="kqPayChip" style="margin-left:auto"></span></div>
   <div class="card"><div class="tbl"><table><tr><th>Receipt</th><th>User</th><th>Plan</th><th>Amount</th><th>Sent</th><th></th></tr>
   ${rows.length?rows.map(r=>`<tr><td>${r.receipt?`<img class="rec" src="${h(r.receipt)}" data-big="${r.id}" alt="receipt">`:r.method==="khqr"?`<span class="kq-tag" data-kq="${r.id}">KHQR<b>${h(r.bill||"")}</b></span>`:"—"}</td><td><div class="u"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div>${h(r.name)}<small>${h(r.email)}</small></div></div></td>
    <td>${planTag(r.plan_id," · "+(r.period==="month"?"1 month":r.period==="year"?"1 year":"lifetime"))}</td><td><b>${money(r.amount)}</b></td><td>${ago(r.created_at)}</td>
    <td>${r.status==="waiting"?`<span class="inline"><button class="btn p" data-rv="${r.id}">🔍 Review</button><button class="btn g" data-ok="${r.id}">Approve</button><button class="btn r" data-no="${r.id}">Reject</button></span>`:`<span class="tag ${r.status==="approved"?"ok":"no"}">${r.status}</span>${r.admin_note?`<div class="note" style="margin:4px 0 0">${h(r.admin_note)}</div>`:""}`}</td></tr>`).join(""):`<tr><td colspan="6" class="empty">No ${payStatus} payments</td></tr>`}</table></div>
   <div class="note">Approve = their plan switches on right away (1 month = 30 days, 1 year = 365 days), added on top of any time they still have.</div></div>`;
-  $$("[data-t]").forEach(b=>b.onclick=()=>{payTab=b.dataset.t;go("pay")});
-  $$("[data-s]").forEach(b=>b.onclick=()=>{payStatus=b.dataset.s;go("pay")});
-  kqStatus().then(c=>{const el=$("#kqPayChip");if(el)el.innerHTML=kqChip(c)});
+  wirePaymentTabs();
+  kqStatus().then(c=>{if(!paymentCurrent(ticket))return;const el=$("#kqPayChip");if(el)el.innerHTML=kqChip(c)});
   $$("[data-big]").forEach(i=>i.onclick=()=>modal("Receipt",`<img src="${i.src}" style="width:100%;border-radius:12px">`));
   $$("[data-kq]").forEach(i=>{const k=rows.findIndex(r=>r.id===i.dataset.kq);i.onclick=()=>payStatus==="waiting"&&k>=0?reviewPay(rows,k):0});
   const decide=async(id,ok)=>{let note="";if(!ok){note=prompt("Reason (the student sees this):","Payment not found")??null;if(note===null)return}
@@ -635,23 +655,23 @@ function reviewPay(rows,i){
   o.querySelectorAll("[data-rj]").forEach(b=>b.onclick=()=>done(false,b.dataset.rj));
   o.querySelector("#rvNoGo").onclick=()=>{const t=o.querySelector("#rvNote").value.trim();if(!t)return o.querySelector("#rvNote").focus();done(false,t)};
 }
-let gen={plan:null,days:30,uses:1,valid:7,count:1,dUnit:1,dN:""};
-async function codes(tabs){
-  const all=await rpc("ql_admin_codes");const now=Date.now();
+let gen=paymentGenDefaults();
+async function codes(tabs,ticket){
+  const all=await loadCodeRows();if(!all||!paymentCurrent(ticket))return;const session=paymentSession();const now=Date.now();
   const st=c=>c.cancelled?"cancelled":c.expires_at&&new Date(c.expires_at)<now?"expired":c.max_uses!=null&&c.uses>=c.max_uses?"used":"active";
   const cnt=k=>all.filter(c=>st(c)===k).length;const list=all.filter(c=>st(c)===codeFilter);
   const paid=plans.filter(p=>!p.is_default);gen.plan=gen.plan||paid[0]?.id||plans[0]?.id;
   const seg=(key,opts)=>`<div class="seg" data-g="${key}">${opts.map(([v,l])=>`<button type="button" data-v="${v}" class="${String(gen[key])===String(v)?"on":""}">${l}</button>`).join("")}<input class="in small" data-custom="${key}" type="number" min="1" placeholder="Custom" value="${[...opts.map(o=>String(o[0]))].includes(String(gen[key]))?"":gen[key]??""}"></div>`;
-  $("#view").innerHTML=head("Payments","Approve a receipt, or give an activation code")+tabs+`
+  $("#view").innerHTML=paymentHead()+tabs+`
   <div class="codegen"><div class="card"><h3>Generate a code</h3>
     <div class="fld"><label>Plan it gives</label><div class="seg" data-g="plan">${plans.map(p=>`<button type="button" data-v="${h(p.id)}" class="${gen.plan===p.id?"on":""}">${h(p.name)}</button>`).join("")}</div></div>
     <div class="fld"><label>Plan length</label>${seg("days",[[7,"7 days"],[30,"1 month"],[90,"3 months"],[365,"1 year"],["","Never ends"]]).replace(/<input[^>]*data-custom="days"[^>]*>/,`<span class="dcust"><input class="in small" data-custom="days" type="number" min="1" placeholder="Custom" value="${h(gen.dN)}"><select class="in small" id="gDaysUnit">${[[1,"days"],[30,"months"],[365,"years"]].map(([m,l])=>`<option value="${m}" ${gen.dUnit===m?"selected":""}>${l}</option>`).join("")}</select></span>`)}</div>
     <div class="fld"><label>How many times can it be used?</label>${seg("uses",[[1,"Once"],[2,"2 times"],["","No limit"]])}</div>
     <div class="fld"><label>Code stops working after (days)</label>${seg("valid",[[1,"1 day"],[7,"7 days"],[30,"30 days"],["","Never"]])}</div>
-    <div class="fld"><label>Note (only you see it)</label><input id="gNote" class="in" placeholder="e.g. Sokha — paid by ABA 1 Oct"></div>
+    <div class="fld"><label>Note (only you see it)</label><input id="gNote" class="in" value="${h(session.note)}" placeholder="e.g. Sokha — paid by ABA 1 Oct"></div>
     <div class="fld"><label>How many codes</label>${seg("count",[[1,"1"],[5,"5"],[10,"10"]])}</div>
-    <div class="fld"><label>Your own code word (optional, first code only)</label><input id="gCustom" class="in" placeholder="e.g. CLASS-2026"></div>
-    <button class="btn p" id="gGo">Generate code</button></div>
+    <div class="fld"><label>Your own code word (optional, first code only)</label><input id="gCustom" class="in" value="${h(session.custom)}" placeholder="e.g. CLASS-2026"></div>
+    <button class="btn p" id="gGo" ${session.creating?"disabled":""}>${session.creating?"Generating…":"Generate code"}</button></div>
    <div class="card"><h3>New code</h3><div id="gOut"><div class="empty">Your new code appears here</div></div></div></div>
   <div class="card"><h3>All codes</h3>
    <div class="filters">${[["active","Active"],["used","Used up"],["expired","Expired"],["cancelled","Cancelled"]].map(([k,l])=>`<button class="btn ${codeFilter===k?"on":""}" data-cf="${k}">${l} ${cnt(k)}</button>`).join("")}</div>
@@ -660,26 +680,30 @@ async function codes(tabs){
     <td>${(c.used_by||[]).length?h((c.used_by||[]).slice(0,3).join(", "))+((c.used_by||[]).length>3?` +${c.used_by.length-3}`:""):"—"}</td>
     <td class="inline"><button class="btn" data-cp="${h(c.code)}">Copy</button>${st(c)==="active"?`<button class="btn r" data-cx="${h(c.code)}">Cancel</button>`:""}</td></tr>`).join(""):`<tr><td colspan="7" class="empty">No codes here</td></tr>`}</table></div>
    <div class="note">Each person can use a code only once. A code adds its days on top of the plan they already have.</div></div>`;
-  $$("[data-t]").forEach(b=>b.onclick=()=>{payTab=b.dataset.t;go("pay")});
+  wirePaymentTabs();showGeneratedCodes(session);
   $$("[data-g]").forEach(g=>{g.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{gen[g.dataset.g]=b.dataset.v===""?"":isNaN(b.dataset.v)?b.dataset.v:Number(b.dataset.v);g.querySelectorAll("[data-v]").forEach(x=>x.classList.toggle("on",x===b));const c=g.querySelector("[data-custom]");if(c)c.value=""});
     const c=g.querySelector("[data-custom]");if(c)c.oninput=()=>{if(g.dataset.g==="days")gen.dN=c.value;if(c.value){gen[g.dataset.g]=g.dataset.g==="days"?Number(c.value)*gen.dUnit:Number(c.value);g.querySelectorAll("[data-v]").forEach(x=>x.classList.remove("on"))}}});
   $("#gDaysUnit").onchange=e=>{gen.dUnit=Number(e.target.value);const c=$('[data-custom="days"]');if(c.value){gen.days=Number(c.value)*gen.dUnit;$$('[data-g="days"] [data-v]').forEach(x=>x.classList.remove("on"))}};
   $$('[data-g="days"] [data-v]').forEach(b=>b.addEventListener("click",()=>{gen.dN=""}));
   $$("[data-cf]").forEach(b=>b.onclick=()=>{codeFilter=b.dataset.cf;go("pay")});
   $$("[data-cp]").forEach(b=>b.onclick=()=>copy(b.dataset.cp));
-  $$("[data-cx]").forEach(b=>b.onclick=async()=>{if(!confirm("Cancel this code? It will stop working."))return;await rpc("ql_admin_cancel_code",{p_code:b.dataset.cx});toast("Code cancelled");go("pay")});
+  $$("[data-cx]").forEach(b=>b.onclick=async()=>{if(!confirm("Cancel this code? It will stop working."))return;b.disabled=true;try{await rpc("ql_admin_cancel_code",{p_code:b.dataset.cx});if(paymentCache!==session||me?.id!==session.uid)return;invalidateCodeRows();toast("Code cancelled");if(cur==="pay"&&payTab==="codes")go("pay")}catch(e){if(paymentCache===session){b.disabled=false;alert(errMsg(e))}}});
   $("#gGo").onclick=async()=>{
-    const b=$("#gGo");b.disabled=true;
+    if(session.creating)return;capturePaymentDraft();const b=$("#gGo"),choice={plan:gen.plan,days:gen.days};session.creating=true;b.disabled=true;b.textContent="Generating…";
     try{
       const rows=await rpc("ql_admin_create_codes",{p_plan:gen.plan,p_days:gen.days===""?null:gen.days,p_max_uses:gen.uses===""?null:gen.uses,p_valid_days:gen.valid===""?null:gen.valid,p_note:$("#gNote").value.trim(),p_count:gen.count||1,p_custom:$("#gCustom").value.trim()||null});
-      const p=planById(gen.plan),len=gen.days===""?"no end date":gen.days+" days";
-      const msg=c=>`Your Quiz Library ${p.name} code: ${c.code}\nOpen My Profile → Enter activation code.${c.expires_at?" Valid until "+day(c.expires_at)+".":""}\n${STUDENT_SITE}`;
-      $("#gOut").innerHTML=rows.map(c=>`<div class="codebox" style="margin-bottom:10px"><small>${h(p.name)} · ${len} · ${c.max_uses?`use ${c.max_uses===1?"once":c.max_uses+" times"}`:"no use limit"} · ${c.expires_at?"stops working "+day(c.expires_at):"never expires"}</small><div class="c">${h(c.code)}</div>
-        <div class="inline" style="justify-content:center"><button class="btn p" data-c1="${h(c.code)}">Copy code</button><button class="btn" data-c2="${h(c.code)}">Copy message</button></div></div>`).join("");
-      $$("[data-c1]").forEach(x=>x.onclick=()=>copy(x.dataset.c1));$$("[data-c2]").forEach(x=>x.onclick=()=>copy(msg(rows.find(r=>r.code===x.dataset.c2))));
-      toast(rows.length>1?rows.length+" codes made":"Code made");
-    }catch(e){alert(errMsg(e))}finally{b.disabled=false}
+      if(paymentCache!==session||me?.id!==session.uid)return;
+      session.output={rows,plan:planById(choice.plan).name,days:choice.days};invalidateCodeRows();showGeneratedCodes(session);toast(rows.length>1?rows.length+" codes made":"Code made");if(cur==="pay"&&payTab==="codes")go("pay");
+    }catch(e){if(paymentCache===session&&me?.id===session.uid)alert(errMsg(e))}finally{session.creating=false;if(paymentCache===session&&cur==="pay"&&payTab==="codes"){const button=$("#gGo");if(button){button.disabled=false;button.textContent="Generate code"}}}
   };
+}
+
+function showGeneratedCodes(session){
+ const box=$("#gOut"),out=session.output;if(!box||!out||paymentCache!==session||cur!=="pay"||payTab!=="codes")return;
+ const rows=out.rows,len=out.days===""?"no end date":out.days+" days";
+ const msg=c=>`Your Quiz Library ${out.plan} code: ${c.code}\nOpen My Profile → Enter activation code.${c.expires_at?" Valid until "+day(c.expires_at)+".":""}\n${STUDENT_SITE}`;
+ box.innerHTML=rows.map(c=>`<div class="codebox" style="margin-bottom:10px"><small>${h(out.plan)} · ${len} · ${c.max_uses?`use ${c.max_uses===1?"once":c.max_uses+" times"}`:"no use limit"} · ${c.expires_at?"stops working "+day(c.expires_at):"never expires"}</small><div class="c">${h(c.code)}</div><div class="inline" style="justify-content:center"><button class="btn p" data-c1="${h(c.code)}">Copy code</button><button class="btn" data-c2="${h(c.code)}">Copy message</button></div></div>`).join("");
+ box.querySelectorAll("[data-c1]").forEach(x=>x.onclick=()=>copy(x.dataset.c1));box.querySelectorAll("[data-c2]").forEach(x=>x.onclick=()=>copy(msg(rows.find(r=>r.code===x.dataset.c2))));
 }
 
 /* ---------------- website control ---------------- */
