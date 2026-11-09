@@ -62,6 +62,7 @@ before these files and are not in this repository.
 17. `single_device_login.sql`
 18. `device_history.sql`
 19. `multi_device.sql`
+19b. `device_check_quiet.sql`: the device check only reads (stops a request loop).
 
 **Sharing, quizzes and Dashboard**
 
