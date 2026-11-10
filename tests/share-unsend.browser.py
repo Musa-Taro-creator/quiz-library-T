@@ -76,13 +76,17 @@ with sync_playwright() as p:
         page.wait_for_function("document.querySelector('#qlShareInboxBody .ql-is-inbox-row')")
         page.wait_for_function("document.getElementById('qlShTabCount')?.textContent==='1' && !document.getElementById('qlShTabCount').classList.contains('hidden')")
         assert 'Things people sent you' in page.locator('#qlShHint').inner_text()
+        banner = page.locator('.ql-sa-myid')
+        assert 'Friends type this ID' in banner.inner_text() and banner.locator('#qlShCopyId').count() == 1
+        assert page.evaluate("getComputedStyle(document.querySelector('.ql-sa-myid')).backgroundImage.includes('gradient')")
+        assert page.evaluate("getComputedStyle(document.querySelector('[data-sh-tab=\"inbox\"]')).borderRadius") == '999px'
         card = page.locator('#qlShareInboxBody .ql-is-inbox-row').inner_text()
         assert 'Lecture 3' in card and 'Kuza' in card and 'New' in card, card
         page.locator('#qlShCopyId').click()
         page.wait_for_function("document.getElementById('toast').textContent.includes('QL-MINE0001')")
         assert page.evaluate('navigator.clipboard.readText()') == 'QL-MINE0001'
         assert no_overflow(), 'Inbox overflows'
-        ok(tag + 'Your Quiz ID shows and copies; Inbox tab has the count and a one-line hint; inbox card shows sender and New')
+        ok(tag + 'Your Quiz ID banner shows and copies; pill tabs; Inbox tab has the count and a one-line hint; inbox card shows sender and New')
 
         # 2. History: date groups, filter, statuses; Unsend only while Waiting
         page.locator('[data-sh-tab="history"]').click()
