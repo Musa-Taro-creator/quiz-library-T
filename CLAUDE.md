@@ -11,7 +11,7 @@ the full details. This file is the short version.
 - Every release of the student app changes the version name in **both**
   `index.html` (`<meta name="ql-shell-generation">`, line ~20) and `sw.js`
   (`APP_CACHE` + `SHELL_GENERATION`). Use the form `reliability-YYYY-MM-DD-vN`.
-  The version in the repo on 2026-11-10 is `reliability-2026-11-10-v5` (live: v4 until approved).
+  The version in the repo on 2026-11-10 is `reliability-2026-11-10-v6` (live: v5 until Kuza approves Make Google Form).
 - CDN libraries stay pinned (supabase-js 2.118.0, tus 4.3.1, pdf-lib 1.17.1). If you
   change one, change it in index.html, admin.html, sw.js and the offline tests.
 - A new picture in `assets/` must also be added to `SHELL` in `sw.js` (a test checks this).
@@ -28,6 +28,8 @@ the full details. This file is the short version.
 | `sw.js` | Service worker. Network-first pages, offline copy of the shell, libraries and PDF.js (with integrity hashes). It removes old `ql-app-*` caches. Supabase is never cached. |
 | `vendor/pdfjs-6.4.299/` | Local PDF.js. |
 | `supabase/*.sql` | Database migrations (order below). `supabase/functions/ql-push/` is the Edge Function for admin push. |
+| `tools/google-form-maker.gs` | Apps Script web app (owned by quizlibrary.forms@gmail.com) that makes Google Forms. Setup: `tools/README-google-forms.md`. |
+| `supabase/functions/ql-gform/` | Edge Function: app → login + 5/day (DB) → Apps Script with secret. Plain JS so tests import it. |
 | `tools/khqr-checker.py` | Runs in Termux on the admin's Android phone. Checks KHQR payments with Bakong and reports them to Supabase. |
 | `tests/` | Node/SQL tests (`*.test.mjs/cjs`), Playwright browser tests (`*.browser.py`) and `fixtures/` (simulated Supabase, the observed schema, `rooms-backend.mjs`). |
 | `.github/workflows/claude.yml` | `@claude` GitHub Action. |
@@ -56,6 +58,9 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
   What → Who → Share stepper, person tiles, "Already sent" / "Recently sent to", Undo message
   (`ql_unsend_item_share`); Shared with me = Hi + Your ID pill, underline tabs, Inbox cards,
   History timeline (filter, date groups, Unsend), Saved IDs tiles with Share (`qlSharePreselect`). External short links, Dashboard posting and list.
+- `qlGoogleForms` (before `qlRoomsLoader`): Make Google Form button (after Create Quiz), window with Make new
+  (paste via `window.qlParseQuestions` = Bulk Paste parser + answer key, or one of my quizzes) and My Google Forms.
+  Feature key `gform` (Website Control). Admin → Settings card `gfCard()` stores the Apps Script URL + secret.
 - `qlPlans` (~19095): plans, limits incl. `questions_per_quiz`, sale price, codes, KHQR, payments.
 - `qlSupport` (Help & Support), `qlOfflineMode` (offline mode + PDF.js loading),
   `qlWorkspaceLoading` ("Loading your library…" instead of 0 items), `qlRoomsLoader`.
@@ -74,7 +79,7 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
 26 read_schema_for_reliability (read only), then **either** reliability_release_v2
 **or** (student_quiz_atomic_save_v2 + dashboard_reliable_posting_v2), never both →
 27 dashboard_quiz_access_v1 → 28 dashboard_quiz_instant_feedback_v1 → 29 shared_rooms_v1 →
-30 security_storage_fix.
+30 security_storage_fix → 31 google_forms (+ Edge Function ql-gform, Apps Script).
 `security_check.sql` is read only and can be run any time. No rows returned means all good.
 The base tables (`libraries`, `library_items`, …) existed before these files and are not in the repo.
 

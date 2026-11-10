@@ -262,7 +262,7 @@ const STUDENT_SITE=new URL("./",location.href).toString();
 /* The switchable parts of the students' website. Keep in sync with index.html (qlPlans). */
 const FEATURES=[
  ["Left menu & tabs",[["nav_dashboard","Dashboard"],["nav_rooms","Rooms"],["nav_random","Random Quiz"],["nav_inbox","Shared with me"],["nav_favorites","Favorites"],["nav_recent","Recent"],["nav_shared_links","Shared Links"],["nav_trash","Trash"],["nav_install","Install app"],["nav_support","Help & Support"]]],
- ["+ New menu",[["new_folder","Create Folder"],["new_link","Add Quiz Link"],["new_pdf","Upload PDF"],["new_quiz","Create Quiz"]]],
+ ["+ New menu",[["new_folder","Create Folder"],["new_link","Add Quiz Link"],["new_pdf","Upload PDF"],["new_quiz","Create Quiz"],["gform","Make Google Form"]]],
  ["⋮ menu on items",[["item_share_in","Share internally"],["item_share_ex","Share externally (link + QR)"],["item_duplicate","Duplicate"],["item_move","Move"],["item_edit","Edit"],["item_trash","Move to trash"],["item_share_dash","Post to Dashboard"]]],
  ["Dashboard",[["dash_menu","⋮ menu on Dashboard items"],["dash_save","Save to my library (full access, inside ⋮)"]]],
  ["Select many (bar at the top)",[["sel_share_in","Share internally"],["sel_share_ex","Share externally"],["sel_copy","Copy Link"],["sel_duplicate","Duplicate"],["sel_move","Move"],["sel_trash","Trash"]]],
@@ -903,6 +903,9 @@ async function settingsView(){
   <div class="card" style="max-width:760px;margin-bottom:16px" id="pushCard"><h3>🔔 Notifications</h3>
    <div class="note" style="margin:0 0 10px">Get a notification on this phone / computer when a student sends a <b>Help &amp; Support message</b> or a <b>payment receipt</b> — even when the admin app is closed. Turn it on once on each device you use.</div>
    <div id="pushBody"><div class="note">Checking…</div></div></div>
+  <div class="card" style="max-width:760px;margin-bottom:16px" id="gfCard"><h3>📝 Make Google Form</h3>
+   <div class="note" style="margin:0 0 10px">Students' Google Forms are made by <b>one Gmail</b> (an Apps Script web app). Paste its <b>Web app URL</b> and the <b>SECRET</b> from its log here. To switch to another Gmail later, paste the new URL and secret: new forms use the new Gmail, old forms keep working. Turn the button on/off in <b>Website Control → + New menu → Make Google Form</b>.</div>
+   <div id="gfBody"><div class="note">Checking…</div></div></div>
   <div class="card" style="max-width:760px;margin-bottom:16px"><h3>Admin look</h3><div class="thpick">${[["white","White Glass","linear-gradient(135deg,#dbeafe,#fce7f3)"],["neon","Neon Lines","repeating-linear-gradient(60deg,#0b1220 0 8px,#00e5ff66 8px 9px,#0b1220 9px 16px,#ff2e9766 16px 17px)"],["ocean","Ocean Sunrise","linear-gradient(120deg,#0b3954,#0e6377 55%,#f08a4b)"]].map(([k,l,g])=>`<button type="button" data-th="${k}" class="${curTheme===k?"on":""}"><i style="background:${g}"></i>${l}</button>`).join("")}</div></div>`+`
   <div class="card" style="max-width:760px;margin-bottom:16px"><h3>💳 KHQR (Bakong)</h3>
    <div class="note" style="margin:0 0 10px">Students see <b>your KHQR with the exact price already filled in</b> and a bill number. They pay with any bank app and tap <b>I paid</b> — the ⚡ auto-check below approves it by itself (or you approve it in Payments). Leave the Bakong ID empty to use the receipt upload below instead.</div>
@@ -931,7 +934,7 @@ async function settingsView(){
     if(a.length<8)return alert("Use at least 8 characters.");if(a!==b2)return alert("The two passwords are not the same.");
     b.disabled=true;try{const {error}=await sb.auth.updateUser({password:a});if(error)throw error;$("#pw1").value=$("#pw2").value="";toast("Password changed")}catch(x){alert(errMsg(x))}finally{b.disabled=false}};
   $$("[data-sp]").forEach(b=>b.onclick=()=>{const [f,d]=b.dataset.sp.split(",");$("#spFiles").value=f;$("#spDb").value=d});
-  pushCard();
+  pushCard();gfCard();
   $("#ctSave").onclick=async()=>{const v=id=>$(id).value.trim();await saveSetting("site",{...(settings.site||{}),contact:{telegram:v("#ctTg"),facebook:v("#ctFb"),phone:v("#ctPh"),email:v("#ctEm"),note:v("#ctNote")}},"Contact info saved — students see it in Help & Support")};
   $("#spSave").onclick=()=>saveSetting("supabase",{files_mb:Number($("#spFiles").value||1024),db_mb:Number($("#spDb").value||500),warn_percent:Math.min(100,Math.max(50,Number($("#spWarn").value||90)))},"Supabase size saved");
   let qr=p.qr_image;
@@ -942,6 +945,32 @@ async function settingsView(){
   $("#kqSave").onclick=()=>{const id=$("#kqId").value.trim().toLowerCase();if(id&&!/^[a-z0-9._-]+@[a-z0-9]+$/.test(id))return alert("A Bakong ID looks like name@bkrt");
     saveSetting("payment",{...(settings.payment||{}),bakong_id:id,khqr_name:$("#kqName").value.trim(),khqr_city:$("#kqCity").value.trim()},id?"KHQR saved — students now pay with your KHQR":"KHQR turned off")};
   $("#sSave").onclick=()=>saveSetting("payment",{...(settings.payment||{}),bank:$("#sBank").value.trim(),account_name:$("#sName").value.trim(),account_number:$("#sNum").value.trim(),note:$("#sNote").value.trim(),qr_image:qr,receipts:$("#sRec").checked},"Payment details saved");
+}
+
+/* Make Google Form: Apps Script address + secret (supabase/google_forms.sql, Edge Function ql-gform) */
+async function gfCard(){
+  const box=document.getElementById("gfBody");if(!box)return;
+  let cfg;try{cfg=await rpc("ql_admin_gform_get")}catch(x){if(box.isConnected)box.innerHTML=/ql_admin_gform_get|does not exist|schema cache|PGRST202|42883/i.test(errMsg(x))?`<div class="note">Not set up yet: run <b>supabase/google_forms.sql</b> once in Supabase → SQL Editor, and deploy the Edge Function <b>ql-gform</b>.</div>`:`<div class="err">${h(errMsg(x))}</div>`;return}
+  if(!box.isConnected)return;cfg=cfg||{};
+  const act=(cfg.owners||[]).find(o=>o.active),others=(cfg.owners||[]).filter(o=>!o.active);
+  const when=d=>d?new Date(d).toLocaleString():"";
+  box.innerHTML=`${act?`<div class="note" style="margin:0 0 10px" id="gfActive">Now making forms: <b>${h(act.owner_email||"Gmail not checked yet — press Check connection")}</b>${act.checked_at?` · checked ${h(when(act.checked_at))}`:""}<br><span style="word-break:break-all">${h(act.script_url)}</span><br>Made today: <b>${Number(cfg.made_today||0)}</b> · all time: <b>${Number(cfg.made_total||0)}</b></div>`:`<div class="note" style="margin:0 0 10px" id="gfActive">No Gmail connected yet. Students see “not ready yet”.</div>`}
+   <div class="fld"><label>Apps Script Web app URL</label><input id="gfUrl" class="in" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec" value="${h(act?act.script_url:"")}"></div>
+   <div class="two"><div class="fld"><label>SECRET (from the Apps Script log)</label><input id="gfSecret" class="in" type="password" autocomplete="off" placeholder="${act?"Saved — leave empty to keep it":"Paste the secret"}"></div>
+    <div class="fld"><label>Forms per student per day</label><input id="gfLimit" class="in small" type="number" min="0" max="100" value="${Number(cfg.daily_limit??5)}"></div></div>
+   <div class="inline"><button class="btn p" id="gfSave">Save</button><button class="btn" id="gfPing">Check connection</button></div>
+   <div id="gfMsg" class="note" style="margin-top:8px"></div>
+   ${others.length?`<div class="sec-t" style="margin-top:14px">Other Gmails (their old forms still work)</div>${others.map(o=>`<div class="inline" style="justify-content:space-between;margin:6px 0"><span><b>${h(o.owner_email||"Not checked")}</b><br><small style="word-break:break-all;color:var(--muted)">${h(o.script_url)}</small></span><button class="btn" data-gf-use="${h(o.script_url)}">Use this one</button></div>`).join("")}`:""}`;
+  const msg=(t,bad)=>{const m=$("#gfMsg");m.className=bad?"err":"note";m.textContent=t};
+  const save=async(url,secret)=>{const lim=$("#gfLimit").value===""?null:Number($("#gfLimit").value);await rpc("ql_admin_gform_save",{p_script_url:url,p_secret:secret,p_daily_limit:lim})};
+  const ping=async()=>{const {data,error}=await sb.functions.invoke("ql-gform",{body:{action:"ping"}});let d=data;if(error){try{d=await error.context.json()}catch{d={error:error.message}}}
+    if(!d||!d.ok)throw new Error(d&&d.error||"No answer");return d.owner};
+  $("#gfSave").onclick=async e=>{const b=e.currentTarget;b.disabled=true;try{await save($("#gfUrl").value.trim(),$("#gfSecret").value.trim());toast("Google Forms settings saved");
+      let owner=null;try{owner=await ping()}catch{}await gfCard();if(owner)msg("✅ Saved and connected. Forms are made by "+owner)}catch(x){msg(errMsg(x),true)}finally{b.disabled=false}};
+  $("#gfPing").onclick=async e=>{const b=e.currentTarget;b.disabled=true;msg("Asking the Apps Script…");
+    try{const owner=await ping();await gfCard();msg("✅ Connected. Forms are made by "+owner)}
+    catch(x){msg("❌ "+(/Function not found|404|Failed to send/i.test(errMsg(x))?"The Edge Function ql-gform is not deployed yet.":errMsg(x)),true)}finally{b.disabled=false}};
+  $$("[data-gf-use]").forEach(b=>b.onclick=async()=>{if(!confirm("Make new forms with this Gmail again?"))return;try{await save(b.dataset.gfUse,"");toast("Switched");gfCard()}catch(x){msg(errMsg(x),true)}});
 }
 
 window.addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(v&&v!==cur&&!$("#app").classList.contains("hidden"))go(v)});

@@ -1,0 +1,81 @@
+"""Admin → Settings → Make Google Form: paste the Apps Script URL + secret, Check connection,
+switch back to an older Gmail, and the on/off switch in Website Control.
+
+Uses the simulated admin backend from admin-message-drafts.browser.py plus a fake Edge
+Function; no real accounts, no Google.
+"""
+from pathlib import Path
+import ast
+from playwright.sync_api import sync_playwright
+ROOT = Path(__file__).resolve().parents[1]
+tree = ast.parse((ROOT / 'tests/admin-message-drafts.browser.py').read_text())
+STUB = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'stub' for t in n.targets))
+EXTRA = r'''
+window.gf={owners:[],limit:5,saves:[],invokes:[]};
+const baseCreate=window.supabase.createClient;
+window.supabase.createClient=(...a)=>{const c=baseCreate(...a),rpc0=c.rpc;
+ c.rpc=async(name,args)=>{
+  if(name==='ql_admin_gform_get')return {data:{daily_limit:gf.limit,owners:gf.owners.map(o=>({...o})),made_today:2,made_total:9},error:null};
+  if(name==='ql_admin_gform_save'){gf.saves.push(args);
+    if(args.p_script_url&&!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(args.p_script_url))return {data:null,error:{message:'Paste the Web app URL from Apps Script. It starts with https://script.google.com/macros/s/ and ends with /exec'}};
+    if(args.p_daily_limit!=null)gf.limit=args.p_daily_limit;
+    if(args.p_script_url){let o=gf.owners.find(x=>x.script_url===args.p_script_url);if(!o){o={script_url:args.p_script_url,owner_email:null,active:false,checked_at:null};gf.owners.push(o)}gf.owners.forEach(x=>x.active=x===o)}
+    return {data:{},error:null}}
+  return rpc0(name,args)};
+ c.functions={invoke:async(name,o)=>{gf.invokes.push(o.body);const a=gf.owners.find(x=>x.active);if(!a)return {data:{ok:false,error:'not set up'},error:null};
+   a.owner_email=a.script_url.includes('Two')?'second.forms@gmail.com':'quizlibrary.forms@gmail.com';a.checked_at=new Date().toISOString();return {data:{ok:true,owner:a.owner_email},error:null}}};
+ return c};
+'''
+URL1 = 'https://script.google.com/macros/s/AKfycbOne/exec'
+URL2 = 'https://script.google.com/macros/s/AKfycbTwo/exec'
+checks = []
+def ok(s): checks.append(s); print('PASS:', s, flush=True)
+with sync_playwright() as p:
+    browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox'])
+    for width in (1280, 390):
+        context = browser.new_context(viewport={'width': width, 'height': 900}, has_touch=True, service_workers='block')
+        context.add_init_script(STUB + EXTRA)
+        page = context.new_page(); page.set_default_timeout(10000); errors = []
+        page.on('pageerror', lambda e: errors.append(str(e)))
+        page.on('dialog', lambda d: d.accept())
+        def route(r):
+            u = r.request.url
+            if u.startswith('http://127.0.0.1:8835/'):
+                name = u.split('8835/', 1)[1].split('?', 1)[0]
+                if name == 'admin.html': r.fulfill(status=200, content_type='text/html', body=(ROOT / name).read_bytes())
+                elif (ROOT / name).is_file(): r.fulfill(status=200, body=(ROOT / name).read_bytes())
+                else: r.fulfill(status=404, body='Missing')
+            elif r.request.resource_type == 'script': r.fulfill(status=200, content_type='application/javascript', body='/* simulated */')
+            else: r.abort()
+        context.route('**/*', route)
+        page.goto('http://127.0.0.1:8835/admin.html#settings')
+        page.locator('#gfCard #gfUrl').wait_for()
+        tag = f'[{width}px] '
+        assert 'No Gmail connected yet' in page.locator('#gfActive').inner_text()
+        page.locator('#gfUrl').fill('https://example.com/nope'); page.locator('#gfSecret').fill('s'); page.locator('#gfSave').click()
+        page.wait_for_function("document.getElementById('gfMsg').textContent.includes('Web app URL')")
+        page.locator('#gfUrl').fill(URL1); page.locator('#gfSecret').fill('secret-one'); page.locator('#gfLimit').fill('4'); page.locator('#gfSave').click()
+        page.wait_for_function("document.getElementById('gfMsg').textContent.includes('Saved and connected')")
+        assert page.evaluate('gf.saves.at(-1)') == {'p_script_url': URL1, 'p_secret': 'secret-one', 'p_daily_limit': 4}
+        assert page.evaluate('gf.invokes.at(-1)') == {'action': 'ping'}
+        act = page.locator('#gfActive').inner_text()
+        assert 'quizlibrary.forms@gmail.com' in act and 'Made today: 2' in act, act
+        assert page.locator('#gfSecret').input_value() == '' and 'leave empty to keep' in page.locator('#gfSecret').get_attribute('placeholder')
+        ok(tag + 'Paste URL + secret: wrong URL explained; saved, checked, shows which Gmail makes the forms; secret field stays empty')
+        page.locator('#gfUrl').fill(URL2); page.locator('#gfSecret').fill('secret-two'); page.locator('#gfSave').click()
+        page.wait_for_function("document.getElementById('gfActive').textContent.includes('second.forms@gmail.com')")
+        page.locator(f'[data-gf-use="{URL1}"]').wait_for()
+        page.locator(f'[data-gf-use="{URL1}"]').click()
+        page.wait_for_function(f"gf.owners.find(o=>o.active).script_url==='{URL1}'")
+        page.locator('#gfPing').click()
+        page.wait_for_function("document.getElementById('gfMsg').textContent.includes('Connected. Forms are made by quizlibrary.forms@gmail.com')")
+        assert page.evaluate('gf.saves.at(-1)')['p_secret'] == '', 'switching back keeps the saved secret'
+        assert page.evaluate("document.documentElement.scrollWidth<=innerWidth+1")
+        ok(tag + 'Switch to a second Gmail and back ("Use this one"); Check connection names the Gmail')
+        page.evaluate("go('ctl')")
+        page.wait_for_function("document.querySelector('#view').innerText.includes('Make Google Form')")
+        ok(tag + 'Website Control lists the Make Google Form on/off switch')
+        assert not errors, errors
+        context.close()
+    browser.close()
+print(f'{len(checks)} checks passed')

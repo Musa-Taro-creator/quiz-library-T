@@ -22,6 +22,8 @@ and uses [Supabase](https://supabase.com) for accounts, data and file storage.
 | `vendor/pdfjs-6.4.299/` | The PDF viewer (PDF.js), kept here so it also works offline. |
 | `supabase/*.sql` | Database changes. Run them in Supabase → SQL Editor (order below). |
 | `supabase/functions/ql-push/` | Supabase Edge Function that sends admin notifications. |
+| `supabase/functions/ql-gform/` | Edge Function for Make Google Form (checks the login, then asks the Apps Script). |
+| `tools/google-form-maker.gs`, `tools/README-google-forms.md` | Apps Script that makes students' Google Forms, and the setup steps. |
 | `tools/khqr-checker.py` | Runs in Termux on the admin's Android phone and confirms KHQR payments with Bakong. |
 | `tests/` | Local tests. They never connect to the real Supabase. See `tests/README.md`. |
 
@@ -82,6 +84,7 @@ before these files and are not in this repository.
 28. `dashboard_quiz_instant_feedback_v1.sql`
 29. `shared_rooms_v1.sql`
 30. `security_storage_fix.sql`: closes open file-storage rules.
+31. `google_forms.sql`: Make Google Form (also deploy `supabase/functions/ql-gform`; steps in `tools/README-google-forms.md`).
 
 `security_check.sql` is read only: run it any time. Every row it returns is
 something to look at; no rows means all good.

@@ -55,6 +55,8 @@ python tests/admin-all-pages.browser.py
 python tests/update-banner.browser.py
 python tests/share-history.browser.py
 python tests/share-unsend.browser.py
+python tests/google-forms.browser.py
+python tests/admin-google-forms.browser.py
 ```
 
 For the additional supported text-ID schema compatibility check:
