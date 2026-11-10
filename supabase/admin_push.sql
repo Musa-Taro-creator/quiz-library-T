@@ -42,7 +42,8 @@ begin
   select * into c from ql_push_config where id = 1;
   if c.public_key is null or p_replace then
     update ql_push_config set public_key = p_public, private_key = p_private, updated_at = now() where id = 1;
-    if p_replace then delete from ql_push_subs; end if;
+    -- "where true": Supabase blocks DELETE without WHERE (safeupdate); new keys make every old device invalid.
+    if p_replace then delete from ql_push_subs where true; end if;
   end if;
   update ql_push_config set fn_url = p_fn_url where id = 1;
   return (select public_key from ql_push_config where id = 1);

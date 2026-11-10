@@ -281,7 +281,8 @@ begin
     end if;
     insert into ql_gform_owners (script_url, secret) values (v_url, trim(p_secret))
     on conflict (script_url) do update set secret = coalesce(nullif(trim(excluded.secret), ''), ql_gform_owners.secret);
-    update ql_gform_owners set active = (script_url = v_url);
+    -- Supabase blocks UPDATE/DELETE without WHERE (safeupdate); only rows that change are touched.
+    update ql_gform_owners set active = (script_url = v_url) where active or script_url = v_url;
   end if;
   return ql_admin_gform_get();
 end;
