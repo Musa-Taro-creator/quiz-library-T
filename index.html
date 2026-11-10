@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-09-v9">
+<meta name="ql-shell-generation" content="reliability-2026-11-10-v1">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -18072,9 +18072,11 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     }
   }
 
+  /* quizzes go through the same internal share as PDFs, links and folders
+     (window.qlShareInternally, ql_send_item_share), so they show in share History */
   shareOne=async function(item){
     if(qlIsStudentWorkspace()&&item?.kind==="quiz"){
-      return openInternalQuizShare(item);
+      return window.qlShareInternally?window.qlShareInternally(item):openInternalQuizShare(item);
     }
     return oldShareOne(item);
   };
@@ -18085,7 +18087,7 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
       if(chosen.length!==1||chosen[0].kind!=="quiz"){
         return toast("Select one quiz at a time for internal sharing");
       }
-      return openInternalQuizShare(chosen[0]);
+      return window.qlShareInternally?window.qlShareInternally(chosen[0]):openInternalQuizShare(chosen[0]);
     }
     return oldShareSelected();
   };
@@ -18423,6 +18425,34 @@ body.ql-skin .ql-is-card span,body.ql-skin .ql-is-inbox-head span,body.ql-skin .
 body.ql-skin .ql-is-note{background:color-mix(in srgb,#10b981 12%,transparent)!important;border-color:color-mix(in srgb,#10b981 38%,transparent)!important;color:var(--sk-muted)!important}
 body.ql-neon .ql-is-note b,body.ql-ocean .ql-is-note b{color:#34d399!important}
 body.ql-skin .ql-is-person{background:color-mix(in srgb,var(--sk-accent) 12%,transparent)!important;border-color:color-mix(in srgb,var(--sk-accent) 35%,transparent)!important}
+/* share history + saved Quiz IDs */
+.ql-sh-tabs{display:flex;gap:6px;margin-bottom:12px;padding:4px;border-radius:12px;background:rgba(100,116,139,.1)}
+.ql-sh-tabs button{flex:1;min-height:38px;border:0;border-radius:9px;background:transparent;font:inherit;font-size:13.5px;font-weight:700;color:#475569;cursor:pointer}
+.ql-sh-tabs button.on{background:#fff;color:#4338ca;box-shadow:0 1px 3px rgba(15,23,42,.12)}
+.ql-sh-list{display:grid;gap:8px}
+.ql-sh-row{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;border:1px solid var(--line,#e2e8f0);background:#fbfcfe}
+.ql-sh-row .ql-is-ico{flex:none;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:var(--kc);background:color-mix(in srgb,var(--kc) 14%,transparent)}
+.ql-sh-row .ql-is-ico svg{width:19px;height:19px}.ql-sh-row .ql-is-avatar{flex:none}
+.ql-sh-copy{flex:1;min-width:0}.ql-sh-copy strong{display:block;font-size:14px;color:#0f172a;overflow-wrap:anywhere}
+.ql-sh-copy span{display:block;font-size:12px;color:#64748b;overflow-wrap:break-word}.ql-sh-copy small{display:block;font-size:11px;color:#94a3b8;margin-top:2px}
+.ql-sh-id{font-style:normal;white-space:nowrap}.ql-sh-st{font-style:normal;font-weight:700}.ql-sh-pending{color:#d97706}.ql-sh-saved{color:#059669}.ql-sh-dismissed{color:#94a3b8}
+.ql-sh-row .btn{flex:none;height:34px;padding:0 10px;font-size:12.5px}
+.ql-sh-add{display:flex;gap:8px;margin-bottom:10px}.ql-sh-add input{flex:1;min-width:0}
+#qlShSavedIds .status:not(.hidden){margin-bottom:10px}
+.ql-is-recent{display:grid;gap:6px}.ql-is-recent-label{font-size:12px;font-weight:700;color:#64748b}
+.ql-is-chips{display:flex;gap:6px;flex-wrap:wrap}
+.ql-is-chip{display:inline-flex;align-items:center;border-radius:999px;border:1px solid #c7d2fe;background:#eef2ff;max-width:100%}
+.ql-is-chip button{border:0;background:transparent;font:inherit;color:#3730a3;cursor:pointer;min-height:34px}
+.ql-is-chip [data-pick]{padding:4px 4px 4px 12px;text-align:left;min-width:0;display:flex;gap:6px;align-items:baseline}
+.ql-is-chip [data-pick] b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px}.ql-is-chip [data-pick] small{font-size:11px;color:#6366f1}
+.ql-is-chip-x{padding:0 10px 0 6px;font-size:17px;line-height:1;color:#64748b!important}
+body.ql-skin .ql-sh-tabs{background:color-mix(in srgb,var(--sk-veil) 8%,transparent)!important}
+body.ql-skin .ql-sh-tabs button{color:var(--sk-muted)!important}
+body.ql-skin .ql-sh-tabs button.on{background:color-mix(in srgb,var(--sk-accent) 22%,transparent)!important;color:var(--sk-text)!important}
+body.ql-skin .ql-sh-row{background:color-mix(in srgb,var(--sk-veil) 7%,transparent)!important;border-color:color-mix(in srgb,var(--sk-accent) 28%,transparent)!important}
+body.ql-skin .ql-sh-copy strong{color:var(--sk-text)!important}body.ql-skin .ql-sh-copy span,body.ql-skin .ql-is-recent-label{color:var(--sk-muted)!important}
+body.ql-skin .ql-is-chip{background:color-mix(in srgb,var(--sk-accent) 12%,transparent)!important;border-color:color-mix(in srgb,var(--sk-accent) 35%,transparent)!important}
+body.ql-skin .ql-is-chip button{color:var(--sk-text)!important}
 /* public link page */
 #qlItemViewer{position:fixed;inset:0;z-index:2147483000;overflow:auto;background:linear-gradient(160deg,#eef4ff,#fdf2f8 60%,#ecfeff);color:#0f172a;font-family:inherit;-webkit-overflow-scrolling:touch}
 .ql-iv-wrap{max-width:760px;margin:0 auto;padding:18px 16px 40px}
@@ -18565,6 +18595,7 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     const line=item.__multi?`${summary(nodes)} — sent together in one folder`:item.kind==="folder"?`${summary(nodes)} — everything inside is included`:`${item.__multi?"items":KN[item.kind]} · sends a full copy`;
     openModal(`Share ${item.__multi?"items":KN[item.kind]} internally`,`<div class="ql-is-shell">${shareCard(item,line)}
       <label>Student Quiz ID<div class="ql-is-row"><input id="qlIsTo" autocomplete="off" spellcheck="false" placeholder="QL-XXXXXXXX"><button id="qlIsFind" class="btn" type="button">Search</button></div></label>
+      <div id="qlIsRecent" class="ql-is-recent hidden"></div>
       <div id="qlIsStatus" class="status hidden"></div><div id="qlIsPerson"></div>
       <div class="ql-is-note"><b>Full copy.</b> They choose a folder and save their own copy${item.kind==="folder"?" of the folder and everything in it":""}. Their changes don't affect yours.</div>
       <div class="form-actions"><button id="qlIsCancel" class="btn" type="button">Cancel</button><button id="qlIsSend" class="btn primary" type="button" disabled>Share</button></div></div>`);
@@ -18587,6 +18618,7 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     };
     $("#qlIsFind").onclick=find;inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();find()}};
     inp.oninput=()=>{const v=String(inp.value||"").trim().toUpperCase().replace(/\s+/g,"");clearTimeout(autoT);if(/^QL-[A-Z0-9]{8}$/.test(v)&&v!==autoLast)autoT=setTimeout(find,350)};
+    showSavedIds($("#qlIsRecent"),id=>{inp.value=id;find()});
     send.onclick=async()=>{
       if(!who)return;send.disabled=true;
       try{
@@ -18595,6 +18627,7 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
         say("Sending…");
         const {error}=await service.client.rpc("ql_send_item_share",{p_recipient_share_id:who.share_id,p_kind:item.kind,p_title:item.title||"",p_item_count:packet.nodes.length,p_payload:packet});
         if(error)throw error;
+        savedIds=null;
         closeModal();toast(`${item.__multi?"items":KN[item.kind]} shared with ${who.display_name||"student"}`);
       }catch(e){send.disabled=false;st.className="status";st.innerHTML=errHtml(e)}
     };
@@ -18711,8 +18744,79 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
     if(!service.client||!state.user||!qlIsStudentWorkspace())return;
     try{const {data,error}=await service.client.rpc("ql_received_item_share_count");if(error)return;inboxCount=Number(data||0);syncBadge()}catch{}
   }
+  /* ---------- Share history and saved Quiz IDs (supabase/share_history.sql) ---------- */
+  let savedIds=null;
+  const histMissing=e=>/ql_share_history|ql_share_contacts|ql_save_share_contact|ql_forget_share_contact|function .* does not exist|schema cache|PGRST202|42883/i.test(String(e&&(e.message||e)));
+  async function loadSavedIds(){
+    if(savedIds)return savedIds;
+    const {data,error}=await service.client.rpc("ql_share_contacts");if(error)throw error;
+    savedIds=Array.isArray(data)?data:[];return savedIds;
+  }
+  async function forgetSavedId(id){
+    const {error}=await service.client.rpc("ql_forget_share_contact",{p_share_id:id});if(error)throw error;
+    savedIds=(savedIds||[]).filter(x=>x.share_id!==id);
+  }
+  async function saveId(id){
+    const {data,error}=await service.client.rpc("ql_save_share_contact",{p_share_id:id});if(error)throw error;
+    savedIds=null;return data;
+  }
+  const histDate=d=>{try{return new Date(d).toLocaleString([], {day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}catch{return ""}};
+  /* chips under "Student Quiz ID": tap one to pick that person, × forgets the ID */
+  async function showSavedIds(box,pick){
+    if(!box)return;let list;try{list=await loadSavedIds()}catch(e){return}
+    if(!box.isConnected||!list.length)return;
+    box.innerHTML=`<span class="ql-is-recent-label">Saved IDs</span><div class="ql-is-chips">${list.slice(0,20).map(c=>`<span class="ql-is-chip"><button type="button" data-pick="${h(c.share_id)}"><b>${h(c.display_name||"Student")}</b><small>${h(c.share_id)}</small></button><button type="button" class="ql-is-chip-x" data-forget="${h(c.share_id)}" aria-label="Forget ${h(c.share_id)}" title="Forget this ID">×</button></span>`).join("")}</div>`;
+    box.classList.remove("hidden");
+    box.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>pick(b.dataset.pick));
+    box.querySelectorAll("[data-forget]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{await forgetSavedId(b.dataset.forget);b.parentElement.remove();if(!box.querySelector(".ql-is-chip"))box.classList.add("hidden")}catch(e){b.disabled=false;toast(friendlyError(e))}});
+  }
+  const histStatus={sent:{pending:"Waiting",saved:"Saved by them",dismissed:"Dismissed by them"},received:{pending:"New",saved:"Saved",dismissed:"Dismissed"}};
+  async function drawHistory(pane){
+    pane.innerHTML=`<div class="status">Loading history…</div>`;
+    try{
+      const {data,error}=await service.client.rpc("ql_share_history",{p_limit:200});if(error)throw error;
+      const rows=Array.isArray(data)?data:[];let ids=[];try{ids=(await loadSavedIds()).map(x=>x.share_id)}catch{}
+      if(!pane.isConnected)return;
+      if(!rows.length){pane.innerHTML=`<div class="ql-share-inbox-empty"><strong>No shares yet</strong>Items you share with someone, and items shared with you, will be listed here.</div>`;return}
+      pane.innerHTML=`<div class="ql-sh-list">${rows.map(r=>{const sent=r.direction==="sent",who=`${h(r.person_name||"Student")}${r.person_share_id?` · <i class="ql-sh-id">${h(r.person_share_id)}</i>`:""}`;
+        const canSave=r.person_share_id&&!ids.includes(r.person_share_id);
+        return `<div class="ql-sh-row" data-sh-dir="${sent?"sent":"received"}">${kIco(r.kind)}<div class="ql-sh-copy"><strong>${h(r.title||KN[r.kind]||"Item")}</strong><span>${sent?"Sent to":"From"} ${who}</span><small>${h(histDate(r.created_at))} · <em class="ql-sh-st ql-sh-${h(r.status)}">${h((histStatus[sent?"sent":"received"]||{})[r.status]||r.status||"")}</em></small></div>${canSave?`<button type="button" class="btn ql-sh-save" data-sh-save="${h(r.person_share_id)}">Save ID</button>`:""}</div>`}).join("")}</div>`;
+      pane.querySelectorAll("[data-sh-save]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{await saveId(b.dataset.shSave);pane.querySelectorAll(`[data-sh-save="${b.dataset.shSave}"]`).forEach(x=>x.remove());toast("Quiz ID saved")}catch(e){b.disabled=false;alert(friendlyError(e))}});
+    }catch(e){if(pane.isConnected)pane.innerHTML=histMissing(e)?`<div class="status">Share history is not set up yet (run <code>supabase/share_history.sql</code>).</div>`:`<div class="status error">${h(friendlyError(e))}</div>`}
+  }
+  async function drawSavedIds(pane){
+    pane.innerHTML=`<div class="ql-sh-add"><input id="qlShAddId" autocomplete="off" spellcheck="false" placeholder="QL-XXXXXXXX" aria-label="Quiz ID to save"><button id="qlShAddBtn" class="btn primary" type="button">Save ID</button></div><div id="qlShAddStatus" class="status hidden"></div><div id="qlShIds"><div class="status">Loading…</div></div>`;
+    const list=pane.querySelector("#qlShIds"),st=pane.querySelector("#qlShAddStatus"),inp=pane.querySelector("#qlShAddId"),btn=pane.querySelector("#qlShAddBtn");
+    const draw=async()=>{
+      let rows;try{rows=await loadSavedIds()}catch(e){list.innerHTML=histMissing(e)?`<div class="status">Saved IDs are not set up yet (run <code>supabase/share_history.sql</code>).</div>`:`<div class="status error">${h(friendlyError(e))}</div>`;return}
+      if(!list.isConnected)return;
+      list.innerHTML=rows.length?`<div class="ql-sh-list">${rows.map(c=>`<div class="ql-sh-row"><div class="ql-is-avatar">${h(String(c.display_name||"S").slice(0,1).toUpperCase())}</div><div class="ql-sh-copy"><strong>${h(c.display_name||"Student")}</strong><span>${h(c.share_id)}</span><small>${c.share_count?`Shared ${c.share_count} time${c.share_count===1?"":"s"}${c.last_shared_at?" · last "+h(histDate(c.last_shared_at)):""}`:"Saved, not shared yet"}</small></div><button type="button" class="btn" data-sh-forget="${h(c.share_id)}">Forget</button></div>`).join("")}</div>`
+        :`<div class="ql-share-inbox-empty"><strong>No saved IDs</strong>People you share with are saved here automatically, or add a Quiz ID above.</div>`;
+      list.querySelectorAll("[data-sh-forget]").forEach(b=>b.onclick=async()=>{if(!confirm(`Forget ${b.dataset.shForget}?`))return;b.disabled=true;try{await forgetSavedId(b.dataset.shForget);draw()}catch(e){b.disabled=false;alert(friendlyError(e))}});
+    };
+    const add=async()=>{const id=String(inp.value||"").trim().toUpperCase().replace(/\s+/g,"");
+      if(!/^QL-[A-Z0-9]{8}$/.test(id)){st.className="status error";st.textContent="Enter a valid Quiz ID, for example QL-7K4P9M2Q.";return}
+      btn.disabled=true;st.className="status";st.textContent="Saving…";
+      try{const r=await saveId(id);inp.value="";st.className="status success";st.textContent=`Saved ${r?.display_name||id}`;await draw()}catch(e){st.className="status error";st.textContent=friendlyError(e)}finally{btn.disabled=false}};
+    btn.onclick=add;inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();add()}};
+    await draw();
+  }
+  function addInboxTabs(body){
+    if(!body||body.dataset.qlShTabs)return;body.dataset.qlShTabs="1";
+    const tabs=document.createElement("div");tabs.className="ql-sh-tabs";tabs.setAttribute("role","tablist");
+    tabs.innerHTML=`<button type="button" role="tab" data-sh-tab="inbox" class="on" aria-selected="true">Inbox</button><button type="button" role="tab" data-sh-tab="history" aria-selected="false">History</button><button type="button" role="tab" data-sh-tab="ids" aria-selected="false">Saved IDs</button>`;
+    const history=document.createElement("div");history.id="qlShHistory";history.className="hidden";
+    const ids=document.createElement("div");ids.id="qlShSavedIds";ids.className="hidden";
+    body.before(tabs);body.after(history,ids);
+    const panes={inbox:body,history,ids};
+    tabs.querySelectorAll("[data-sh-tab]").forEach(b=>b.onclick=()=>{const k=b.dataset.shTab;
+      tabs.querySelectorAll("[data-sh-tab]").forEach(x=>{x.classList.toggle("on",x===b);x.setAttribute("aria-selected",String(x===b))});
+      Object.entries(panes).forEach(([n,p])=>p.classList.toggle("hidden",n!==k));
+      if(k==="history")drawHistory(history);else if(k==="ids")drawSavedIds(ids)});
+  }
   new MutationObserver(()=>{
     const body=document.getElementById("qlShareInboxBody");
+    if(body)addInboxTabs(body);
     if(body&&!body.querySelector(".status:not(.hidden)")?.textContent?.startsWith("Loading"))decorateInbox(body);
     const b=document.getElementById("studentSharedQuizBadge");
     if(b&&!b.dataset.qlIsObs){b.dataset.qlIsObs="1";new MutationObserver(()=>{if(b.textContent===lastText&&b.classList.contains("show")===lastShow)return;quizCount=b.classList.contains("show")?(parseInt(b.textContent)||0):0;syncBadge()}).observe(b,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:["class"]})}
@@ -18909,7 +19013,7 @@ body.ql-neon .ql-dash-save,body.ql-ocean .ql-dash-save{background:color-mix(in s
   if(typeof render==="function"){const prevR=render;render=function(){const r=prevR.apply(this,arguments);try{placeDashNav()}catch{}return r}}
   setTimeout(placeDashNav,800);
 
-  window.qlShareInternally=x=>x&&x.kind==="quiz"?shareOne(x):shareInternally(x);
+  window.qlShareInternally=x=>x&&shareInternally(x);
   /* select-many bar: several items go as ONE share, wrapped in a folder ("Shared items (3)") */
   function selectedBundle(){
     const ids=new Set([...(state.selected||[])]),items=[...ids].map(itemById).filter(x=>x&&!x.is_trashed);

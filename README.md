@@ -69,6 +69,7 @@ before these files and are not in this repository.
 
 20. `item_sharing.sql`: share PDFs, links and folders.
 21. `external_share_short_links.sql`: short links for "Share externally".
+21b. `share_history.sql`: "Shared with me" → History and Saved IDs.
 22. `student_quiz_split_storage.sql`: one row per question.
 23. `student_patch_quiz_questions.sql`: save only changed questions.
 24. `dashboard.sql`

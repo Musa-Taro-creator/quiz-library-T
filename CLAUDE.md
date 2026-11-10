@@ -11,7 +11,7 @@ the full details. This file is the short version.
 - Every release of the student app changes the version name in **both**
   `index.html` (`<meta name="ql-shell-generation">`, line ~20) and `sw.js`
   (`APP_CACHE` + `SHELL_GENERATION`). Use the form `reliability-YYYY-MM-DD-vN`.
-  The live version on 2026-11-09 is `reliability-2026-11-09-v9`.
+  The version in the repo on 2026-11-10 is `reliability-2026-11-10-v1`.
 - CDN libraries stay pinned (supabase-js 2.118.0, tus 4.3.1, pdf-lib 1.17.1). If you
   change one, change it in index.html, admin.html, sw.js and the offline tests.
 - A new picture in `assets/` must also be added to `SHELL` in `sw.js` (a test checks this).
@@ -48,11 +48,12 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
 - `qlOneDevice` (~17324): device limit and `ql_device_check`. Polls every 45 s only
   while the tab is visible, and ignores its own `last_seen` UPDATEs (this was the loop fix).
 - `ql-stale-deploy-update-checker` (~17515): the "new version" banner.
-- `internalQuizShareFeatureScript` (~17619): Share internally for quizzes (student search
-  through `ql_find_student_by_share_id`).
+- `internalQuizShareFeatureScript` (~17619): the "Shared with me" button, badge and old
+  quiz-share inbox (`student_quiz_shares`, not in the repo). New quiz shares go through `qlItemShare`.
 - `qlInstallApp` (registers sw.js), `qlDevices` (devices list), `qlItemMenu`,
-  `qlItemShare` (~18494: sharing PDFs, links and folders, external short links, Dashboard
-  posting `ql_prepare_dash_quiz_v2`, Dashboard list `ql_dash_list`).
+  `qlItemShare` (~18494): Share internally for everything incl. quizzes (`ql_send_item_share`),
+  saved-ID chips, Shared with me tabs Inbox / History / Saved IDs (`ql_share_history`,
+  `ql_share_contacts`), external short links, Dashboard posting `ql_prepare_dash_quiz_v2` and list.
 - `qlPlans` (~19095): plans, limits incl. `questions_per_quiz`, sale price, codes, KHQR, payments.
 - `qlSupport` (Help & Support), `qlOfflineMode` (offline mode + PDF.js loading),
   `qlWorkspaceLoading` ("Loading your library…" instead of 0 items), `qlRoomsLoader`.
@@ -66,7 +67,7 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
 11 admin_push (optional, plus deploy ql-push) → 12 payment_review → 13 khqr_payment →
 14 khqr_autocheck → 15 khqr_auto_detect → 16 khqr_budget →
 17 single_device_login → 18 device_history → 19 multi_device → 19b device_check_quiet →
-20 item_sharing → 21 external_share_short_links → 22 student_quiz_split_storage →
+20 item_sharing → 21 external_share_short_links → 21b share_history → 22 student_quiz_split_storage →
 23 student_patch_quiz_questions → 24 dashboard → 25 dashboard_folder_appearance →
 26 read_schema_for_reliability (read only), then **either** reliability_release_v2
 **or** (student_quiz_atomic_save_v2 + dashboard_reliable_posting_v2), never both →
@@ -89,7 +90,10 @@ node --test tests/*.test.cjs tests/*.test.mjs
 ```bash
 for f in tests/*.browser.py tests/bulk-preview-scroll.test.py; do python "$f" || echo "FAIL $f"; done
 ```
-Playwright and Chromium are preinstalled in cloud sessions. Otherwise see `tests/README.md`.
+Browser tests need `pip install --target /tmp/ql-reliability-python playwright==1.62.0`,
+`PYTHONPATH=/tmp/ql-reliability-python`, and Chromium at `/usr/bin/chromium` (in cloud sessions:
+`ln -s /opt/pw-browsers/chromium /usr/bin/chromium`). `quiz-save-v2-concurrency` fails as root
+(initdb refuses); that is the container, not the code.
 
 ## Checking the live version
 ```bash
