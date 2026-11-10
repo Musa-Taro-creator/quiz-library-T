@@ -121,6 +121,7 @@ with sync_playwright() as p:
         page.locator('#qlShIds .ql-sa-person').nth(1).wait_for()
         assert page.locator('#qlShIds .ql-sa-person .ql-sa-av').first.bounding_box()['width'] >= 44
         assert 'Shared 2×' in page.locator('#qlShIds').inner_text()
+        assert page.evaluate("getComputedStyle(document.getElementById('qlShAddId')).borderRadius") == '12px', 'Add a Quiz ID box is rounded'
         ok(tag + 'Saved IDs: big avatar cards with share count')
         page.evaluate("try{closeModal()}catch(e){}")
 
@@ -148,6 +149,7 @@ with sync_playwright() as p:
         assert 'RECENTLY SENT TO BONA' in to_recent.upper() and 'Physio notes' in to_recent and 'Cardio MCQ' not in to_recent, to_recent  # this item is already listed above
         assert page.locator('#qlIsSend').is_visible() and page.evaluate("(()=>{const r=document.getElementById('qlIsSend').getBoundingClientRect();return r.bottom<=innerHeight&&r.top>=0})()"), 'Share button stays on screen'
         assert page.locator('#qlIsStep2.done').count() == 1
+        assert page.evaluate("getComputedStyle(document.getElementById('qlIsTo')).borderRadius") == '12px', 'Quiz ID box is rounded'
         assert no_overflow(), 'Share window overflows'
         ok(tag + 'Share internally: Already sent for this item, "sent today" / "sent Fri" badges, Recently sent to the picked person, button says Share with Bona')
 
