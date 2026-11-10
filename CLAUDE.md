@@ -11,7 +11,7 @@ the full details. This file is the short version.
 - Every release of the student app changes the version name in **both**
   `index.html` (`<meta name="ql-shell-generation">`, line ~20) and `sw.js`
   (`APP_CACHE` + `SHELL_GENERATION`). Use the form `reliability-YYYY-MM-DD-vN`.
-  The version in the repo on 2026-11-10 is `reliability-2026-11-10-v4`.
+  The version in the repo on 2026-11-10 is `reliability-2026-11-10-v5` (live: v4 until approved).
 - CDN libraries stay pinned (supabase-js 2.118.0, tus 4.3.1, pdf-lib 1.17.1). If you
   change one, change it in index.html, admin.html, sw.js and the offline tests.
 - A new picture in `assets/` must also be added to `SHELL` in `sw.js` (a test checks this).
@@ -52,9 +52,10 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
   quiz-share inbox (`student_quiz_shares`, not in the repo). New quiz shares go through `qlItemShare`.
 - `qlInstallApp` (registers sw.js), `qlDevices` (devices list), `qlItemMenu`,
   `qlItemShare` (~18494): Share internally for everything incl. quizzes (`ql_send_item_share`),
-  Kuza's "Concept A" look (`.ql-sa-*`): 3-step Share window with saved-person chips, "Already
-  sent" / "Recently sent to", Undo message (`ql_unsend_item_share`); Shared with me = Your Quiz ID +
-  tabs Inbox / History (filter, date groups, Unsend) / Saved IDs. External short links, Dashboard posting and list.
+  Kuza's "Concept B" look (`.ql-sb-*` on top of shared `.ql-sa-*` parts): Share window with a
+  What → Who → Share stepper, person tiles, "Already sent" / "Recently sent to", Undo message
+  (`ql_unsend_item_share`); Shared with me = Hi + Your ID pill, underline tabs, Inbox cards,
+  History timeline (filter, date groups, Unsend), Saved IDs tiles with Share (`qlSharePreselect`). External short links, Dashboard posting and list.
 - `qlPlans` (~19095): plans, limits incl. `questions_per_quiz`, sale price, codes, KHQR, payments.
 - `qlSupport` (Help & Support), `qlOfflineMode` (offline mode + PDF.js loading),
   `qlWorkspaceLoading` ("Loading your library…" instead of 0 items), `qlRoomsLoader`.

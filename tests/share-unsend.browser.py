@@ -76,17 +76,18 @@ with sync_playwright() as p:
         page.wait_for_function("document.querySelector('#qlShareInboxBody .ql-is-inbox-row')")
         page.wait_for_function("document.getElementById('qlShTabCount')?.textContent==='1' && !document.getElementById('qlShTabCount').classList.contains('hidden')")
         assert 'Things people sent you' in page.locator('#qlShHint').inner_text()
-        banner = page.locator('.ql-sa-myid')
-        assert 'Friends type this ID' in banner.inner_text() and banner.locator('#qlShCopyId').count() == 1
-        assert page.evaluate("getComputedStyle(document.querySelector('.ql-sa-myid')).backgroundImage.includes('gradient')")
-        assert page.evaluate("getComputedStyle(document.querySelector('[data-sh-tab=\"inbox\"]')).borderRadius") == '999px'
+        pill = page.locator('.ql-sb-idpill')
+        assert 'Your ID' in pill.inner_text() and pill.locator('#qlShCopyId').count() == 1
+        assert page.locator('#qlShMyName').inner_text() == 'Local', page.locator('#qlShMyName').inner_text()
+        assert page.evaluate("getComputedStyle(document.querySelector('[data-sh-tab=\"inbox\"].on')).borderBottomWidth") == '3px', 'underline tabs'
         card = page.locator('#qlShareInboxBody .ql-is-inbox-row').inner_text()
-        assert 'Lecture 3' in card and 'Kuza' in card and 'New' in card, card
+        assert 'Lecture 3' in card and 'Kuza' in card and 'sent you this' in card, card
+        assert page.evaluate("getComputedStyle(document.querySelector('#qlShareInboxBody .ql-is-inbox-row')).borderLeftWidth") == '5px', 'colored edge'
         page.locator('#qlShCopyId').click()
         page.wait_for_function("document.getElementById('toast').textContent.includes('QL-MINE0001')")
         assert page.evaluate('navigator.clipboard.readText()') == 'QL-MINE0001'
         assert no_overflow(), 'Inbox overflows'
-        ok(tag + 'Your Quiz ID banner shows and copies; pill tabs; Inbox tab has the count and a one-line hint; inbox card shows sender and New')
+        ok(tag + 'Hi + Your ID pill shows and copies; underline tabs; Inbox tab has the count and a one-line hint; inbox card with colored edge says who sent it')
 
         # 2. History: date groups, filter, statuses; Unsend only while Waiting
         page.locator('[data-sh-tab="history"]').click()
@@ -119,10 +120,19 @@ with sync_playwright() as p:
         # 3. Saved IDs tab: bigger avatar cards
         page.locator('[data-sh-tab="ids"]').click()
         page.locator('#qlShIds .ql-sa-person').nth(1).wait_for()
-        assert page.locator('#qlShIds .ql-sa-person .ql-sa-av').first.bounding_box()['width'] >= 44
+        assert page.locator('#qlShIds .ql-sa-person .ql-sa-av').first.bounding_box()['width'] >= 56
         assert 'Shared 2×' in page.locator('#qlShIds').inner_text()
+        assert page.locator('#qlShAddTile').is_visible() and page.locator('#qlShAddRow').is_hidden()
+        page.locator('#qlShAddTile').click(); page.locator('#qlShAddId').wait_for()
         assert page.evaluate("getComputedStyle(document.getElementById('qlShAddId')).borderRadius") == '12px', 'Add a Quiz ID box is rounded'
-        ok(tag + 'Saved IDs: big avatar cards with share count')
+        ok(tag + 'Saved IDs: big avatar tiles with share count; Add a Quiz ID tile opens the box')
+        # Share on a saved person: closes, says what to do, and that person is already picked next time
+        page.locator('#qlShIds [data-sh-share="QL-BONA0003"]').click()
+        page.wait_for_function("!document.getElementById('modalOverlay').classList.contains('show') && document.getElementById('toast').textContent.includes('share with Bona')")
+        page.evaluate("qlShareInternally({id:'f-pre',kind:'folder',title:'Pre folder',parent_id:null,library_id:LIBRARY_ID,is_trashed:false})")
+        page.wait_for_function("document.getElementById('qlIsSendLabel')?.textContent==='Share with Bona'")
+        assert page.locator('#qlIsTo').input_value() == 'QL-BONA0003'
+        ok(tag + 'Share on a saved person picks them in the next Share internally window')
         page.evaluate("try{closeModal()}catch(e){}")
 
         # 4. Share internally: Already sent (this item), sent-today badge, Recently sent to …, Share with …
@@ -140,7 +150,8 @@ with sync_playwright() as p:
         chea = page.locator('#qlIsRecent [data-chip="QL-CHEA0004"] .ql-sa-sent').inner_text()
         assert re.fullmatch(r'sent [A-Z][a-z]{2}', chea), chea   # 3 days ago: weekday, e.g. "sent Fri"
         assert page.evaluate("srv.contacts.length") == 2
-        assert not page.locator('#qlIsOr').is_hidden() and 'tap a saved person' in page.locator('#qlIsWhoHint').inner_text()
+        assert page.locator('#qlIsPickLbl').is_visible() and 'tap a saved person' in page.locator('#qlIsWhoHint').inner_text()
+        assert 'or type their Quiz ID' in page.locator('#qlIsOr').text_content()
         chip.locator('[data-pick]').click()
         page.wait_for_function("document.getElementById('qlIsSendLabel')?.textContent==='Share with Bona'")
         assert 'on' in chip.get_attribute('class')
@@ -148,7 +159,8 @@ with sync_playwright() as p:
         to_recent = page.locator('#qlIsToRecent').inner_text()
         assert 'RECENTLY SENT TO BONA' in to_recent.upper() and 'Physio notes' in to_recent and 'Cardio MCQ' not in to_recent, to_recent  # this item is already listed above
         assert page.locator('#qlIsSend').is_visible() and page.evaluate("(()=>{const r=document.getElementById('qlIsSend').getBoundingClientRect();return r.bottom<=innerHeight&&r.top>=0})()"), 'Share button stays on screen'
-        assert page.locator('#qlIsStep2.done').count() == 1
+        assert page.locator('#qlIsStep2.done').count() == 1 and page.locator('#qlIsStepShare.now').count() == 1, 'stepper moves to Share'
+        assert chip.locator('.ql-sb-ck').is_visible(), 'picked person shows a check'
         assert page.evaluate("getComputedStyle(document.getElementById('qlIsTo')).borderRadius") == '12px', 'Quiz ID box is rounded'
         assert no_overflow(), 'Share window overflows'
         ok(tag + 'Share internally: Already sent for this item, "sent today" / "sent Fri" badges, Recently sent to the picked person, button says Share with Bona')

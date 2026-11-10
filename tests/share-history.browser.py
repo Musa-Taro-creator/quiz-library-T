@@ -95,8 +95,10 @@ with sync_playwright() as p:
         page.locator('.ql-sh-tabs [data-sh-tab="history"]').click()
         page.locator('#qlShHistory .ql-sh-row').nth(1).wait_for()
         text = page.locator('#qlShHistory').inner_text()
-        assert 'Anatomy quiz' in text and 'Sent to Friend Student' in text and 'Saved by them' in text, text
-        assert 'Lecture 3' in text and 'From Kuza' in text and 'New' in text, text
+        assert 'Anatomy quiz' in text and 'Friend Student' in text and 'Saved by them' in text, text
+        assert 'Lecture 3' in text and 'Kuza' in text and 'New' in text, text
+        assert page.locator('[data-sh-row="h1"]').get_attribute('data-sh-dir') == 'sent' and page.locator('[data-sh-row="h2"]').get_attribute('data-sh-dir') == 'received'
+        assert page.locator('[data-sh-row="h1"] .ql-sb-flow').inner_text().replace('\n', ' ').split()[0] == 'You', 'sent rows read "You → Friend Student"'
         assert page.locator('#qlShareInboxBody').is_hidden()
         page.locator('[data-sh-save="QL-KUZA0001"]').click()
         page.wait_for_function("srv.calls.some(c=>c.name==='ql_save_share_contact')")
@@ -107,6 +109,8 @@ with sync_playwright() as p:
         # 4. Saved IDs tab: list, add by hand, forget
         page.locator('.ql-sh-tabs [data-sh-tab="ids"]').click()
         page.locator('#qlShIds [data-sh-forget="QL-KUZA0001"]').wait_for()
+        assert page.locator('#qlShAddRow').is_hidden(), 'the add box opens from the Add a Quiz ID tile'
+        page.locator('#qlShAddTile').click()
         page.locator('#qlShAddId').fill('hello'); page.locator('#qlShAddBtn').click()
         assert 'valid Quiz ID' in page.locator('#qlShAddStatus').inner_text()
         page.locator('#qlShAddId').fill(' ql-newp0001 '); page.locator('#qlShAddBtn').click()
