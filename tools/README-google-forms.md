@@ -50,6 +50,10 @@ Settings → **Forms per student per day** is the Default (5). In **Users → Ma
 you can give one person their own number (0–1000) or **Unlimited**. Admin accounts are Unlimited.
 Unlimited still stops at the **safety cap** (Settings, default 100 a day). Needs `supabase/google_forms_user_limits.sql`.
 
+Plans: **Plans & Limits → Edit plan → Make Google Form** has **Google Forms per day** (empty = the default,
+a number, or Unlimited) and **Questions per form** (1–200; Unlimited = 200). Order: admin → the person's own
+setting → the plan → the default. Needs `supabase/google_forms_plan_limits.sql`.
+
 ## Switching to another Gmail later
 
 Do part A with the new Gmail, then paste its URL and SECRET in Admin. New forms use the

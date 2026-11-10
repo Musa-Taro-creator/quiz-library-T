@@ -26,7 +26,7 @@ const answers={
  ql_my_plan:()=>({plan:plans[0],subscription:null,usage:{quizzes:0,pdfs:0,links:0,folders:0,storage_bytes:0}}),
  ql_support_mine:()=>[],ql_support_unread:()=>0,ql_my_gifts:()=>[],ql_my_greeting:()=>null,ql_my_payments:()=>[],
  ql_received_item_share_count:()=>0,ql_received_quiz_share_count:()=>0,ql_ensure_share_profile:()=>({share_id:'QL-MINE0001',display_name:'Local test'}),
- ql_gform_mine:()=>{const unl=srv.mode==='unlimited'||srv.mode==='admin',max=unl?srv.cap:srv.limit;return {enabled:srv.enabled,set_up:srv.setUp,mode:srv.mode,unlimited:unl,cap:srv.cap,limit:unl?null:srv.limit,used_today:srv.used,left:Math.max(0,max-srv.used),forms:srv.forms.slice()}},
+ ql_gform_mine:()=>{const unl=srv.mode==='unlimited'||srv.mode==='admin'||(srv.mode==='plan'&&srv.limit==null),max=unl?srv.cap:srv.limit;return {enabled:srv.enabled,set_up:srv.setUp,mode:srv.mode,unlimited:unl,cap:srv.cap,plan_name:srv.planName||null,max_questions:srv.maxQ||200,limit:unl?null:srv.limit,used_today:srv.used,left:Math.max(0,max-srv.used),forms:srv.forms.slice()}},
  ql_gform_remove:a=>{srv.forms=srv.forms.filter(f=>f.id!==a.p_id);return null}
 };
 const fn={
@@ -222,6 +222,19 @@ with sync_playwright() as p:
         page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('100 Google Forms today, the safety limit') && document.getElementById('qlGfMakeBtn').disabled")
         page.evaluate("srv.mode='custom';srv.limit=12;srv.used=2;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
         page.wait_for_function("document.getElementById('qlGfLeft')?.textContent.includes('Forms left today: 10 of 12')")
+        # the plan's numbers (Admin → Plans): "3 of 10 (Pro plan)" and questions per form
+        page.evaluate("srv.mode='plan';srv.planName='Pro';srv.limit=10;srv.used=7;srv.maxQ=3;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
+        page.wait_for_function("document.getElementById('qlGfLeft')?.textContent.includes('Forms left today: 3 of 10 (Pro plan)')")
+        page.locator('[data-gf-src="paste"]').click(); page.locator('#qlGfPaste').fill(PASTE)
+        page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('Your plan allows 3 questions per form — this list has 4') && document.getElementById('qlGfMakeBtn').disabled")
+        shot('7-plan')
+        page.locator('#qlGfPaste').fill(PASTE.split('\n\n4.')[0])
+        page.wait_for_function("!document.getElementById('qlGfMakeBtn').disabled && document.getElementById('qlGfStatus').classList.contains('hidden')")
+        page.evaluate("srv.limit=0;srv.used=0;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
+        page.locator('#qlGfPaste').fill(PASTE)
+        page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('Your plan does not include Google Forms')")
+        page.evaluate("srv.mode='custom';srv.planName=null;srv.maxQ=200")
+        ok(tag + 'Plan limits: "3 of 10 (Pro plan)", questions per form blocks with a clear message, plan 0 says the plan has no Google Forms')
         page.evaluate("srv.limit=0;srv.used=0;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
         page.locator('#qlGfPaste').fill(PASTE)
         page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('turned off for your account') && document.getElementById('qlGfMakeBtn').disabled")

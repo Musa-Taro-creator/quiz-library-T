@@ -18,6 +18,9 @@ window.gf={owners:[],limit:5,saves:[],invokes:[],cap:100,rules:{},ruleSets:[]};
 const baseCreate=window.supabase.createClient;
 window.supabase.createClient=(...a)=>{const c=baseCreate(...a),rpc0=c.rpc;
  c.rpc=async(name,args)=>{
+  if(name==='ql_admin_plans')return {data:[{id:'free',name:'Free',color:'#94a3b8',limits:{},features:{},is_default:true,visibility:'public',sort:1},
+     {id:'pro',name:'Pro',color:'#6366f1',price_month:4,limits:{gform_per_day:10,gform_questions:50},features:{gform:true},visibility:'public',sort:2}],error:null};
+  if(name==='ql_admin_save_plan'){gf.planSaves=(gf.planSaves||[]).concat([args.p]);return {data:args.p,error:null}}
   if(name==='ql_admin_gform_cap_get')return {data:gf.cap,error:null};
   if(name==='ql_admin_gform_cap_set'){gf.cap=args.p_cap;return {data:gf.cap,error:null}}
   if(name==='ql_admin_gform_user_rules')return {data:{...gf.rules},error:null};
@@ -113,6 +116,41 @@ with sync_playwright() as p:
             page.screenshot(path=f'{SHOTS}/adm-manage-{width}-{THEME or "white"}.png')
             page.locator('.ovl .dlg-h .x').last.click()
         ok(tag + 'Users: Manage → Google Forms per day (Default / number 0–1000 / Unlimited) and the badge in the list')
+        # Plans & Limits → Edit plan: Make Google Form sub-settings (like Create Quiz)
+        page.evaluate("go('plans')")
+        page.locator('[data-edit="free"]').wait_for(); page.locator('[data-edit="free"]').click()
+        box = page.locator('[data-flim="gform"]')
+        assert box.is_hidden(), 'hidden until Make Google Form is ticked'
+        page.locator('[data-feat="gform"]').check()
+        box.wait_for()
+        assert page.locator('#pGfDay').get_attribute('placeholder') == 'Default (5)' and page.locator('#pGfDay').input_value() == ''
+        assert page.locator('[data-lim="gform_questions"]').is_disabled() and 'on' in page.locator('[data-unl="gform_questions"]').get_attribute('class'), 'questions: Unlimited (= 200) by default'
+        if SHOTS:
+            box.scroll_into_view_if_needed(); page.wait_for_timeout(200); page.locator('.ovl .dlg').last.screenshot(path=f'{SHOTS}/plan-free-{width}-{THEME or "white"}.png')
+        page.locator('#pSave').click()
+        page.wait_for_function('(gf.planSaves||[]).length===1')
+        lim = page.evaluate('gf.planSaves.at(-1).limits')
+        assert 'gform_per_day' not in lim and lim.get('gform_questions') is None, lim
+        assert page.evaluate('gf.planSaves.at(-1).features.gform') is True
+        ok(tag + 'Edit plan Free: ticking Make Google Form shows Google Forms per day (empty = Default 5) and Questions per form (Unlimited = 200); saving keeps the default')
+        page.locator('[data-edit="pro"]').wait_for(); page.locator('[data-edit="pro"]').click()
+        page.locator('#pGfDay').wait_for()
+        assert page.locator('#pGfDay').input_value() == '10' and page.locator('[data-lim="gform_questions"]').input_value() == '50'
+        if SHOTS:
+            page.wait_for_timeout(2600); page.locator('[data-flim="gform"]').scroll_into_view_if_needed(); page.wait_for_timeout(200); page.locator('.ovl .dlg').last.screenshot(path=f'{SHOTS}/plan-pro-{width}-{THEME or "white"}.png')
+        page.locator('[data-lim="gform_questions"]').fill('250'); page.locator('#pSave').click()
+        page.wait_for_timeout(300); assert len(page.evaluate('gf.planSaves')) == 1, '250 questions refused'
+        page.locator('[data-lim="gform_questions"]').fill('80'); page.locator('#pGfDayUnl').click()
+        assert page.locator('#pGfDay').is_disabled()
+        page.locator('#pSave').click(); page.wait_for_function('gf.planSaves.length===2')
+        lim = page.evaluate('gf.planSaves.at(-1).limits')
+        assert lim['gform_per_day'] == 'unlimited' and lim['gform_questions'] == 80, lim
+        page.locator('[data-edit="pro"]').click(); page.locator('#pGfDay').wait_for()
+        page.locator('#pGfDay').fill('1001'); page.locator('#pSave').click(); page.wait_for_timeout(300)
+        assert len(page.evaluate('gf.planSaves')) == 2, '1001 refused'
+        page.locator('#pGfDay').fill(''); page.locator('#pSave').click(); page.wait_for_function('gf.planSaves.length===3')
+        assert 'gform_per_day' not in page.evaluate('gf.planSaves.at(-1).limits'), 'empty = back to the default'
+        ok(tag + 'Edit plan Pro: shows 10 a day and 50 questions; Unlimited per day, 80 questions; 250 and 1001 refused; empty goes back to the default')
         page.evaluate("go('ctl')")
         page.wait_for_function("document.querySelector('#view').innerText.includes('Make Google Form')")
         ok(tag + 'Website Control lists the Make Google Form on/off switch')

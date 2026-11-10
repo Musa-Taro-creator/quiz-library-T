@@ -11,8 +11,9 @@
 -- Unlimited still has a safety cap per person per day (default 100, Admin → Settings),
 -- so a mistake or a stuck script can't make hundreds of forms in one day.
 --
--- The three functions marked "same as google_forms.sql" are kept identical in both
--- files (a test checks it), so running either file again never undoes the other.
+-- The three functions marked "same as google_forms.sql" are kept identical in
+-- google_forms.sql, this file and google_forms_plan_limits.sql (a test checks it),
+-- so running any of them again never undoes the others.
 
 create table if not exists public.ql_gform_user_limits (
   user_id     uuid        primary key references auth.users (id) on delete cascade,
@@ -26,7 +27,13 @@ alter table public.ql_gform_user_limits enable row level security;
 revoke all on public.ql_gform_user_limits from anon, authenticated;
 
 -- ------------------------------------------------------------------ same as google_forms.sql
--- This person's rule: mode admin | unlimited | custom | default, limit (null = unlimited), cap, global.
+-- This person's rule, highest priority first:
+--   admin account → Unlimited; Admin → Users → Manage (a number or Unlimited);
+--   the person's PLAN (limits.gform_per_day: a number or "unlimited"); else the global number.
+-- Unlimited (person or plan) still stops at the safety cap (Settings, default 100 a day).
+-- Questions per form: the plan's limits.gform_questions (1–200), else 200.
+-- Returns mode admin | unlimited | custom | plan | default, limit (null = unlimited), cap, global,
+-- max_questions, plan, plan_name.
 create or replace function public.ql__gform_user_rule(p_uid uuid)
 returns jsonb language plpgsql stable security definer set search_path = public as $$
 declare
@@ -35,21 +42,42 @@ declare
   v_unl boolean;
   v_lim integer;
   v_rows integer := 0;
+  v_plan text;
+  v_plan_name text;
+  v_pl jsonb;
+  v_q integer := 200;
+  v_base jsonb;
 begin
   v_cap := greatest(1, least(1000, coalesce((select (value->>'unlimited_cap')::integer from ql_site_settings where key = 'gform'), 100)));
+  if p_uid is not null then
+    begin
+      v_plan := ql__effective_plan(p_uid);
+    exception when others then
+      v_plan := null;
+    end;
+    select name, limits into v_plan_name, v_pl from ql_plans where id = v_plan;
+    if jsonb_typeof(v_pl->'gform_questions') = 'number' then
+      v_q := greatest(1, least(200, round((v_pl->>'gform_questions')::numeric)::integer));
+    end if;
+  end if;
+  v_base := jsonb_build_object('cap', v_cap, 'global', v_global, 'max_questions', v_q, 'plan', v_plan, 'plan_name', v_plan_name);
   if ql__is_admin(p_uid) then
-    return jsonb_build_object('mode', 'admin', 'limit', null, 'cap', v_cap, 'global', v_global);
+    return v_base || jsonb_build_object('mode', 'admin', 'limit', null, 'max_questions', 200);
   end if;
   if to_regclass('public.ql_gform_user_limits') is not null then
     execute 'select unlimited, daily_limit from public.ql_gform_user_limits where user_id = $1' into v_unl, v_lim using p_uid;
     get diagnostics v_rows = row_count;
   end if;
   if v_rows > 0 and v_unl then
-    return jsonb_build_object('mode', 'unlimited', 'limit', null, 'cap', v_cap, 'global', v_global);
+    return v_base || jsonb_build_object('mode', 'unlimited', 'limit', null);
   elsif v_rows > 0 then
-    return jsonb_build_object('mode', 'custom', 'limit', v_lim, 'cap', v_cap, 'global', v_global);
+    return v_base || jsonb_build_object('mode', 'custom', 'limit', v_lim);
+  elsif v_pl->>'gform_per_day' = 'unlimited' then
+    return v_base || jsonb_build_object('mode', 'plan', 'limit', null);
+  elsif jsonb_typeof(v_pl->'gform_per_day') = 'number' then
+    return v_base || jsonb_build_object('mode', 'plan', 'limit', greatest(0, least(1000, round((v_pl->>'gform_per_day')::numeric)::integer)));
   end if;
-  return jsonb_build_object('mode', 'default', 'limit', v_global, 'cap', v_cap, 'global', v_global);
+  return v_base || jsonb_build_object('mode', 'default', 'limit', v_global);
 end;
 $$;
 revoke all on function public.ql__gform_user_rule(uuid) from public, anon, authenticated;
@@ -73,6 +101,7 @@ begin
     'enabled', ql__feature_ok(v_uid, 'gform'),
     'set_up', exists (select 1 from ql_gform_owners where active),
     'unlimited', v_unl, 'mode', v_rule->>'mode', 'cap', (v_rule->>'cap')::integer,
+    'plan_name', v_rule->>'plan_name', 'max_questions', (v_rule->>'max_questions')::integer,
     'limit', case when v_unl then null else v_max end,
     'used_today', v_used, 'left', greatest(0, v_max - v_used),
     'forms', coalesce((select jsonb_agg(ql__gform_row(f) order by f.created_at desc)
@@ -91,6 +120,7 @@ declare
   v_rule jsonb;
   v_unl boolean;
   v_max integer;
+  v_maxq integer;
   v_used integer;
   v_id uuid;
   v_label text;
@@ -107,10 +137,17 @@ begin
   if coalesce(p_question_count, 0) < 1 then raise exception 'Add at least one question.'; end if;
   if p_question_count > 200 then raise exception 'A Google Form can have up to 200 questions from Quiz Library.'; end if;
   v_rule := ql__gform_user_rule(v_uid);
+  v_maxq := (v_rule->>'max_questions')::integer;
+  if p_question_count > v_maxq then
+    raise exception 'Your plan allows % questions per form — this has %.', v_maxq, p_question_count using errcode = '42501';
+  end if;
   v_unl := v_rule->'limit' = 'null'::jsonb;
   v_max := case when v_unl then (v_rule->>'cap')::integer else (v_rule->>'limit')::integer end;
   if v_rule->>'mode' = 'custom' and v_max = 0 then
     raise exception 'Making Google Forms is turned off for your account.' using errcode = '42501';
+  end if;
+  if v_rule->>'mode' = 'plan' and v_max = 0 then
+    raise exception 'Your plan does not include Google Forms.' using errcode = '42501';
   end if;
   perform pg_advisory_xact_lock(hashtext('ql_gform:' || v_uid::text));
   -- a form that never finished (closed tab, timeout) stops counting after 10 minutes
@@ -137,6 +174,7 @@ begin
   end if;
   return jsonb_build_object('record_id', v_id, 'user_id', v_uid, 'user_label', left(v_label, 120),
                             'unlimited', v_unl, 'limit', case when v_unl then null else v_max end,
+                            'mode', v_rule->>'mode', 'plan_name', v_rule->>'plan_name',
                             'left', greatest(0, v_max - v_used - 1));
 end;
 $$;

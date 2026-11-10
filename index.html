@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-10-v7">
+<meta name="ql-shell-generation" content="reliability-2026-11-10-v8">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -20412,6 +20412,7 @@ body.ql-ocean .ql-gf-seg button.on,body.ql-neon .ql-gf-seg button.on{background:
 body.ql-ocean .ql-gf-pics,body.ql-neon .ql-gf-pics{color:#fcd34d}
 .ql-gf-left{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--sa-m)}.ql-gf-left b{color:var(--sa-t)}
 .ql-gf-unl{display:inline-grid;place-items:center;min-width:26px;height:20px;padding:0 6px;border-radius:999px;background:var(--gf);color:#fff;font-weight:900;font-size:15px;line-height:1}
+.ql-gf-plan{color:var(--sa-m);font-weight:600}
 .ql-gf-dots{display:inline-flex;gap:4px}.ql-gf-dots i{width:9px;height:9px;border-radius:50%;background:var(--sa-line)}.ql-gf-dots i.on{background:var(--gf)}
 .ql-gf-make{width:100%;min-height:50px;border:0;border-radius:14px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;font:inherit;font-weight:800;font-size:16px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-shadow:0 8px 20px rgba(124,58,237,.3)}
 .ql-gf-make:disabled{opacity:.55;cursor:default;box-shadow:none}
@@ -20554,10 +20555,12 @@ body.ql-white .ql-gf-drive{background:linear-gradient(rgba(244,248,255,0),rgba(2
       <button type="button" id="qlGfMakeBtn" class="ql-gf-make" disabled>${ic("form",18)} Make Google Form</button>`;
     const $$=s=>pane.querySelector(s);
     let picked=null,quizRows=null,quizLoad=0;
-    /* per-person limit (Admin → Users): a number, or Unlimited (with a safety cap) */
-    const unl=!!info.unlimited,left=Number(info.left||0),limit=unl?null:Number(info.limit??5),off=!unl&&limit===0&&info.mode==="custom";
-    $$("#qlGfLeft").innerHTML=unl?`<span class="ql-gf-unl" aria-hidden="true">∞</span><span>Forms left today: <b id="qlGfLeftN">Unlimited</b></span>`
-      :`<span class="ql-gf-dots">${Array.from({length:Math.min(limit,10)},(_,i)=>`<i class="${i<left?"on":""}"></i>`).join("")}</span><span>Forms left today: <b id="qlGfLeftN">${left}</b> of ${limit}</span>`;
+    /* daily limit: admin / Users → Manage / the plan / the global number; Unlimited has a safety cap */
+    const unl=!!info.unlimited,left=Number(info.left||0),limit=unl?null:Number(info.limit??5),off=!unl&&limit===0&&(info.mode==="custom"||info.mode==="plan");
+    const planTxt=info.mode==="plan"&&info.plan_name?` <span class="ql-gf-plan">(${h(info.plan_name)} plan)</span>`:"";
+    const maxQ=Math.max(1,Math.min(200,Number(info.max_questions||200)));
+    $$("#qlGfLeft").innerHTML=unl?`<span class="ql-gf-unl" aria-hidden="true">∞</span><span>Forms left today: <b id="qlGfLeftN">Unlimited</b>${planTxt}</span>`
+      :`<span class="ql-gf-dots">${Array.from({length:Math.min(limit,10)},(_,i)=>`<i class="${i<left?"on":""}"></i>`).join("")}</span><span>Forms left today: <b id="qlGfLeftN">${left}</b> of ${limit}${planTxt}</span>`;
     const setSrc=k=>{src=k;pane.querySelectorAll("[data-gf-src]").forEach(b=>b.classList.toggle("on",b.dataset.gfSrc===k));$$("#qlGfSrcPaste").classList.toggle("hidden",k!=="paste");$$("#qlGfSrcQuiz").classList.toggle("hidden",k!=="quiz");refresh()};
     function current(){
       if(src==="paste")return window.qlParseQuestions?window.qlParseQuestions($$("#qlGfPaste").value,$$("#qlGfKey").value):[];
@@ -20565,10 +20568,12 @@ body.ql-white .ql-gf-drive{background:linear-gradient(rgba(244,248,255,0),rgba(2
     }
     function refresh(){
       const list=current(),s=summarize(list);
-      $$("#qlGfParsed").innerHTML=!s.count?(src==="paste"?"Paste your questions above.":quizRows===null&&picked?"Loading questions…":"Choose a quiz above."):`<b>${s.count} question${s.count===1?"":"s"}</b> found${s.noAns?` · <span class="warn">${s.noAns} without an answer</span>`:""}${s.count>200?` · <span class="warn">only the first 200 will be added</span>`:""}`;
+      $$("#qlGfParsed").innerHTML=!s.count?(src==="paste"?"Paste your questions above.":quizRows===null&&picked?"Loading questions…":"Choose a quiz above."):`<b>${s.count} question${s.count===1?"":"s"}</b> found${s.noAns?` · <span class="warn">${s.noAns} without an answer</span>`:""}${s.count>maxQ&&maxQ<200?"":s.count>200?` · <span class="warn">only the first 200 will be added</span>`:""}`;
+      const tooMany=s.count>maxQ&&maxQ<200;
       const pics=$$("#qlGfPics");pics.classList.toggle("hidden",!s.pics);pics.innerHTML=s.pics?`${ic("pic",18)}<span><b>${s.pics} picture${s.pics===1?"":"s"} won't be included.</b> Google Forms only gets the text. You can add pictures in Google Forms afterwards.</span>`:"";
-      $$("#qlGfMakeBtn").disabled=!s.count||left<=0;
-      if(left<=0){const st=$$("#qlGfStatus");st.className="status";st.textContent=off?"Making Google Forms is turned off for your account.":unl?`You made ${Number(info.cap||100)} Google Forms today, the safety limit. You can make more tomorrow.`:`You made ${limit} Google Form${limit===1?"":"s"} today. You can make more tomorrow.`}
+      $$("#qlGfMakeBtn").disabled=!s.count||left<=0||tooMany;
+      {const st=$$("#qlGfStatus");if(tooMany){st.className="status error";st.textContent=`Your plan allows ${maxQ} questions per form — this ${src==="quiz"?"quiz":"list"} has ${s.count}. Remove some questions or split it into two forms.`}else if(/questions per form/.test(st.textContent)){st.className="status hidden";st.textContent=""}}
+      if(left<=0){const st=$$("#qlGfStatus");st.className="status";st.textContent=off?(info.mode==="plan"?"Your plan does not include Google Forms.":"Making Google Forms is turned off for your account."):unl?`You made ${Number(info.cap||100)} Google Forms today, the safety limit. You can make more tomorrow.`:`You made ${limit} Google Form${limit===1?"":"s"} today. You can make more tomorrow.`}
     }
     pane.querySelectorAll("[data-gf-src]").forEach(b=>b.onclick=()=>setSrc(b.dataset.gfSrc));
     $$("#qlGfPaste").oninput=refresh;$$("#qlGfKey").oninput=refresh;
@@ -20606,7 +20611,7 @@ body.ql-white .ql-gf-drive{background:linear-gradient(rgba(244,248,255,0),rgba(2
     else notes.push(`<div class="ql-gf-note">No Gmail added, so only the student link works for you. To edit the form or see scores, go to My Google Forms → ⋯ → <b>Add my Gmail as editor</b>.</div>`);
     if(r.short_answers)notes.push(`<div class="ql-gf-note warn">${r.short_answers} short-answer question${r.short_answers===1?"":"s"}: Google Forms can't get their answer from Quiz Library, so mark them in Google Forms (the answer is in each question's feedback).</div>`);
     if(r.no_answer)notes.push(`<div class="ql-gf-note warn">${r.no_answer} question${r.no_answer===1?" has":"s have"} no correct answer yet. Set ${r.no_answer===1?"it":"them"} in Google Forms.</div>`);
-    pane.innerHTML=`<div class="ql-gf-done"><div class="ql-gf-ok"><span>${ic("check",22)}</span><div><b>Your Google Form is ready</b><small>${h(f.title||"Quiz")} · ${Number(f.question_count||0)} questions · Forms left today: ${r.unlimited?"Unlimited":`${Number(r.left||0)} of ${Number(r.limit??5)}`}</small></div></div>
+    pane.innerHTML=`<div class="ql-gf-done"><div class="ql-gf-ok"><span>${ic("check",22)}</span><div><b>Your Google Form is ready</b><small>${h(f.title||"Quiz")} · ${Number(f.question_count||0)} questions · Forms left today: ${r.unlimited?"Unlimited":`${Number(r.left||0)} of ${Number(r.limit??5)}`}${r.mode==="plan"&&r.plan_name?` (${h(r.plan_name)} plan)`:""}</small></div></div>
       ${linkRow("Link for students",f.responder_url||"","qlGfLink",true)}${linkRow("Edit link (for you)",f.edit_url||"","qlGfEdit",false)}${notes.join("")}
       <div class="ql-gf-acts"><button type="button" class="btn" id="qlGfAnother">${ic("plus",15)} Make another</button><button type="button" class="btn primary" id="qlGfSeeAll">${ic("list",15)} My Google Forms</button></div></div>`;
     wireLinks(pane,f.title);
