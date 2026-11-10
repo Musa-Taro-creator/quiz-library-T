@@ -152,6 +152,15 @@ body.t-ocean{--bg:#06263a;--panel:rgba(255,255,255,.08);--line:rgba(255,215,168,
 body.t-ocean .side{background:rgba(3,22,36,.86);border-right:1px solid rgba(255,215,168,.2)}body.t-ocean .brand2 small{color:#fdba74}
 body.t-ocean .nav.on{background:linear-gradient(90deg,rgba(253,186,116,.35),rgba(251,113,133,.25))}
 body.t-ocean .top h1{color:#fff7ed}
+/* iPad/iPhone: Safari ignores "fixed" body backgrounds and shows the empty (white) page
+   when you pull past the top or scroll past the end. The theme picture now sits on a layer
+   fixed to the screen, and the page behind it (html) has the theme's color. */
+html{background:#eef2ff}html.th-neon{background:#05070f}html.th-ocean{background:#06263a}
+body.t-white,body.t-neon,body.t-ocean{background:transparent!important}
+body.t-white::before,body.t-neon::before,body.t-ocean::before{content:"";position:fixed;left:0;right:0;top:-120px;bottom:-120px;z-index:-1;pointer-events:none}
+body.t-white::before{background:linear-gradient(135deg,#eaf1ff,#fdf2f8 55%,#e6fbff)}
+body.t-neon::before{background:#05070f url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cpath d='M0 120L60 0M60 120L120 0' stroke='%2300e5ff' stroke-opacity='.08'/%3E%3Cpath d='M0 0L60 120M60 0L120 120' stroke='%23ff2e97' stroke-opacity='.06'/%3E%3C/svg%3E")}
+body.t-ocean::before{background:linear-gradient(160deg,#051c2c,#0b4a5e 55%,#7c4a3b)}
 /* shared dark-theme fixes */
 body.t-neon .card,body.t-ocean .card,body.t-neon .plan,body.t-ocean .plan,body.t-neon .dlg,body.t-ocean .dlg{background:var(--panel);border-color:var(--line);color:var(--text);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 body.t-neon .dlg,body.t-ocean .dlg{background:#0b1324}body.t-ocean .dlg{background:#0a3044}
@@ -297,7 +306,7 @@ async function copy(t){try{await navigator.clipboard.writeText(t)}catch{const a=
 function resizeImage(file,max=1200,q=.72){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height));const c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",q))};im.onerror=rej;im.src=r.result};r.onerror=rej;r.readAsDataURL(file)})}
 
 /* ---------------- theme ---------------- */
-function setTheme(t){if(!["white","neon","ocean"].includes(t))t="white";document.body.classList.remove("t-white","t-neon","t-ocean");document.body.classList.add("t-"+t);try{localStorage.setItem("ql_admin_theme",t)}catch{}
+function setTheme(t){if(!["white","neon","ocean"].includes(t))t="white";document.body.classList.remove("t-white","t-neon","t-ocean");document.body.classList.add("t-"+t);document.documentElement.classList.remove("th-white","th-neon","th-ocean");document.documentElement.classList.add("th-"+t);try{localStorage.setItem("ql_admin_theme",t)}catch{}
   $$("[data-th]").forEach(b=>b.classList.toggle("on",b.dataset.th===t));const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=t==="white"?"#eef2ff":t==="neon"?"#05070f":"#06263a"}
 try{setTheme(localStorage.getItem("ql_admin_theme")||"white")}catch{setTheme("white")}
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("[data-th]");if(b)setTheme(b.dataset.th)});

@@ -39,8 +39,15 @@ with sync_playwright() as p:
             assert 'Something went wrong' not in text and 'is not defined' not in text, (v, text[:200])
             assert page.evaluate("document.documentElement.scrollWidth<=innerWidth+1"), f'{v} overflows sideways at {width}px'
             assert page.evaluate('(v)=>location.hash.slice(1)', v) == v
+        # iPad: no white past the top/bottom edge in any theme (Safari ignores fixed body backgrounds)
+        for th, rgb in (('ocean', 'rgb(6, 38, 58)'), ('neon', 'rgb(5, 7, 15)'), ('white', 'rgb(238, 242, 255)')):
+            page.evaluate('(t)=>setTheme(t)', th)
+            st = page.evaluate('''()=>{const b=getComputedStyle(document.body),a=getComputedStyle(document.body,'::before');
+              return {html:getComputedStyle(document.documentElement).backgroundColor,img:b.backgroundImage,att:b.backgroundAttachment,pos:a.position,top:a.top,img2:a.backgroundImage}}''')
+            assert st['html'] == rgb and st['img'] == 'none' and st['pos'] == 'fixed' and st['top'] == '-120px' and st['img2'] != 'none', (th, st)
         assert not errors, errors
         ok(f'{width}px: all {len(PAGES)} Admin pages open with content, no sideways overflow and no errors')
+        ok(f'{width}px: every theme fills the screen past the page edges (no white on iPad)')
         context.close()
     browser.close()
 print(f'{len(checks)} checks passed')
