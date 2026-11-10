@@ -16,7 +16,7 @@ SESSION = """sessionStorage.setItem('local-recovery-session',JSON.stringify({use
  email:'audit@example.test',app_metadata:{provider:'email'},user_metadata:{full_name:'Local test'}},expires_at:Math.floor(Date.now()/1000)+3600}));"""
 SERVER = r'''
 const ago=(d,h=10)=>{const x=new Date();x.setDate(x.getDate()-d);x.setHours(h,15,0,0);return x.toISOString()};
-window.srv={calls:[],invokes:[],limit:5,used:1,setUp:true,enabled:true,fail:null,forms:[
+window.srv={calls:[],invokes:[],limit:5,used:1,setUp:true,enabled:true,fail:null,mode:'default',cap:100,forms:[
  {id:'r1',title:'Anatomy – Upper limb',question_count:40,form_id:'F1',responder_url:'https://forms.gle/F1',edit_url:'https://docs.google.com/forms/d/F1/edit',folder_url:'https://drive.google.com/drive/folders/D1',owner_email:'quizlibrary.forms@gmail.com',editor_email:'bona@gmail.com',accepting:true,created_at:ago(0,9)},
  {id:'r2',title:'Cardio MCQ – Block 2',question_count:60,form_id:'F2',responder_url:'https://forms.gle/F2',edit_url:'https://docs.google.com/forms/d/F2/edit',folder_url:'https://drive.google.com/drive/folders/D1',owner_email:'quizlibrary.forms@gmail.com',editor_email:'bona@gmail.com',accepting:false,created_at:ago(3)},
  {id:'r3',title:'Old exam 2025',question_count:25,form_id:'F3',responder_url:'https://forms.gle/F3',edit_url:'https://docs.google.com/forms/d/F3/edit',folder_url:'https://drive.google.com/drive/folders/D1',owner_email:'quizlibrary.forms@gmail.com',editor_email:null,accepting:true,created_at:ago(20)}]};
@@ -26,12 +26,12 @@ const answers={
  ql_my_plan:()=>({plan:plans[0],subscription:null,usage:{quizzes:0,pdfs:0,links:0,folders:0,storage_bytes:0}}),
  ql_support_mine:()=>[],ql_support_unread:()=>0,ql_my_gifts:()=>[],ql_my_greeting:()=>null,ql_my_payments:()=>[],
  ql_received_item_share_count:()=>0,ql_received_quiz_share_count:()=>0,ql_ensure_share_profile:()=>({share_id:'QL-MINE0001',display_name:'Local test'}),
- ql_gform_mine:()=>({enabled:srv.enabled,set_up:srv.setUp,limit:srv.limit,used_today:srv.used,left:Math.max(0,srv.limit-srv.used),forms:srv.forms.slice()}),
+ ql_gform_mine:()=>{const unl=srv.mode==='unlimited'||srv.mode==='admin',max=unl?srv.cap:srv.limit;return {enabled:srv.enabled,set_up:srv.setUp,mode:srv.mode,unlimited:unl,cap:srv.cap,limit:unl?null:srv.limit,used_today:srv.used,left:Math.max(0,max-srv.used),forms:srv.forms.slice()}},
  ql_gform_remove:a=>{srv.forms=srv.forms.filter(f=>f.id!==a.p_id);return null}
 };
 const fn={
  make:b=>{if(srv.fail)return {ok:false,error:srv.fail};srv.used++;const id='F'+(srv.forms.length+10);const f={id:'r'+id,title:b.title,question_count:b.questions.length,form_id:id,responder_url:'https://forms.gle/'+id,edit_url:'https://docs.google.com/forms/d/'+id+'/edit',folder_url:'https://drive.google.com/drive/folders/D1',owner_email:'quizlibrary.forms@gmail.com',editor_email:b.editor_email||null,accepting:true,created_at:new Date().toISOString()};
-   srv.forms.unshift(f);return {ok:true,form:f,left:srv.limit-srv.used,limit:srv.limit,editor_error:'',no_answer:b.questions.filter(q=>q.type==='mcq'&&q.correct.some(c=>c<0)).length,short_answers:b.questions.filter(q=>q.type==='short_answer').length}},
+   const unl=srv.mode==='unlimited'||srv.mode==='admin';srv.forms.unshift(f);return {ok:true,form:f,unlimited:unl,left:(unl?srv.cap:srv.limit)-srv.used,limit:unl?null:srv.limit,editor_error:'',no_answer:b.questions.filter(q=>q.type==='mcq'&&q.correct.some(c=>c<0)).length,short_answers:b.questions.filter(q=>q.type==='short_answer').length}},
  status:()=>({ok:true,forms:{F1:{accepting:true,responses:12,title:'x'},F2:{accepting:false,responses:31,title:'x'},F3:{missing:true}}}),
  rename:b=>{const f=srv.forms.find(x=>x.id===b.id);f.title=b.title;return {ok:true,title:b.title}},
  accepting:b=>({ok:true,accepting:b.accepting}),share:b=>({ok:true,editor_email:b.email,folder_url:'https://drive.google.com/drive/folders/D1'})
@@ -209,6 +209,24 @@ with sync_playwright() as p:
         page.locator('#qlGfEmail').fill(''); page.locator('#qlGfMakeBtn').click()
         page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('Google did not answer')")
         assert not page.locator('#qlGfMakeBtn').is_disabled(), 'can try again'
+        # per-person limits set by Admin: Unlimited (safety cap), a custom number, 0 = off
+        page.evaluate("srv.fail=null;srv.mode='unlimited';srv.used=3;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
+        page.locator('[data-gf-src="paste"]').click(); page.locator('#qlGfPaste').fill(PASTE)
+        page.wait_for_function("document.getElementById('qlGfLeft').textContent.includes('Unlimited')")
+        assert page.locator('.ql-gf-unl').count() == 1 and page.locator('.ql-gf-dots').count() == 0
+        shot('6-unlimited')
+        page.locator('#qlGfMakeBtn').click(); page.locator('.ql-gf-ok').wait_for()
+        assert 'Forms left today: Unlimited' in page.locator('.ql-gf-ok').inner_text()
+        page.evaluate("srv.used=100;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
+        page.locator('#qlGfPaste').fill(PASTE)
+        page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('100 Google Forms today, the safety limit') && document.getElementById('qlGfMakeBtn').disabled")
+        page.evaluate("srv.mode='custom';srv.limit=12;srv.used=2;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
+        page.wait_for_function("document.getElementById('qlGfLeft')?.textContent.includes('Forms left today: 10 of 12')")
+        page.evaluate("srv.limit=0;srv.used=0;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
+        page.locator('#qlGfPaste').fill(PASTE)
+        page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('turned off for your account') && document.getElementById('qlGfMakeBtn').disabled")
+        page.evaluate("srv.mode='default';srv.limit=5;srv.used=1")
+        ok(tag + 'Per-person limits: Unlimited shows ∞ and the safety cap, a custom number shows X of Y, 0 says it is off')
         page.evaluate("srv.fail=null;srv.setUp=false;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
         page.wait_for_function("document.getElementById('qlGfMake').textContent.includes(\"isn't ready yet\")")
         page.evaluate("srv.setUp=true;try{closeModal()}catch(e){}")

@@ -61,6 +61,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;colo
 td{padding:10px;border-bottom:1px solid #f1f3f8;vertical-align:middle;white-space:nowrap}
 .u{display:flex;align-items:center;gap:10px;min-width:170px}.av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;flex:none}
 .u small{display:block;color:var(--muted);font-size:12px;word-break:break-all}
+.gfb .gfb-tag{margin-left:6px;padding:1px 7px;font-size:10.5px;background:#ede9fe;color:#6d28d9;vertical-align:1px}body.t-neon .gfb .gfb-tag,body.t-ocean .gfb .gfb-tag{background:rgba(167,139,250,.2);color:#ddd6fe}
 .tag{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:800;white-space:nowrap;background:#f1f5f9;color:#475569}
 .flim{margin:0 0 8px 30px;padding:2px 12px;border-left:3px solid #c7d2fe;border-radius:2px}.flim .lim{padding:6px 0}.flim .lim>span:first-child{font-size:13px;color:var(--muted)}
 body.t-neon .flim{border-left-color:#00e5ff66}body.t-ocean .flim{border-left-color:#fdba7499}
@@ -420,7 +421,7 @@ async function users(){
   <div class="filters">${[["all","All"],...plans.map(p=>[p.id,p.name]),["ending","Ending soon"],["suspended","Suspended"]].map(([k,l])=>`<button class="btn ${usersFilter===k?"on":""}" data-f="${h(k)}">${h(l)}</button>`).join("")}</div>
   <div class="card"><div class="tbl"><table><tr><th>User</th><th>Plan</th><th>Ends</th><th>Storage</th><th>Quizzes · PDFs</th><th>Device</th><th>Last active</th><th></th></tr>
   ${rows.length?rows.map(r=>{const p=planById(r.plan_id),lim=(p.limits||{}).storage_mb,used=Number(r.usage?.storage_bytes||0),cap=lim==null?null:(lim+Number(r.extra_storage_mb||0))*1048576;
-    return `<tr><td><div class="u"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div>${h(r.name)}<small>${h(r.email)}</small></div></div></td>
+    return `<tr><td><div class="u"><div class="av" style="background:${avColor(r.email)}">${h((r.name||"?")[0].toUpperCase())}</div><div>${h(r.name)}<span class="gfb" data-gfb="${h(r.user_id)}"></span><small>${h(r.email)}</small></div></div></td>
     <td>${r.status==="suspended"?`<span class="tag no">Suspended</span>`:planTag(r.plan_id)}</td><td>${r.ends_at?day(r.ends_at):"—"}</td>
     <td><div class="bar"><i style="width:${cap?Math.min(100,used/cap*100):5}%"></i></div><small>${bytes(used)} / ${cap?bytes(cap):"∞"}</small></td>
     <td>${r.usage?.quizzes||0} · ${r.usage?.pdfs||0}</td><td>${h(r.device||"—")}</td><td>${ago(r.last_sign_in_at)}</td>
@@ -433,6 +434,9 @@ async function users(){
   $("#uSearch").value=pendingSearch;wireUsersFilters();if(pendingSearch.trim()!==query.p_search)$("#uSearch").dispatchEvent(new Event("input"));
   $("#uPrev")&&($("#uPrev").onclick=()=>{usersPage--;go("users")});$("#uNext")&&($("#uNext").onclick=()=>{usersPage++;go("users")});
   $$("[data-u]").forEach(b=>b.onclick=()=>manageUser(rows.find(r=>r.user_id===b.dataset.u)));
+  /* small badge: this person's own "Google Forms per day" (google_forms_user_limits.sql) */
+  rpc("ql_admin_gform_user_rules").then(map=>{if(!current())return;$$("[data-gfb]").forEach(el=>{const x=map&&map[el.dataset.gfb];
+    el.innerHTML=x?`<span class="tag gfb-tag" title="Google Forms per day (set for this person)">📝 ${x.unlimited?"∞":Number(x.daily_limit)+"/day"}</span>`:""})}).catch(()=>{});
 }
 function manageUser(r){
   const o=modal(`Manage · ${h(r.name)}`,`<div class="note" style="margin:0 0 12px">${h(r.email)} · now on ${planTag(r.plan_id)} ${r.ends_at?"until "+day(r.ends_at):"(no end date)"}</div>
@@ -460,6 +464,10 @@ function manageUser(r){
    <div class="inline" style="flex-wrap:wrap"><div class="seg" id="dvMode"><button type="button" data-dv="plan">Follow plan</button>${[1,2,3,5].map(n=>`<button type="button" data-dv="${n}">${n}</button>`).join("")}<button type="button" data-dv="unl">Unlimited</button></div>
     <input id="dvN" class="in small" type="number" min="1" max="100" placeholder="Other"><button class="btn" id="dvSave">Save</button></div>
    <div id="dvList" class="note" style="margin-top:6px"></div>
+   <div class="sec-t">📝 Google Forms per day</div>
+   <div class="note" style="margin:0 0 8px">How many Google Forms this person can make each day with <b>Make Google Form</b>. <span id="gfNow"></span></div>
+   <div class="inline" style="flex-wrap:wrap"><div class="seg" id="gfMode"><button type="button" data-gfm="default">Default</button><button type="button" data-gfm="unlimited">Unlimited</button></div>
+    <input id="gfN" class="in small" type="number" min="0" max="1000" placeholder="Number"><button class="btn" id="gfNSave">Save number</button></div>
    <div class="danger-zone"><div class="sec-t" style="margin-top:0;color:#dc2626">Delete account permanently</div>
     <div class="note" style="margin:0 0 8px">Deletes the login, their quizzes, PDFs, folders, payments and devices from Supabase. This cannot be undone.</div>
     <div class="inline"><input id="mDelEmail" class="in" style="flex:1;min-width:180px" placeholder="Type ${h(r.email)} to confirm" autocomplete="off"><button class="btn r" id="mDel">Delete forever</button></div></div>`);
@@ -487,6 +495,17 @@ function manageUser(r){
       o.querySelector("#dvList").innerHTML=(d.devices||[]).length?"Signed in now: "+d.devices.map(x=>`${h(x.label||"Device")} <small>(${ago(x.signed_in_at)})</small>`).join(" · "):"No device signed in right now."}
     catch(e){o.querySelector("#dvNow").innerHTML=/ql_admin_get_device_rule|PGRST202|42883|does not exist/.test(String(e.message||e))?"<b>Run multi_device.sql in Supabase first.</b>":""}};
   dvLoad();
+  const gfLoad=async()=>{const now=o.querySelector("#gfNow");try{const g=await rpc("ql_admin_gform_user_rule_get",{p_user:r.user_id});
+      o.querySelectorAll("[data-gfm]").forEach(x=>x.classList.toggle("on",x.dataset.gfm===(g.mode==="admin"?"unlimited":g.mode)));o.querySelector("#gfN").value=g.mode==="custom"?g.limit:"";
+      const made=` · made today: ${Number(g.used_today||0)}`;
+      now.innerHTML=g.mode==="admin"?`<b>Right now: Unlimited — admin account</b> (safety cap ${g.cap} a day)${made}.`:g.mode==="unlimited"?`<b>Right now: Unlimited</b> (safety cap ${g.cap} a day)${made}.`
+        :g.mode==="custom"?`<b>Right now: ${g.limit===0?"cannot make Google Forms":g.limit+" a day"}</b> (set for this person)${made}.`:`<b>Right now: ${g.global} a day</b> (the default from Settings)${made}.`;
+      if(g.mode==="admin")o.querySelectorAll("#gfMode button,#gfN,#gfNSave").forEach(x=>x.disabled=true)}
+    catch(e){now.innerHTML=/ql_admin_gform_user_rule_get|PGRST202|42883|does not exist/.test(String(e.message||e))?"<b>Run google_forms_user_limits.sql in Supabase first.</b>":h(errMsg(e))}};
+  gfLoad();
+  const gfSet=async(mode,n)=>{try{await rpc("ql_admin_gform_user_rule_set",{p_user:r.user_id,p_mode:mode,p_limit:n});toast("Google Forms per day saved");gfLoad()}catch(e){alert(errMsg(e))}};
+  o.querySelectorAll("[data-gfm]").forEach(b=>b.onclick=()=>gfSet(b.dataset.gfm,null));
+  o.querySelector("#gfNSave").onclick=()=>{const v=o.querySelector("#gfN").value.trim(),n=Number(v);if(v===""||!Number.isInteger(n)||n<0||n>1000)return alert("Type a whole number from 0 to 1000 (0 = this person cannot make Google Forms).");gfSet("custom",n)};
   const dvSet=async(follow,max)=>{try{await rpc("ql_admin_set_device_limit",{p_user:r.user_id,p_follow:follow,p_max:max});toast("Devices limit saved");dvLoad()}catch(e){alert(/ql_admin_set_device_limit|PGRST202|42883/.test(String(e.message||e))?"Run the new multi_device.sql in Supabase first.":errMsg(e))}};
   o.querySelectorAll("[data-dv]").forEach(b=>b.onclick=()=>{const v=b.dataset.dv;v==="plan"?dvSet(true,null):v==="unl"?dvSet(false,null):dvSet(false,Number(v))});
   o.querySelector("#dvSave").onclick=()=>{const n=Math.round(Number(o.querySelector("#dvN").value));if(!(n>=1&&n<=100))return alert("Type a number from 1 to 100.");dvSet(false,n)};
@@ -957,12 +976,14 @@ async function gfCard(){
   box.innerHTML=`${act?`<div class="note" style="margin:0 0 10px" id="gfActive">Now making forms: <b>${h(act.owner_email||"Gmail not checked yet — press Check connection")}</b>${act.checked_at?` · checked ${h(when(act.checked_at))}`:""}<br><span style="word-break:break-all">${h(act.script_url)}</span><br>Made today: <b>${Number(cfg.made_today||0)}</b> · all time: <b>${Number(cfg.made_total||0)}</b></div>`:`<div class="note" style="margin:0 0 10px" id="gfActive">No Gmail connected yet. Students see “not ready yet”.</div>`}
    <div class="fld"><label>Apps Script Web app URL</label><input id="gfUrl" class="in" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec" value="${h(act?act.script_url:"")}"></div>
    <div class="two"><div class="fld"><label>SECRET (from the Apps Script log)</label><input id="gfSecret" class="in" type="password" autocomplete="off" placeholder="${act?"Saved — leave empty to keep it":"Paste the secret"}"></div>
-    <div class="fld"><label>Forms per student per day</label><input id="gfLimit" class="in small" type="number" min="0" max="100" value="${Number(cfg.daily_limit??5)}"></div></div>
+    <div class="fld"><label>Forms per student per day (Default)</label><input id="gfLimit" class="in small" type="number" min="0" max="100" value="${Number(cfg.daily_limit??5)}"></div></div>
+   <div class="fld"><label>Safety cap for Unlimited people (forms per day)</label><input id="gfCap" class="in small" type="number" min="1" max="1000" placeholder="100"><div class="note" style="margin:4px 0 0">Change one person's number in <b>Users → Manage → 📝 Google Forms per day</b>. Admin accounts are Unlimited.</div></div>
    <div class="inline"><button class="btn p" id="gfSave">Save</button><button class="btn" id="gfPing">Check connection</button></div>
    <div id="gfMsg" class="note" style="margin-top:8px"></div>
    ${others.length?`<div class="sec-t" style="margin-top:14px">Other Gmails (their old forms still work)</div>${others.map(o=>`<div class="inline" style="justify-content:space-between;margin:6px 0"><span><b>${h(o.owner_email||"Not checked")}</b><br><small style="word-break:break-all;color:var(--muted)">${h(o.script_url)}</small></span><button class="btn" data-gf-use="${h(o.script_url)}">Use this one</button></div>`).join("")}`:""}`;
   const msg=(t,bad)=>{const m=$("#gfMsg");m.className=bad?"err":"note";m.textContent=t};
-  const save=async(url,secret)=>{const lim=$("#gfLimit").value===""?null:Number($("#gfLimit").value);await rpc("ql_admin_gform_save",{p_script_url:url,p_secret:secret,p_daily_limit:lim})};
+  let capWas=null;rpc("ql_admin_gform_cap_get").then(c=>{capWas=c;const i=$("#gfCap");if(i)i.value=c}).catch(()=>{const i=$("#gfCap");if(i){i.disabled=true;i.placeholder="Run google_forms_user_limits.sql"}});
+  const save=async(url,secret)=>{const cap=$("#gfCap")&&$("#gfCap").value.trim();if(cap&&Number(cap)!==capWas)await rpc("ql_admin_gform_cap_set",{p_cap:Number(cap)});const lim=$("#gfLimit").value===""?null:Number($("#gfLimit").value);await rpc("ql_admin_gform_save",{p_script_url:url,p_secret:secret,p_daily_limit:lim})};
   const ping=async()=>{const {data,error}=await sb.functions.invoke("ql-gform",{body:{action:"ping"}});let d=data;if(error){try{d=await error.context.json()}catch{d={error:error.message}}}
     if(!d||!d.ok)throw new Error(d&&d.error||"No answer");return d.owner};
   $("#gfSave").onclick=async e=>{const b=e.currentTarget;b.disabled=true;try{await save($("#gfUrl").value.trim(),$("#gfSecret").value.trim());toast("Google Forms settings saved");

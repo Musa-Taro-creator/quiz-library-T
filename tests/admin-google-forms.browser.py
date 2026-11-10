@@ -7,14 +7,23 @@ Function; no real accounts, no Google.
 from pathlib import Path
 import ast
 from playwright.sync_api import sync_playwright
+import sys
+SHOTS = sys.argv[1] if len(sys.argv) > 1 else None
+THEME = sys.argv[2] if len(sys.argv) > 2 else None
 ROOT = Path(__file__).resolve().parents[1]
 tree = ast.parse((ROOT / 'tests/admin-message-drafts.browser.py').read_text())
 STUB = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'stub' for t in n.targets))
 EXTRA = r'''
-window.gf={owners:[],limit:5,saves:[],invokes:[]};
+window.gf={owners:[],limit:5,saves:[],invokes:[],cap:100,rules:{},ruleSets:[]};
 const baseCreate=window.supabase.createClient;
 window.supabase.createClient=(...a)=>{const c=baseCreate(...a),rpc0=c.rpc;
  c.rpc=async(name,args)=>{
+  if(name==='ql_admin_gform_cap_get')return {data:gf.cap,error:null};
+  if(name==='ql_admin_gform_cap_set'){gf.cap=args.p_cap;return {data:gf.cap,error:null}}
+  if(name==='ql_admin_gform_user_rules')return {data:{...gf.rules},error:null};
+  if(name==='ql_admin_gform_user_rule_get'||name==='ql_admin_gform_user_rule_set'){
+    if(name==='ql_admin_gform_user_rule_set'){gf.ruleSets.push(args);if(args.p_mode==='default')delete gf.rules[args.p_user];else gf.rules[args.p_user]={unlimited:args.p_mode==='unlimited',daily_limit:args.p_mode==='custom'?args.p_limit:null}}
+    const x=gf.rules[args.p_user];return {data:{mode:!x?'default':x.unlimited?'unlimited':'custom',limit:!x?gf.limit:x.unlimited?null:x.daily_limit,cap:gf.cap,global:gf.limit,used_today:2},error:null}}
   if(name==='ql_admin_gform_get')return {data:{daily_limit:gf.limit,owners:gf.owners.map(o=>({...o})),made_today:2,made_total:9},error:null};
   if(name==='ql_admin_gform_save'){gf.saves.push(args);
     if(args.p_script_url&&!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(args.p_script_url))return {data:null,error:{message:'Paste the Web app URL from Apps Script. It starts with https://script.google.com/macros/s/ and ends with /exec'}};
@@ -34,7 +43,7 @@ with sync_playwright() as p:
     browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox'])
     for width in (1280, 390):
         context = browser.new_context(viewport={'width': width, 'height': 900}, has_touch=True, service_workers='block')
-        context.add_init_script(STUB + EXTRA)
+        context.add_init_script(STUB + EXTRA + ("try{localStorage.setItem('ql_admin_theme','%s')}catch(e){}" % THEME if THEME else ''))
         page = context.new_page(); page.set_default_timeout(10000); errors = []
         page.on('pageerror', lambda e: errors.append(str(e)))
         page.on('dialog', lambda d: d.accept())
@@ -72,6 +81,38 @@ with sync_playwright() as p:
         assert page.evaluate('gf.saves.at(-1)')['p_secret'] == '', 'switching back keeps the saved secret'
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth+1")
         ok(tag + 'Switch to a second Gmail and back ("Use this one"); Check connection names the Gmail')
+        # safety cap for Unlimited, saved with Save
+        assert page.locator('#gfCap').input_value() == '100'
+        page.locator('#gfCap').fill('150'); page.locator('#gfSave').click()
+        page.wait_for_function('gf.cap===150')
+        ok(tag + 'Settings: safety cap for Unlimited people is shown and saved')
+        # Users: per-person Google Forms per day + badge
+        page.evaluate("go('users')")
+        page.locator('[data-u="student-1"]').wait_for()
+        assert page.locator('[data-gfb="student-1"]').inner_text() == ''
+        page.locator('[data-u="student-1"]').click()
+        page.wait_for_function("document.getElementById('gfNow')?.textContent.includes('4 a day (the default')")
+        assert 'made today: 2' in page.locator('#gfNow').inner_text()
+        assert page.locator('[data-gfm="default"].on').count() == 1
+        page.locator('#gfN').fill('1001'); page.locator('#gfNSave').click()
+        page.locator('#gfN').fill('20'); page.locator('#gfNSave').click()
+        page.wait_for_function("document.getElementById('gfNow').textContent.includes('20 a day')")
+        assert page.evaluate('gf.ruleSets.at(-1)') == {'p_user': 'student-1', 'p_mode': 'custom', 'p_limit': 20}
+        assert len(page.evaluate('gf.ruleSets')) == 1, 'the 1001 was refused before saving'
+        page.locator('[data-gfm="unlimited"]').click()
+        page.wait_for_function("document.getElementById('gfNow').textContent.includes('Unlimited') && document.getElementById('gfNow').textContent.includes('safety cap 150')")
+        page.locator('.ovl .dlg-h .x').last.click()
+        page.evaluate("go('users')")
+        page.wait_for_function("document.querySelector('[data-gfb=\"student-1\"]')?.textContent.includes('∞')")
+        page.evaluate("gf.rules['student-1']={unlimited:false,daily_limit:20};go('users')")
+        page.wait_for_function("document.querySelector('[data-gfb=\"student-1\"]')?.textContent.includes('20/day')")
+        if SHOTS:
+            page.locator('table').first.screenshot(path=f'{SHOTS}/adm-users-{width}-{THEME or "white"}.png')
+            page.locator('[data-u="student-1"]').click(); page.wait_for_function("document.getElementById('gfNow')?.textContent.includes('20 a day')")
+            sec = page.locator('#gfMode'); sec.scroll_into_view_if_needed(); page.wait_for_timeout(200)
+            page.screenshot(path=f'{SHOTS}/adm-manage-{width}-{THEME or "white"}.png')
+            page.locator('.ovl .dlg-h .x').last.click()
+        ok(tag + 'Users: Manage → Google Forms per day (Default / number 0–1000 / Unlimited) and the badge in the list')
         page.evaluate("go('ctl')")
         page.wait_for_function("document.querySelector('#view').innerText.includes('Make Google Form')")
         ok(tag + 'Website Control lists the Make Google Form on/off switch')

@@ -85,6 +85,7 @@ before these files and are not in this repository.
 29. `shared_rooms_v1.sql`
 30. `security_storage_fix.sql`: closes open file-storage rules.
 31. `google_forms.sql`: Make Google Form (also deploy `supabase/functions/ql-gform`; steps in `tools/README-google-forms.md`).
+31b. `google_forms_user_limits.sql`: Google Forms per day per person (Admin → Users). Run after 31.
 
 `security_check.sql` is read only: run it any time. Every row it returns is
 something to look at; no rows means all good.

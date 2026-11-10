@@ -1,7 +1,7 @@
 -- Quiz Library — "Make Google Form" (Option A: one Google account makes the forms).
 --
 -- Run once in Supabase → SQL Editor, after plans_admin.sql, dashboard.sql and
--- item_sharing.sql. Safe to run again.
+-- item_sharing.sql. Safe to run again. Per-person limits: google_forms_user_limits.sql.
 --
 -- How it fits together:
 --   app  →  Edge Function ql-gform (checks the login)  →  this database (5 a day)
@@ -79,20 +79,56 @@ returns jsonb language sql stable as $$
 $$;
 
 -- ------------------------------------------------------------------ for the student (app)
--- The list, the limit and how many are left today.
+-- ------------------------------------------------------------------ same as google_forms.sql
+-- This person's rule: mode admin | unlimited | custom | default, limit (null = unlimited), cap, global.
+create or replace function public.ql__gform_user_rule(p_uid uuid)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare
+  v_global integer := ql__gform_limit();
+  v_cap integer;
+  v_unl boolean;
+  v_lim integer;
+  v_rows integer := 0;
+begin
+  v_cap := greatest(1, least(1000, coalesce((select (value->>'unlimited_cap')::integer from ql_site_settings where key = 'gform'), 100)));
+  if ql__is_admin(p_uid) then
+    return jsonb_build_object('mode', 'admin', 'limit', null, 'cap', v_cap, 'global', v_global);
+  end if;
+  if to_regclass('public.ql_gform_user_limits') is not null then
+    execute 'select unlimited, daily_limit from public.ql_gform_user_limits where user_id = $1' into v_unl, v_lim using p_uid;
+    get diagnostics v_rows = row_count;
+  end if;
+  if v_rows > 0 and v_unl then
+    return jsonb_build_object('mode', 'unlimited', 'limit', null, 'cap', v_cap, 'global', v_global);
+  elsif v_rows > 0 then
+    return jsonb_build_object('mode', 'custom', 'limit', v_lim, 'cap', v_cap, 'global', v_global);
+  end if;
+  return jsonb_build_object('mode', 'default', 'limit', v_global, 'cap', v_cap, 'global', v_global);
+end;
+$$;
+revoke all on function public.ql__gform_user_rule(uuid) from public, anon, authenticated;
+
+-- The list, this person's limit and how many are left today.
 create or replace function public.ql_gform_mine()
 returns jsonb language plpgsql stable security definer set search_path = public as $$
 declare
   v_uid uuid := auth.uid();
-  v_limit integer := ql__gform_limit();
+  v_rule jsonb;
+  v_unl boolean;
+  v_max integer;
   v_used integer;
 begin
   if v_uid is null then raise exception 'not authenticated' using errcode = '28000'; end if;
+  v_rule := ql__gform_user_rule(v_uid);
+  v_unl := v_rule->'limit' = 'null'::jsonb;
+  v_max := case when v_unl then (v_rule->>'cap')::integer else (v_rule->>'limit')::integer end;
   v_used := ql__gform_used(v_uid);
   return jsonb_build_object(
     'enabled', ql__feature_ok(v_uid, 'gform'),
     'set_up', exists (select 1 from ql_gform_owners where active),
-    'limit', v_limit, 'used_today', v_used, 'left', greatest(0, v_limit - v_used),
+    'unlimited', v_unl, 'mode', v_rule->>'mode', 'cap', (v_rule->>'cap')::integer,
+    'limit', case when v_unl then null else v_max end,
+    'used_today', v_used, 'left', greatest(0, v_max - v_used),
     'forms', coalesce((select jsonb_agg(ql__gform_row(f) order by f.created_at desc)
                          from (select * from ql_google_forms where user_id = v_uid and status = 'ready' and not removed
                                 order by created_at desc limit 300) f), '[]'::jsonb));
@@ -106,7 +142,9 @@ create or replace function public.ql_gform_reserve(p_title text, p_question_coun
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   v_uid uuid := auth.uid();
-  v_limit integer := ql__gform_limit();
+  v_rule jsonb;
+  v_unl boolean;
+  v_max integer;
   v_used integer;
   v_id uuid;
   v_label text;
@@ -122,13 +160,22 @@ begin
   end if;
   if coalesce(p_question_count, 0) < 1 then raise exception 'Add at least one question.'; end if;
   if p_question_count > 200 then raise exception 'A Google Form can have up to 200 questions from Quiz Library.'; end if;
+  v_rule := ql__gform_user_rule(v_uid);
+  v_unl := v_rule->'limit' = 'null'::jsonb;
+  v_max := case when v_unl then (v_rule->>'cap')::integer else (v_rule->>'limit')::integer end;
+  if v_rule->>'mode' = 'custom' and v_max = 0 then
+    raise exception 'Making Google Forms is turned off for your account.' using errcode = '42501';
+  end if;
   perform pg_advisory_xact_lock(hashtext('ql_gform:' || v_uid::text));
   -- a form that never finished (closed tab, timeout) stops counting after 10 minutes
   update ql_google_forms set status = 'failed', error = coalesce(error, 'timed out'), updated_at = now()
    where user_id = v_uid and status = 'making' and created_at < now() - interval '10 minutes';
   v_used := ql__gform_used(v_uid);
-  if v_used >= v_limit then
-    raise exception 'You can make % Google Forms a day. Try again tomorrow.', v_limit;
+  if v_used >= v_max then
+    if v_unl then
+      raise exception 'You made % Google Forms today, the safety limit. Try again tomorrow.', v_max;
+    end if;
+    raise exception 'You can make % Google Form% a day. Try again tomorrow.', v_max, case when v_max = 1 then '' else 's' end;
   end if;
   insert into ql_google_forms (user_id, title, question_count, source)
   values (v_uid, left(coalesce(nullif(trim(p_title), ''), 'Quiz'), 200), p_question_count, left(p_source, 20))
@@ -143,11 +190,13 @@ begin
     v_label := coalesce(split_part((select email from auth.users where id = v_uid), '@', 1), 'Student') || ' (' || left(v_uid::text, 8) || ')';
   end if;
   return jsonb_build_object('record_id', v_id, 'user_id', v_uid, 'user_label', left(v_label, 120),
-                            'limit', v_limit, 'left', greatest(0, v_limit - v_used - 1));
+                            'unlimited', v_unl, 'limit', case when v_unl then null else v_max end,
+                            'left', greatest(0, v_max - v_used - 1));
 end;
 $$;
 revoke all on function public.ql_gform_reserve(text, integer, text) from public, anon;
 grant execute on function public.ql_gform_reserve(text, integer, text) to authenticated;
+-- ------------------------------------------------------------------ end of "same as google_forms.sql"
 
 -- One of my forms (the Edge Function uses this to check the form is really mine).
 create or replace function public.ql_gform_get(p_id uuid)

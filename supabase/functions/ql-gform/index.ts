@@ -129,7 +129,7 @@ export function makeHandler(env, fetchFn) {
               description: String(body.description || "").slice(0, 4000), questions, editor_email: editor,
             });
             const row = await asServer("ql_gform__finish", { p_id: res.record_id, p_data: made });
-            return reply(200, { ok: true, form: row, left: res.left, limit: res.limit, editor_error: made.editor_error || "",
+            return reply(200, { ok: true, form: row, left: res.left, limit: res.limit, unlimited: !!res.unlimited, editor_error: made.editor_error || "",
                                 no_answer: made.no_answer || 0, short_answers: made.short_answers || 0 });
           } catch (e) {
             await asServer("ql_gform__fail", { p_id: res.record_id, p_error: String(e.message || e) }).catch(() => {});

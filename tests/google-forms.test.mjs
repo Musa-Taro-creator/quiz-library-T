@@ -19,6 +19,7 @@ before(async()=>{await db.exec(`create role authenticated;create role anon;creat
  create function ql__default_plan() returns text language sql as $$select 'free'::text$$;
  create function ql__effective_plan(p_uid uuid) returns text language sql stable as $$select 'free'::text$$;
  create table ql_admins(user_id uuid primary key);insert into ql_admins values('${ADM}');
+ create function ql__is_admin(p_uid uuid default auth.uid()) returns boolean language sql stable security definer set search_path=public as $$select exists(select 1 from ql_admins where user_id=p_uid)$$;
  create function ql__need_admin() returns void language plpgsql stable security definer set search_path=public as $$begin if auth.uid() is null or not exists(select 1 from ql_admins where user_id=auth.uid()) then raise exception 'Admins only' using errcode='42501';end if;end$$;
  create table student_share_profiles(user_id uuid,share_id text,display_name text);insert into student_share_profiles values('${A}','QL-BONA0003','Bona');`);
  await db.exec(file('supabase/dashboard.sql').split('-- The payload without quiz questions')[0]);

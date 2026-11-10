@@ -44,6 +44,12 @@ Later changes to the script: **Deploy → Manage deployments → ✏️ → Vers
    You should see: ✅ *Saved and connected. Forms are made by quizlibrary.forms@gmail.com*.
 2. **Website Control → + New menu → Make Google Form**: On / Off / Plan.
 
+## Daily limits
+
+Settings → **Forms per student per day** is the Default (5). In **Users → Manage → 📝 Google Forms per day**
+you can give one person their own number (0–1000) or **Unlimited**. Admin accounts are Unlimited.
+Unlimited still stops at the **safety cap** (Settings, default 100 a day). Needs `supabase/google_forms_user_limits.sql`.
+
 ## Switching to another Gmail later
 
 Do part A with the new Gmail, then paste its URL and SECRET in Admin. New forms use the
