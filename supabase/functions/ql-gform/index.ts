@@ -9,8 +9,9 @@
 // The Apps Script address and secret never reach the browser.
 //
 // Create it in Supabase → Edge Functions → Deploy a new function → name: ql-gform,
-// paste this file, keep "Verify JWT" ON. No secrets to add: Supabase gives every
-// function SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY.
+// paste this file, keep "Verify JWT" ON. No secrets to add: Supabase gives every function
+// SUPABASE_URL and its keys (new SUPABASE_PUBLISHABLE_KEYS / SUPABASE_SECRET_KEYS, or the legacy
+// SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY). It uses the new keys when they are there.
 //
 // Written without imports or types so the same file is tested in Node (tests/google-forms-edge.test.mjs).
 
@@ -22,15 +23,22 @@ const CORS = {
 
 export function makeHandler(env, fetchFn) {
   const base = String(env.SUPABASE_URL || "").replace(/\/$/, "");
-  const anon = env.SUPABASE_ANON_KEY || "";
-  const service = env.SUPABASE_SERVICE_ROLE_KEY || "";
+  // New API keys first (SUPABASE_PUBLISHABLE_KEYS / SUPABASE_SECRET_KEYS are JSON like
+  // {"default":"sb_..."}); the legacy anon / service_role keys (retired by Supabase end of 2026) as fallback.
+  const fromJson = (v) => { try { const o = JSON.parse(v || "{}"); return o.default || Object.values(o)[0] || ""; } catch { return ""; } };
+  const anon = fromJson(env.SUPABASE_PUBLISHABLE_KEYS) || env.SUPABASE_ANON_KEY || "";
+  const publicKeys = [anon, env.SUPABASE_ANON_KEY || ""].filter(Boolean);
+  const service = fromJson(env.SUPABASE_SECRET_KEYS) || env.SUPABASE_SERVICE_ROLE_KEY || "";
   const reply = (status, body) =>
     new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
   async function rpc(name, args, token, key) {
+    const headers = { apikey: key, "Content-Type": "application/json" };
+    // New sb_ keys are not JWTs: send them only as apikey and Supabase acts with that key's role.
+    if (!(token === key && /^sb_/.test(key))) headers.Authorization = `Bearer ${token}`;
     const r = await fetchFn(`${base}/rest/v1/rpc/${name}`, {
       method: "POST",
-      headers: { apikey: key, Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(args || {}),
     });
     const text = await r.text();
@@ -102,7 +110,7 @@ export function makeHandler(env, fetchFn) {
     if (req.method !== "POST") return reply(405, { ok: false, error: "POST only" });
     const auth = req.headers.get("Authorization") || "";
     const token = auth.replace(/^Bearer\s+/i, "");
-    if (!token || token === anon) return reply(401, { ok: false, error: "Please sign in again." });
+    if (!token || publicKeys.includes(token) || /^sb_/.test(token)) return reply(401, { ok: false, error: "Please sign in again." });
     if (!service) return reply(503, { ok: false, error: "The server key is missing for ql-gform." });
     let body;
     try { body = await req.json(); } catch { return reply(400, { ok: false, error: "Bad request" }); }

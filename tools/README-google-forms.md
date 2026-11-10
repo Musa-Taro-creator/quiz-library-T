@@ -58,4 +58,4 @@ new Gmail; forms made before keep working while the old Apps Script stays deploy
 | "The Google Forms secret in Admin does not match the Apps Script" | Copy the SECRET again (run **setup** once more to see it in the log) and paste it in Admin. |
 | "Google sent an unexpected answer…" | The deployment must be **Web app**, **Execute as: Me**, **Who has access: Anyone**. |
 | "Invalid JWT" on Check connection | In the function's settings turn **Verify JWT** off. It is still safe: the function checks the login itself through the database. |
-| "The server key is missing for ql-gform" | Your project turned off the legacy keys. Add a function secret `SUPABASE_SERVICE_ROLE_KEY` with a secret key from Project Settings → API Keys. |
+| "The server key is missing for ql-gform" | The project has no secret key. In Project Settings → API Keys create a **secret key** (named `default`), then redeploy the function. It uses the new keys by itself and falls back to the legacy ones. |

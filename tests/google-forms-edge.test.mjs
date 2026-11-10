@@ -49,17 +49,20 @@ async function setupDb(){await db.exec(`create role authenticated;create role an
  await db.exec(file('supabase/item_sharing.sql'));
  await db.exec(file('supabase/google_forms.sql'));await db.exec(file('supabase/google_forms.sql'));
 }
-let g,handle,calls=[];
+let g,handle,handleNew,calls=[];
 before(async()=>{
  await setupDb();
- g=google();g.ctx.setup();
+ g=google();g.ctx.setup();g.headers=[];
  const {makeHandler}=await import('data:text/javascript,'+encodeURIComponent(file('supabase/functions/ql-gform/index.ts')));
  // PostgREST stand-in: the token says who is calling; the service key runs as service_role.
  const fakeFetch=async(url,init)=>{
   calls.push(url);
   if(url===URL1){g.lastScriptBody=JSON.parse(init.body);const out=g.ctx.doPost({postData:{contents:init.body}}).text;return new Response(out,{status:200})}
   const m=url.match(/\/rest\/v1\/rpc\/(\w+)$/);if(!m)throw Error('unexpected '+url);
-  const tok=init.headers.Authorization.slice(7),args=JSON.parse(init.body);
+  const auth=init.headers.Authorization,args=JSON.parse(init.body);g.headers.push({apikey:init.headers.apikey,auth:auth||null});
+  // new sb_secret_ key: only apikey (no Authorization), like Supabase's gateway expects
+  const tok=auth?auth.slice(7):(init.headers.apikey==='sb_secret_test'?'service-key':'');
+  if(auth&&/^Bearer sb_/.test(auth))return new Response('{"message":"Invalid JWT"}',{status:401});
   if(tok==='service-key'){await db.exec('reset role;set role service_role')}else if(tok.startsWith('user:')){await as(tok.slice(5))}else return new Response('{"message":"JWT"}',{status:401});
   try{const names=Object.keys(args);const r=await db.query(`select public.${m[1]}(${names.map((n,i)=>n+'=>$'+(i+1)).join(',')}) value`,names.map(n=>typeof args[n]==='object'&&args[n]!==null?JSON.stringify(args[n]):args[n]));
    return new Response(JSON.stringify(r.rows[0].value),{status:200})}
@@ -67,6 +70,7 @@ before(async()=>{
   finally{await db.exec('reset role')}
  };
  handle=makeHandler({SUPABASE_URL:'https://x.supabase.co/',SUPABASE_ANON_KEY:'anon-key',SUPABASE_SERVICE_ROLE_KEY:'service-key'},fakeFetch);
+ handleNew=makeHandler({SUPABASE_URL:'https://x.supabase.co',SUPABASE_PUBLISHABLE_KEYS:'{"default":"sb_publishable_test"}',SUPABASE_SECRET_KEYS:'{"default":"sb_secret_test"}',SUPABASE_ANON_KEY:'anon-key',SUPABASE_SERVICE_ROLE_KEY:'service-key'},fakeFetch);
  await as(ADM);await db.query("select public.ql_admin_gform_save($1,$2,$3)",[URL1,g.props.get('SECRET'),5]);await db.exec('reset role');
 });
 after(()=>db.close());
@@ -115,8 +119,17 @@ test('status, rename, close, share work on my own forms only',async()=>{
  assert.deepEqual([after.title,after.accepting,after.editor_email],['Cardio 2',false,'me@gmail.com']);
  assert.equal(g.forms.get(f.form_id).title,'Cardio 2');assert.equal(g.forms.get(f.form_id).accepting,false);
 });
+test('With the new Supabase keys (sb_publishable / sb_secret) it works the same and never sends sb_ keys as a login',async()=>{
+ g.headers.length=0;
+ const call2=(who,body)=>handleNew(new Request('https://x/f',{method:'POST',headers:{Authorization:'Bearer '+who,'Content-Type':'application/json'},body:JSON.stringify(body)})).then(async r=>({status:r.status,...(await r.json())}));
+ const r=await call2('user:'+A,{action:'make',title:'New keys',questions:QS});assert.equal(r.ok,true,JSON.stringify(r));
+ assert.ok(g.headers.some(h=>h.apikey==='sb_secret_test'&&h.auth===null),'secret key sent only as apikey');
+ assert.ok(g.headers.some(h=>h.apikey==='sb_publishable_test'&&h.auth==='Bearer user:'+A),'student calls use the publishable key + the login');
+ assert.ok(!g.headers.some(h=>/sb_/.test(h.auth||'')),'no sb_ key in Authorization');
+ assert.equal((await call2('sb_publishable_test',{action:'ping'})).status,401);assert.equal((await call2('anon-key',{action:'ping'})).status,401);
+});
 test('The daily limit holds through the Edge Function too',async()=>{
- for(let i=0;i<4;i++)assert.equal((await call('user:'+A,{action:'make',title:'Q'+i,questions:QS})).ok,true);
+ for(let i=0;i<3;i++)assert.equal((await call('user:'+A,{action:'make',title:'Q'+i,questions:QS})).ok,true); // 2 made above + 3 = 5
  const sixth=await call('user:'+A,{action:'make',title:'Sixth',questions:QS});assert.match(sixth.error,/5 Google Forms a day/);
  assert.equal([...g.forms.values()].filter(f=>f.title==='Sixth').length,0,'Google was not asked');
 });
