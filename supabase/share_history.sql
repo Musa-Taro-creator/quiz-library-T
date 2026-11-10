@@ -100,6 +100,12 @@ on conflict (owner_id, share_id) do update
       last_shared_at = greatest(coalesce(c.last_shared_at, excluded.last_shared_at), excluded.last_shared_at);
 
 -- Sent and received shares of the signed-in account, newest first.
+-- share_unsend.sql installs a newer version; running this file again keeps that one.
+do $do$
+begin
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'ql_item_shares' and column_name = 'unsent_at') then
+    execute $f$
 create or replace function public.ql_share_history(p_limit integer default 100)
 returns table (share_record_id uuid, direction text, kind text, title text, item_count integer,
                person_name text, person_share_id text, status text, created_at timestamptz)
@@ -107,7 +113,7 @@ language sql
 stable
 security definer
 set search_path = pg_catalog
-as $$
+as $fn$
   select * from (
     select s.id, 'sent'::text, s.kind, s.title, s.item_count, s.recipient_name, s.recipient_share_id, s.status, s.created_at
       from public.ql_item_shares s
@@ -119,9 +125,13 @@ as $$
   ) h
   order by 9 desc
   limit least(greatest(coalesce(p_limit, 100), 1), 300);
-$$;
-revoke all on function public.ql_share_history(integer) from public, anon;
-grant execute on function public.ql_share_history(integer) to authenticated;
+$fn$;
+$f$;
+    revoke all on function public.ql_share_history(integer) from public, anon;
+    grant execute on function public.ql_share_history(integer) to authenticated;
+  end if;
+end;
+$do$;
 
 create or replace function public.ql_share_contacts()
 returns table (share_id text, display_name text, share_count integer, last_shared_at timestamptz, saved_at timestamptz)

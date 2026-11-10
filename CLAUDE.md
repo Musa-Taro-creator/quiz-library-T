@@ -11,7 +11,7 @@ the full details. This file is the short version.
 - Every release of the student app changes the version name in **both**
   `index.html` (`<meta name="ql-shell-generation">`, line ~20) and `sw.js`
   (`APP_CACHE` + `SHELL_GENERATION`). Use the form `reliability-YYYY-MM-DD-vN`.
-  The version in the repo on 2026-11-10 is `reliability-2026-11-10-v1`.
+  The version in the repo on 2026-11-10 is `reliability-2026-11-10-v2` (live: v1 until approved).
 - CDN libraries stay pinned (supabase-js 2.118.0, tus 4.3.1, pdf-lib 1.17.1). If you
   change one, change it in index.html, admin.html, sw.js and the offline tests.
 - A new picture in `assets/` must also be added to `SHELL` in `sw.js` (a test checks this).
@@ -52,8 +52,9 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
   quiz-share inbox (`student_quiz_shares`, not in the repo). New quiz shares go through `qlItemShare`.
 - `qlInstallApp` (registers sw.js), `qlDevices` (devices list), `qlItemMenu`,
   `qlItemShare` (~18494): Share internally for everything incl. quizzes (`ql_send_item_share`),
-  saved-ID chips, Shared with me tabs Inbox / History / Saved IDs (`ql_share_history`,
-  `ql_share_contacts`), external short links, Dashboard posting `ql_prepare_dash_quiz_v2` and list.
+  Kuza's "Concept A" look (`.ql-sa-*`): 3-step Share window with saved-person chips, "Already
+  sent" / "Recently sent to", Undo message (`ql_unsend_item_share`); Shared with me = Your Quiz ID +
+  tabs Inbox / History (filter, date groups, Unsend) / Saved IDs. External short links, Dashboard posting and list.
 - `qlPlans` (~19095): plans, limits incl. `questions_per_quiz`, sale price, codes, KHQR, payments.
 - `qlSupport` (Help & Support), `qlOfflineMode` (offline mode + PDF.js loading),
   `qlWorkspaceLoading` ("Loading your library…" instead of 0 items), `qlRoomsLoader`.
@@ -67,7 +68,7 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
 11 admin_push (optional, plus deploy ql-push) → 12 payment_review → 13 khqr_payment →
 14 khqr_autocheck → 15 khqr_auto_detect → 16 khqr_budget →
 17 single_device_login → 18 device_history → 19 multi_device → 19b device_check_quiet →
-20 item_sharing → 21 external_share_short_links → 21b share_history → 22 student_quiz_split_storage →
+20 item_sharing → 21 external_share_short_links → 21b share_history → 21c share_unsend → 22 student_quiz_split_storage →
 23 student_patch_quiz_questions → 24 dashboard → 25 dashboard_folder_appearance →
 26 read_schema_for_reliability (read only), then **either** reliability_release_v2
 **or** (student_quiz_atomic_save_v2 + dashboard_reliable_posting_v2), never both →
