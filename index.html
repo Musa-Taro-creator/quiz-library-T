@@ -20557,9 +20557,8 @@ body.ql-neon .ql-off-sw.on{background:#00c8a0;box-shadow:0 0 12px rgba(0,229,255
 <style id="qlGoogleFormsStyle">
 /* Make Google Form (Kuza: Option A — one Gmail makes the forms, Concept B look) */
 .ql-gf-div{width:1px;align-self:stretch;margin:6px 2px;background:rgba(100,116,139,.28);flex:none}
-#adminQuickActions .ql-gf-btn{position:relative;background:linear-gradient(135deg,#7c3aed,#a855f7)!important;color:#fff!important;border-color:transparent!important;box-shadow:0 6px 16px rgba(124,58,237,.28)!important}
-#adminQuickActions .ql-gf-btn .quick-icon{color:#fff}
-.ql-gf-new{position:absolute;top:-7px;right:-6px;padding:1px 6px;border-radius:999px;background:#f59e0b;color:#fff;font-size:9.5px;font-weight:900;letter-spacing:.05em;box-shadow:0 2px 6px rgba(245,158,11,.4)}
+/* Make Google Form looks like the other toolbar buttons in every theme (white / neon / ocean); only its icon is violet */
+#adminQuickActions .ql-gf-btn .quick-icon{color:#8b5cf6}
 #newMenu [data-gform-new]{color:#7c3aed;font-weight:700}
 #newMenu [data-gform-new] em{font-style:normal;margin-left:6px;padding:1px 6px;border-radius:999px;background:#f59e0b;color:#fff;font-size:9.5px;font-weight:900}
 .ql-gf{--gf:#7c3aed}
@@ -20653,7 +20652,6 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
 .ql-gf-parts button.on{background:var(--gf);border-color:var(--gf);color:#fff}
 /* Exam tab: student fields, exam rules; numbering (both tabs) */
 .ql-gf .ql-sb-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
-.ql-gf-tabnew{font-style:normal;font-size:9px;font-weight:900;background:#f59e0b;color:#fff;border-radius:999px;padding:1px 5px;margin-left:3px;vertical-align:2px}
 .ql-gf-isexam{--gf:#e11d48}
 .ql-gf-exam{display:grid;gap:12px}
 .ql-gf-sec{display:grid;gap:8px;padding:12px;border-radius:14px;background:var(--sa-soft);border:1px solid var(--sa-line)}
@@ -20787,12 +20785,12 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
       const quiz=bar.querySelector("[data-quiz-quick]");
       const div=document.createElement("span");div.className="ql-gf-div";div.setAttribute("aria-hidden","true");
       const b=document.createElement("button");b.type="button";b.id="qlGformBtn";b.className="ql-gf-btn student-workspace-allowed";b.dataset.gformQuick="1";
-      b.innerHTML=`<span class="quick-icon">${ic("form",18)}</span><span>Make Google Form</span><span class="ql-gf-new">NEW</span>`;
+      b.innerHTML=`<span class="quick-icon quick-gform">${ic("form",18)}</span><span>Make Google Form</span>`;
       b.onclick=()=>openGform();
       if(quiz){quiz.after(div);div.after(b)}else{bar.appendChild(div);bar.appendChild(b)}
     }
     const menu=document.getElementById("newMenu");
-    if(menu&&!menu.querySelector("[data-gform-new]")){const b=document.createElement("button");b.type="button";b.dataset.gformNew="1";b.innerHTML="Make Google Form<em>NEW</em>";b.onclick=()=>{try{closeMenus()}catch{}openGform()};menu.appendChild(b)}
+    if(menu&&!menu.querySelector("[data-gform-new]")){const b=document.createElement("button");b.type="button";b.dataset.gformNew="1";b.textContent="Make Google Form";b.onclick=()=>{try{closeMenus()}catch{}openGform()};menu.appendChild(b)}
   }
 
   /* ---- the window ---- */
@@ -20800,7 +20798,7 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
   function openGform(startTab){
     tab=startTab||"make";
     openModal("Make Google Form",`<div class="ql-sa ql-gf">
-      <div class="ql-sh-tabs ql-sb-tabs" role="tablist"><button type="button" role="tab" data-gf-tab="make">${ic("plus",20)}<span>Practice</span></button><button type="button" role="tab" data-gf-tab="exam">${ic("exam",20)}<span>Exam <em class="ql-gf-tabnew">NEW</em></span></button><button type="button" role="tab" data-gf-tab="list">${ic("list",20)}<span>My Google Forms</span></button></div>
+      <div class="ql-sh-tabs ql-sb-tabs" role="tablist"><button type="button" role="tab" data-gf-tab="make">${ic("plus",20)}<span>Practice</span></button><button type="button" role="tab" data-gf-tab="exam">${ic("exam",20)}<span>Exam</span></button><button type="button" role="tab" data-gf-tab="list">${ic("list",20)}<span>My Google Forms</span></button></div>
       <div id="qlGfLead" class="ql-sb-lead"></div>
       <div id="qlGfMake" class="ql-gf-pane"></div><div id="qlGfList" class="ql-gf-pane hidden"></div></div>`);
     document.querySelectorAll("[data-gf-tab]").forEach(b=>b.onclick=()=>showTab(b.dataset.gfTab));

@@ -1,4 +1,4 @@
-"""Make Google Form in the student app: toolbar button (after Create Quiz, NEW tag), Make new
+"""Make Google Form in the student app: toolbar button (after Create Quiz, same look as its neighbours in each theme), Make new
 (Paste = the quiz editor's Bulk Paste panel without Destination/Position; or one of my quizzes
 with From–To and parts for long quizzes), picture warning, forms left today, a progress
 percentage while the form is made, then My Google Forms opens with the new form (link, date,
@@ -109,18 +109,22 @@ with sync_playwright() as p:
         def bp(text):
             page.locator('#qlGfPaste').wait_for(); page.locator('#qlGfPaste').fill(text); page.locator('#qlBpParse').click()
 
-        # 1. toolbar: right after Create Quiz, thin divider, NEW tag (tablet); "+ New" menu (all sizes)
+        # 1. toolbar: right after Create Quiz, thin divider, no NEW tag, same look as the other buttons in this theme; "+ New" menu
         page.evaluate("render()")
         page.wait_for_function("document.querySelector('#newMenu [data-gform-new]')")
         order = page.evaluate("[...document.querySelectorAll('#adminQuickActions > *')].map(e=>e.dataset.quizQuick?'quiz':e.classList.contains('ql-gf-div')?'div':e.dataset.gformQuick?'gform':'other')")
         i = order.index('quiz'); assert order[i:i + 3] == ['quiz', 'div', 'gform'], order
-        assert 'NEW' in page.locator('[data-gform-quick]').inner_text()
+        assert page.locator('[data-gform-quick]').inner_text().strip() == 'Make Google Form', 'no NEW tag'
+        assert page.locator('#newMenu [data-gform-new]').inner_text().strip() == 'Make Google Form', 'no NEW in + New'
         if width > 500:
             assert page.locator('[data-gform-quick]').is_visible()
-            bg = page.evaluate("getComputedStyle(document.querySelector('[data-gform-quick]')).backgroundImage")
-            assert 'gradient' in bg, bg
+            look = page.evaluate("""(()=>{const k=e=>{const c=getComputedStyle(e);return [c.backgroundColor,c.backgroundImage,c.color,c.borderTopColor,c.borderRadius,c.boxShadow,c.height]};
+              return {same:JSON.stringify(k(document.querySelector('[data-gform-quick]')))===JSON.stringify(k(document.querySelector('[data-quiz-quick]'))),
+                icon:getComputedStyle(document.querySelector('[data-gform-quick] .quick-icon')).color}})()""")
+            assert look['same'], 'looks like Create Quiz in the ' + theme + ' theme'
+            assert look['icon'] == 'rgb(139, 92, 246)', look
             shot('0-toolbar')
-        ok(tag + 'Toolbar: Make Google Form sits right after Create Quiz with a divider and a NEW tag; also in + New')
+        ok(tag + 'Toolbar: Make Google Form sits right after Create Quiz with a divider, no NEW tag, same look as the other buttons; also in + New')
 
         # 2. Make new → Paste questions = the quiz editor's Bulk Paste panel (no Destination / Position)
         page.evaluate("qlOpenGoogleForm()")
@@ -308,7 +312,7 @@ with sync_playwright() as p:
 
         # 3e. Exam tab (before My Google Forms): student fields, exam rules, numbering; same questions as Practice
         tabs = [t.replace('\n', ' ').strip() for t in page.locator('[data-gf-tab]').all_inner_texts()]
-        assert tabs == ['Practice', 'Exam NEW', 'My Google Forms'], tabs
+        assert tabs == ['Practice', 'Exam', 'My Google Forms'], tabs
         assert page.locator('#qlGfExamOpts').is_hidden()
         page.locator('[data-gf-tab="exam"]').click()
         page.locator('#qlGfExamOpts').wait_for()
