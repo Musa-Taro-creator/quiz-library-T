@@ -58,6 +58,7 @@ python tests/share-unsend.browser.py
 python tests/google-forms.browser.py
 python tests/admin-google-forms.browser.py
 python tests/plan-card-sync.browser.py
+python tests/admin-plan-card-show.browser.py
 ```
 
 For the additional supported text-ID schema compatibility check:

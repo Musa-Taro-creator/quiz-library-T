@@ -20,7 +20,7 @@ window.srv={calls:0,plans:[
   limits:{storage_mb:100,results_kept:3,devices:1,quizzes:3,questions_per_quiz:100,links:3,folders:3,pdfs:null},
   features:{new_folder:true,new_link:true,new_quiz:true,_others:['Community help']}},
  {id:'pro',name:'Pro',tagline:'For one school year',is_default:false,visibility:'public',sort:20,color:'#6366f1',badge:'MOST POPULAR',price_month:5,price_year:null,price_lifetime:null,
-  limits:{storage_mb:2048,results_kept:null,devices:2,quizzes:null,questions_per_quiz:null},features:{new_quiz:true,nav_rooms:true}},
+  limits:{storage_mb:2048,results_kept:null,devices:2,quizzes:null,questions_per_quiz:null},features:{new_quiz:true,nav_rooms:true,_card:{storage_mb:true}}},
  {id:'max',name:'Max',tagline:'Everything',is_default:false,visibility:'code',sort:30,color:'#a855f7',badge:'BEST VALUE',price_month:1000,price_year:null,price_lifetime:null,
   limits:{storage_mb:null},features:{_sale:{pct:33}}}]};
 const answers={
@@ -69,30 +69,30 @@ with sync_playwright() as p:
         assert [x['id'] for x in c] == ['free', 'pro'], c
         free, pro = c
         assert free['name'] == 'Free' and free['tl'] == 'Start here' and free['bd'] == '' and free['pc'] == '#94a3b8' and free['pr'] == '$0', free
-        assert free['lines'] == ['Storage: 100 MB', 'Results kept per quiz: 3', 'Devices at the same time: 1',
+        assert free['lines'] == ['Results kept per quiz: 3', 'Devices at the same time: 1',
             'Create Folder · 3 folders', 'Add Quiz Link · 3 quiz links', 'Create Quiz · 3 quizzes · 100 questions each', 'Community help'], free['lines']
         assert pro['bd'] == 'MOST POPULAR' and pro['pc'] == '#6366f1' and pro['pr'].startswith('$5'), pro
         assert pro['lines'] == ['Storage: 2 GB', 'Results kept per quiz: Unlimited', 'Devices at the same time: 2', 'Rooms',
             'Create Quiz · Unlimited quizzes · Unlimited questions each'], pro['lines']
         if SHOTS: page.screenshot(path=f'{SHOTS}/plans-before-{width}.png')
-        ok(tag + 'Free / Pro cards: name, short line, colour, badge, price, every Limits row, ticked features and Others; code-only Max hidden')
+        ok(tag + 'Free / Pro cards: name, short line, colour, badge, price, shown Limits rows (Storage hidden by default, shown when the admin turns it on), ticked features and Others; code-only Max hidden')
 
         # 2. admin saves (Realtime / refresh): the open window re-draws, the promo code typed stays
         page.fill('#quCode', 'abc123')
         page.evaluate("""()=>{const f=srv.plans[0];f.name='Free+';f.tagline='New line';f.color='#10b981';f.badge='NEW';
-            f.limits.storage_mb=200;f.limits.results_kept=null;f.features.pf_themes=true;delete f.features.new_link;f.features._others=['One','Two'];
+            f.limits.storage_mb=200;f.limits.results_kept=null;f.features.pf_themes=true;delete f.features.new_link;f.features._others=['One','Two'];f.features._card={storage_mb:true,devices:false};
             srv.plans[2].visibility='public';srv.plans[1].visibility='hidden';
             Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'visible'});document.dispatchEvent(new Event('visibilitychange'))}""")
         page.wait_for_function("[...document.querySelectorAll('.modal .qu-p h4')].map(e=>e.textContent).join()==='Free+,Max'")
         free, mx = cards()
         assert free['tl'] == 'New line' and free['bd'] == 'NEW' and free['pc'] == '#10b981', free
-        assert free['lines'] == ['Storage: 200 MB', 'Results kept per quiz: Unlimited', 'Devices at the same time: 1',
+        assert free['lines'] == ['Storage: 200 MB', 'Results kept per quiz: Unlimited',
             'Create Folder · 3 folders', 'Create Quiz · 3 quizzes · 100 questions each', 'App themes', 'One', 'Two'], free['lines']
         assert mx['bd'] == 'BEST VALUE' and '$1000' in mx['pr'] and '$670' in mx['pr'], mx
-        assert mx['lines'] == ['Storage: Unlimited', 'Results kept per quiz: Unlimited', 'Devices at the same time: 1'], mx['lines']
+        assert mx['lines'] == ['Results kept per quiz: Unlimited', 'Devices at the same time: 1'], mx['lines']
         assert page.input_value('#quCode') == 'abc123'
         if SHOTS: page.screenshot(path=f'{SHOTS}/plans-after-{width}.png')
-        ok(tag + 'Admin save re-draws the open window right away (new name/line/colour/badge/limits/features/Others; Who can get it)')
+        ok(tag + 'Admin save re-draws the open window right away (new name/line/colour/badge/limits/Shown-Hidden rows/features/Others; Who can get it)')
 
         # 3. opening the window asks for the newest plans
         page.evaluate("closeModal()"); n = page.evaluate("srv.calls"); page.evaluate("qlOpenUpgrade()")
