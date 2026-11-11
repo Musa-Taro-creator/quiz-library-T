@@ -47,7 +47,7 @@ try:
   context,page,errors,dialogs=boot(A)
   personal=page.evaluate('state.items.map(x=>x.id)')
   page.wait_for_function('qlPlansState()?.mine?.plan');page.locator('[data-rm-close]').click()
-  page.evaluate('''()=>{window.roomFeatureMode='on';window.roomFeatureGrant=false;qlPlansState().cfg.plans.forEach(p=>p.visibility='public');const prior=service.client.rpc;service.client.rpc=async(name,args)=>{const r=await prior(name,args);if(name==='ql_public_config')r.data.settings.features.nav_rooms=roomFeatureMode;if(name==='ql_my_plan')r.data.plan.features.nav_rooms=roomFeatureGrant;return r}}''')
+  page.evaluate('''()=>{window.roomFeatureMode='on';window.roomFeatureGrant=false;qlPlansState().cfg.plans.forEach(p=>p.visibility='public');const prior=service.client.rpc;service.client.rpc=async(name,args)=>{const r=await prior(name,args);if(name==='ql_public_config'){r.data.settings.features.nav_rooms=roomFeatureMode;(r.data.plans||[]).forEach(p=>p.visibility='public')}if(name==='ql_my_plan')r.data.plan.features.nav_rooms=roomFeatureGrant;return r}}''')
   def room_mode(mode,grant=False):
    page.evaluate('''([mode,grant])=>{roomFeatureMode=mode;roomFeatureGrant=grant;const x=qlPlansState();x.cfg.settings.features.nav_rooms=mode;x.mine.plan.features.nav_rooms=grant;render()}''',[mode,grant])
   room_mode('off');page.locator('#qlRoomsNav').wait_for(state='hidden');page.evaluate('qlOpenRooms()');assert page.locator('#qlRooms').count()==0;assert page.locator('#qlDashNav').is_visible()

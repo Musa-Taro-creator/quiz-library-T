@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-10-v8">
+<meta name="ql-shell-generation" content="reliability-2026-11-11-v1">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -19544,7 +19544,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       if(error){if(!(window.qlOff&&qlOff.isNetError(error)))return;try{data=JSON.parse(localStorage.getItem("ql_off_cfg")||"null")}catch{data=null}if(!data)return;data={...data,server_time:null}}
       else{try{localStorage.setItem("ql_off_cfg",JSON.stringify(data))}catch{}}
       cfg=data;window.qlPublicCfg=data;if(data&&data.server_time)skew=new Date(data.server_time)-Date.now();ready=true}catch{return}
-    applyAll();
+    applyAll();upRefresh();
   }
   async function loadMine(){
     const c=cli();if(!c||!signedIn()){mine=null;return applyAll()}
@@ -19560,7 +19560,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     }catch{return}
     try{const g=await c.rpc("ql_my_gifts");gifts=g.error?[]:(g.data||[])}catch{gifts=[]}
     try{const g=await c.rpc("ql_my_greeting");myGreet=g.error?null:g.data}catch{myGreet=null}myGreetLoaded=true;
-    checkAccount();applyAll();storageAlert();
+    checkAccount();applyAll();storageAlert();upRefresh();
   }
   function storageAlert(){
     if(!mine||!signedIn())return;const p=curPlan(),L=(p&&p.limits)||{};if(L.storage_mb==null)return;
@@ -19772,36 +19772,55 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   /* a sale set by the admin (features._sale = {pct, until}) takes % off every price of the plan */
   const saleOf=p=>{const x=p&&p.features&&p.features._sale;return x&&Number(x.pct)>0&&(!x.until||new Date(x.until).getTime()>now())?{pct:Number(x.pct),until:x.until||null}:null};
   const priceOf=(p,per)=>{const v=basePrice(p,per),sp=saleOf(p);return v==null||!sp?v:Math.round(Number(v)*(100-sp.pct))/100};
+  /* Kuza (Plans page sync): the student plan card comes ONLY from the plan the admin saved in
+     Admin → Plans → Edit plan. Same order and names as admin.html (LIMITS, FEATURES, FEAT_LIMITS):
+     every Limits row ("Unlimited" when its toggle is on), every ticked feature under
+     "Features in this plan" (with the limits under its tick), then each line of "Others".
+     tests/plan-card-sync.test.mjs checks these lists against admin.html. */
+  const CARD_LIMITS=[["storage_mb","Storage"],["results_kept","Results kept per quiz"],["devices","Devices at the same time"]];
+  const CARD_FEATURES=[["nav_dashboard","Dashboard"],["nav_rooms","Rooms"],["nav_random","Random Quiz"],["nav_inbox","Shared with me"],["nav_favorites","Favorites"],["nav_recent","Recent"],["nav_shared_links","Shared Links"],["nav_trash","Trash"],["nav_install","Install app"],["nav_support","Help & Support"],
+    ["new_folder","Create Folder"],["new_link","Add Quiz Link"],["new_pdf","Upload PDF"],["new_quiz","Create Quiz"],["gform","Make Google Form"],
+    ["item_share_in","Share internally"],["item_share_ex","Share externally (link + QR)"],["item_duplicate","Duplicate"],["item_move","Move"],["item_edit","Edit"],["item_trash","Move to trash"],["item_share_dash","Post to Dashboard"],
+    ["dash_menu","⋮ menu on Dashboard items"],["dash_save","Save to my library (full access, inside ⋮)"],
+    ["sel_share_in","Share internally"],["sel_share_ex","Share externally"],["sel_copy","Copy Link"],["sel_duplicate","Duplicate"],["sel_move","Move"],["sel_trash","Trash"],
+    ["quiz_autoadv","Auto-advance"],["quiz_shuffle","Shuffle"],["quiz_bookmark","Bookmark & Flag"],["quiz_summary","Quiz Summary"],["quiz_results","Quiz Results"],
+    ["ed_addnew","Add New Questions"],["ed_images","Image Manager"],["ed_move","Move Questions"],["ed_sections","Sections"],["ed_find","Find & check problems"],["ed_share_in","Share internally (quiz editor)"],["ed_share_ex","Share externally (quiz editor)"],
+    ["pf_edit","Edit Profile"],["pf_avatar","Change Avatar"],["pf_themes","App themes"],["pf_devices","Devices list"]];
+  /* "Select many" names get a prefix on the card so they don't look like the ⋮ menu ones */
+  const CARD_PREFIX={sel_share_in:"Select many: ",sel_share_ex:"Select many: ",sel_copy:"Select many: ",sel_duplicate:"Select many: ",sel_move:"Select many: ",sel_trash:"Select many: "};
+  const CARD_FEAT_LIMITS={new_folder:[["folders","folders"]],new_link:[["links","quiz links"]],new_pdf:[["pdfs","PDFs"]],new_quiz:[["quizzes","quizzes"],["questions_per_quiz","questions each"]],gform:[["gform_per_day","Google Forms a day"],["gform_questions","questions per form"]]};
+  const cardMb=v=>Number(v)>=1024?(Number(v)/1024).toFixed(Number(v)%1024?1:0)+" GB":Number(v)+" MB";
   function featureLines(p){
-    const L=p.limits||{},out=[];
-    const has=k=>!!(p.features&&p.features[k])&&featMode(k)!=="off";
-    /* the quiz / PDF limits show only when Create Quiz / Upload PDF is ticked for this plan */
-    const n=v=>v==null?"Unlimited":v;
-    if(has("new_quiz"))out.push([`${n(L.quizzes)} quizzes · ${L.questions_per_quiz==null?"unlimited":L.questions_per_quiz} questions each`,true]);
-    if(has("new_pdf"))out.push([`${n(L.pdfs)} PDFs`,true]);
-    if(has("new_link"))out.push([`${n(L.links)} quiz links`,true]);
-    if(has("new_folder"))out.push([`${n(L.folders)} folders`,true]);
-    {const dv="devices" in L?L.devices:1;out.push([dv==null?"Unlimited devices at the same time":dv===1?"1 device at a time":`${dv} devices at the same time`,true])}
-    /* only the features the admin ticked for this plan (same names as admin → Features in this plan) */
-    const names={nav_random:"Random Quiz",nav_inbox:"Shared with me",nav_favorites:"Favorites",nav_recent:"Recent",nav_shared_links:"Shared Links",nav_trash:"Trash",nav_install:"Install app",
-      new_folder:"Create Folder",new_link:"Add Quiz Link",new_pdf:"Upload PDF",new_quiz:"Create Quiz",
-      item_share_in:"Share internally",item_share_ex:"Share externally + QR",item_duplicate:"Duplicate",item_move:"Move",item_edit:"Edit",item_trash:"Move to trash",
-      nav_dashboard:"Dashboard",nav_rooms:"Rooms",item_share_dash:"Post to Dashboard",dash_menu:"⋮ menu on Dashboard",dash_save:"Save from Dashboard to my library",sel_share_in:"Share many internally",sel_share_ex:"Share many externally",sel_copy:"Copy links of many",sel_duplicate:"Duplicate many",sel_move:"Move many",sel_trash:"Trash many",
-      quiz_autoadv:"Auto-advance",quiz_shuffle:"Shuffle",quiz_bookmark:"Bookmark & Flag",quiz_summary:"Quiz Summary",quiz_results:"Quiz Results",
-      ed_addnew:"Add New Questions",ed_images:"Image Manager",ed_move:"Move Questions",ed_sections:"Sections",ed_find:"Find & check problems",ed_share_in:"Quiz editor: Share internally",ed_share_ex:"Quiz editor: Share externally",
-      pf_edit:"Edit Profile",pf_avatar:"Change Avatar",pf_themes:"All 3 themes",pf_devices:"Devices list",nav_support:"Help & Support"};
-    for(const k in names){if(!["new_quiz","new_pdf","new_link","new_folder"].includes(k)&&has(k))out.push([names[k],true])}
-    if(p.features&&Array.isArray(p.features._others))p.features._others.forEach(t=>{if(String(t).trim())out.push([String(t),true])});
+    const L=(p&&p.limits)||{},F=(p&&p.features)||{},out=[];
+    /* absent or null = the admin's Unlimited toggle is on (admin shows it the same way); devices absent = 1 */
+    const lim=k=>k==="devices"&&!(k in L)?1:L[k];
+    for(const [k,l] of CARD_LIMITS){const v=lim(k);out.push([`${l}: ${v==null?"Unlimited":k==="storage_mb"?cardMb(v):v}`,true])}
+    for(const [k,l] of CARD_FEATURES){if(!F[k])continue;
+      const parts=(CARD_FEAT_LIMITS[k]||[]).map(([lk,ll])=>{const v=L[lk];
+        if(lk==="gform_per_day")return v==="unlimited"?"Unlimited Google Forms a day":typeof v==="number"?`${v} ${ll}`:null;/* empty = the default from Settings */
+        if(lk==="gform_questions")return `${v==null?200:v} ${ll}`;/* Unlimited = 200 */
+        return `${v==null?"Unlimited":v} ${ll}`}).filter(Boolean);
+      out.push([(CARD_PREFIX[k]||"")+l+(parts.length?" · "+parts.join(" · "):""),true])}
+    if(Array.isArray(F._others))F._others.forEach(t=>{t=String(t==null?"":t).trim();if(t)out.push([t,true])});
     return out;
   }
+  window.qlPlanCardLines=featureLines;
+  /* while "Choose your plan" is open, a plan saved in Admin (Realtime / refresh) re-draws it */
+  let upLive=null;
+  const upIsOpen=()=>!!(upLive&&document.querySelector(".modal .qu-plans"));
+  function upRefresh(){if(!upIsOpen())return;const inp=document.getElementById("quCode"),code=inp?inp.value:"",had=document.activeElement===inp;upLive(true);const n=document.getElementById("quCode");if(n){n.value=code;if(had)n.focus()}}
   function openUpgrade(reason,focusCode){
     if(!signedIn())return;
-    const ps=plans().filter(p=>p.visibility==="public");if(!ps.length)return;
-    const cur=curPlan(),hasYear=ps.some(p=>p.price_year!=null&&!p.is_default),hasLife=ps.some(p=>p.price_lifetime!=null&&!p.is_default);
-    const save=(()=>{const p=ps.find(x=>x.price_month&&x.price_year);return p?Math.round((1-p.price_year/(p.price_month*12))*100):0})();
-    const receipts=!(cfg.payment&&cfg.payment.receipts===false);
-    if(!ps.some(p=>p.id===quSel))quSel=(ps.find(p=>p.badge&&!p.is_default)||ps.find(p=>!p.is_default)||ps[0]).id;
-    const render=()=>{
+    if(!plans().some(p=>p.visibility==="public"))return;
+    const render=(refresh)=>{
+      /* read the plans again on every draw, so the cards always match what the admin saved */
+      const ps=plans().filter(p=>p.visibility==="public");
+      if(!ps.length){if(refresh){upLive=null;closeModal()}return}
+      const cur=curPlan(),hasYear=ps.some(p=>p.price_year!=null&&!p.is_default),hasLife=ps.some(p=>p.price_lifetime!=null&&!p.is_default);
+      const save=(()=>{const p=ps.find(x=>x.price_month&&x.price_year);return p?Math.round((1-p.price_year/(p.price_month*12))*100):0})();
+      const receipts=!(cfg.payment&&cfg.payment.receipts===false);
+      if(!ps.some(p=>p.id===quSel))quSel=(ps.find(p=>p.badge&&!p.is_default)||ps.find(p=>!p.is_default)||ps[0]).id;
+      if(period==="year"&&!hasYear||period==="lifetime"&&!hasLife)period="month";
       const body=`${reason?`<div class="status" style="margin-bottom:12px">${h(reason)}</div>`:""}
         <div class="qu-top">${hasYear||hasLife?`<div class="qu-toggle"><button type="button" data-per="month" class="${period==="month"?"on":""}">Monthly</button>${hasYear?`<button type="button" data-per="year" class="${period==="year"?"on":""}">Yearly${save>0?` <em>Save ${save}%</em>`:""}</button>`:""}${hasLife?`<button type="button" data-per="lifetime" class="${period==="lifetime"?"on":""}">Lifetime</button>`:""}</div>`:""}</div>
         <div class="qu-plans">${ps.map(p=>{const per=periodOf(p),pr=priceOf(p,per),isCur=cur&&cur.id===p.id;
@@ -19821,9 +19840,12 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
         try{const {data,error}=await cli().rpc("ql_redeem_code",{p_code:code});if(error)throw error;closeModal();await loadMine();showActivated(true)}
         catch(e){st.className="status error";st.textContent=String(e.message||e).replace(/^.*?:\s*/,"")}finally{go.disabled=false}};
       go.onclick=redeem;inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();redeem()}};
-      if(focusCode)setTimeout(()=>inp.focus(),50);
+      if(focusCode&&!refresh)setTimeout(()=>inp.focus(),50);
     };
+    upLive=render;
     render();
+    /* fetch the newest plans now (a save may have happened while this tab was asleep) */
+    loadCfg();
   }
   function shrink(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1200/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.72))};im.onerror=()=>rej(new Error("That file is not a photo."));im.src=r.result};r.onerror=rej;r.readAsDataURL(file)})}
   /* ---- KHQR (Bakong): the admin's Bakong ID + the exact price in one QR ---- */
