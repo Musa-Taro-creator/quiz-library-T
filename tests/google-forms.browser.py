@@ -38,7 +38,7 @@ const fn={
    const parts=b.chunked&&b.questions.length>30,first=parts?b.questions.slice(0,30):b.questions;
    return {ok:true,form:f,unlimited:unl,left:(unl?srv.cap:srv.limit)-srv.used,limit:unl?null:srv.limit,editor_error:'',no_answer:first.filter(q=>q.type==='mcq'&&q.correct.some(c=>c<0)).length,short_answers:first.filter(q=>q.type==='short_answer').length,
      next:parts?30:null,total:b.questions.length,part:30}},
- add:b=>{if(srv.failAdd)return {ok:false,error:'Google said no'};return {ok:true,added:b.questions.length,question_count:b.start+b.questions.length,no_answer:0,short_answers:0,last:b.last}},
+ add:b=>{if(srv.failAdd||(srv.failAddAt&&b.questions[0]&&b.questions[0].prompt===srv.failAddAt))return {ok:false,error:'Google said no'};return {ok:true,added:b.questions.length,question_count:b.start+b.questions.length,no_answer:0,short_answers:0,last:b.last}},
  discard:b=>{srv.forms=srv.forms.filter(f=>f.id!==b.id);return {ok:true}},
  status:()=>({ok:true,forms:{F1:{accepting:true,responses:12,title:'x'},F2:{accepting:false,responses:31,title:'x'},F3:{missing:true}}}),
  rename:b=>{const f=srv.forms.find(x=>x.id===b.id);f.title=b.title;return {ok:true,title:b.title}},
@@ -215,54 +215,86 @@ with sync_playwright() as p:
         assert 'data:' not in json.dumps(qs)
         ok(tag + 'One of my quizzes: title filled in, pictures counted and not sent, picture-only question gets a note')
 
-        # 3b. a quiz longer than one form: From – To and parts of 200
+        # 3b. a quiz longer than one form: Parts (tick several, one form each) or My own range
         page.evaluate("""()=>{state.items.push({id:'q-big',kind:'quiz',title:'Big bank',parent_id:null,library_id:LIBRARY_ID,is_trashed:false,quiz_settings:{}});
           const prior=service.getQuizQuestionsAdmin;service.getQuizQuestionsAdmin=async id=>id==='q-big'?Array.from({length:450},(_,i)=>({id:'b'+i,type:'mcq',prompt:'Q'+(i+1),options:[{text:'Yes'},{text:'No'}],correct_answer:0,points:1,question_position:i})):prior(id)}""")
         page.locator('#qlGfAnother').click(); page.locator('#qlGfQuiz').wait_for()
         page.locator('[data-gf-src="quiz"]').click(); page.locator('#qlGfTitle').fill('')
         page.locator('#qlGfQuiz').select_option('q-big')
-        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('200 questions (1–200 of 450)')")
-        assert page.locator('#qlGfTitle').input_value() == 'Big bank (Q1–200)'
-        parts = page.locator('[data-gf-part]').all_inner_texts()
-        assert parts == ['Part 1 · 1–200', 'Part 2 · 201–400', 'Part 3 · 401–450'], parts
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('3 forms will be made · 450 questions in total')")
+        assert page.locator('#qlGfTitle').input_value() == 'Big bank' and 'each form adds its questions' in page.locator('#qlGfTitleLbl').inner_text()
+        parts = [t.replace('\n', ' ') for t in page.locator('[data-gf-pt]').all_inner_texts()]
+        assert parts == ['✓ Part 1 Q1–200 · 200 questions', '✓ Part 2 Q201–400 · 200 questions', '✓ Part 3 Q401–450 · 50 questions'], parts
+        assert page.locator('#qlGfTitles').inner_text().count('Big bank (Q') == 3 and 'Big bank (Q401–450)' in page.locator('#qlGfTitles').inner_text()
         assert 'a form can have up to 200' in page.locator('#qlGfRange').inner_text()
-        page.locator('[data-gf-part="201-400"]').click()
-        assert page.locator('#qlGfFrom').input_value() == '201' and page.locator('#qlGfTo').input_value() == '400' and page.locator('#qlGfTitle').input_value() == 'Big bank (Q201–400)'
+        # forms left today: 2 of 5 here, so 3 ticked parts is too many
+        page.wait_for_function("document.getElementById('qlGfMakeBtn').disabled && document.getElementById('qlGfStatus').textContent.includes('You can make 2 more Google Forms today — tick 2 parts or fewer')")
+        assert 'Make 3 Google Forms' in page.locator('#qlGfMakeBtn').inner_text()
+        page.locator('#qlGfAll').click()  # Clear all
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('Tick at least one part') && document.getElementById('qlGfMakeBtn').disabled")
+        page.locator('#qlGfAll').click()  # Select all
+        page.wait_for_function("document.querySelectorAll('[data-gf-pt][aria-checked=\"true\"]').length===3")
+        # My own range: From / To for one form
+        page.locator('[data-gf-mode="range"]').click()
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('200 questions (1–200 of 450)')")
+        assert page.locator('#qlGfTitle').input_value() == 'Big bank (Q1–200)' and page.locator('#qlGfTitles').is_hidden()
         page.locator('#qlGfTo').fill('420')
-        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('you chose 220') && document.getElementById('qlGfMakeBtn').disabled")
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('you chose 420') && document.getElementById('qlGfMakeBtn').disabled")
         page.locator('#qlGfFrom').fill('300'); page.locator('#qlGfTo').fill('250')
         page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('From must not be after To') && document.getElementById('qlGfMakeBtn').disabled")
-        page.locator('[data-gf-part="401-450"]').click()
+        page.locator('#qlGfFrom').fill('401'); page.locator('#qlGfTo').fill('450')
         page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('50 questions (401–450 of 450)') && !document.getElementById('qlGfMakeBtn').disabled")
-        assert page.locator('#qlGfTitle').input_value() == 'Big bank (Q401–450)'
-        assert no_overflow(), 'range overflows'
-        shot('3b-range')
-        page.locator('#qlGfMakeBtn').click(); page.locator('#qlGfDone').wait_for()
-        body = last_make()
-        assert len(body['questions']) == 50 and body['questions'][0]['prompt'] == 'Q401' and body['questions'][-1]['prompt'] == 'Q450' and body['title'] == 'Big bank (Q401–450)', (len(body['questions']), body['title'])
-        # sent in parts of 30: make (first 30) then add (the last 20, last part)
-        acts = [c['body'] for c in invokes() if c['body']['action'] in ('make', 'add', 'discard')]
-        assert body['chunked'] is True and acts[-1]['action'] == 'add', acts[-2:]
-        add = acts[-1]
-        assert add['start'] == 30 and add['last'] is True and len(add['questions']) == 20 and add['questions'][0]['prompt'] == 'Q431', add
-        # a part that fails twice: the half-made form is discarded and the student is told
+        assert page.locator('#qlGfMakeBtn').inner_text().strip() == 'Make Google Form'
+        # back to Parts: untick Part 1 → 2 forms, the button says so
+        page.locator('[data-gf-mode="parts"]').click(); page.locator('#qlGfTitle').fill('Big bank')
+        page.locator('[data-gf-pt="0"]').click()
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('2 forms will be made · 250 questions in total') && !document.getElementById('qlGfMakeBtn').disabled")
+        assert 'Make 2 Google Forms' in page.locator('#qlGfMakeBtn').inner_text()
+        titles = page.locator('#qlGfTitles').inner_text()
+        assert 'Big bank (Q201–400)' in titles and 'Big bank (Q401–450)' in titles and 'Q1–200' not in titles, titles
+        assert no_overflow(), 'parts overflow'
+        shot('3b-parts')
+        # make both, one after another, with one progress bar and a line per form
+        page.evaluate("srv.delay=500")
+        n0 = len(invokes())
+        page.locator('#qlGfMakeBtn').click()
+        page.wait_for_function("document.querySelectorAll('#qlGfProgList [data-gf-pq]').length===2")
+        assert 'Form 1 of 2' in page.locator('#qlGfProgress').inner_text()
+        page.wait_for_function("document.querySelector('[data-gf-pq=\"0\"]').classList.contains('ok') && document.getElementById('qlGfProgress').textContent.includes('Form 2 of 2')")
+        shot('3c-making-two')
+        page.locator('#qlGfDone').wait_for(); page.evaluate("srv.delay=60")
+        made = [c['body'] for c in invokes()[n0:] if c['body']['action'] in ('make', 'add', 'discard')]
+        assert [m['action'] for m in made] == ['make'] + ['add'] * 6 + ['make', 'add'], [m['action'] for m in made]
+        assert made[0]['title'] == 'Big bank (Q201–400)' and made[0]['questions'][0]['prompt'] == 'Q201' and len(made[0]['questions']) == 200 and made[0]['chunked'] is True
+        assert made[7]['title'] == 'Big bank (Q401–450)' and len(made[7]['questions']) == 50 and made[8]['questions'][0]['prompt'] == 'Q431' and made[8]['last'] is True
+        assert 'part' not in made[0], 'the part number stays in the app'
+        assert '2 Google Forms are ready' in page.locator('#qlGfDone').inner_text()
+        page.wait_for_function("document.querySelectorAll('.ql-gf-card.new').length===2")
+        news = page.locator('.ql-gf-card.new').all_inner_texts()
+        assert any('Big bank (Q201–400)' in t for t in news) and any('Big bank (Q401–450)' in t for t in news), news
+        shot('3d-two-ready')
+        # the second form fails twice: the first one is kept, only the rest stays ticked, the half-made one is discarded
         page.locator('#qlGfDoneX').click(); assert page.locator('#qlGfDone').count() == 0, 'the ready banner can be closed'
-        page.evaluate("srv.failAdd=true")
+        page.evaluate("srv.limit=20;srv.used=0;srv.failAddAt='Q431'")
         page.locator('[data-gf-tab="make"]').click(); page.locator('#qlGfQuiz').wait_for(); page.locator('[data-gf-src="quiz"]').click()
         page.locator('#qlGfQuiz').select_option('q-big')
-        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('200 questions (1–200 of 450)')")
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('3 forms will be made')")
+        page.locator('[data-gf-pt="1"]').click()
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('2 forms will be made')")
         page.locator('#qlGfMakeBtn').click()
-        page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('Google stopped after 30 of 200 questions')")
-        assert 'half-made form was removed' in page.locator('#qlGfStatus').inner_text()
+        page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('Form 2 of 2')")
+        stx = page.locator('#qlGfStatus').inner_text()
+        assert "didn't work" in stx and 'Google stopped after 30 of 50 questions' in stx and 'half-made form was removed' in stx and 'in My Google Forms' in stx, stx
         tail = [c['body']['action'] for c in invokes() if c['body']['action'] in ('make', 'add', 'discard')][-4:]
         assert tail == ['make', 'add', 'add', 'discard'], tail
-        assert not page.locator('#qlGfMakeBtn').is_disabled(), 'can try again'
-        page.evaluate("srv.failAdd=false")
-        ok(tag + 'Long quiz: From–To with parts of 200, title follows the range, wrong ranges explained, only the chosen questions are sent, in parts of 30; a failing part is retried, then the half-made form is discarded')
+        assert page.locator('[data-gf-pt][aria-checked="true"]').count() == 1 and page.locator('[data-gf-pt="2"]').get_attribute('aria-checked') == 'true', 'only the part that failed stays ticked'
+        assert page.locator('#qlGfMakeBtn').inner_text().strip() == 'Make Google Form' and not page.locator('#qlGfMakeBtn').is_disabled(), 'can try the rest again'
+        page.evaluate("srv.failAddAt=null;srv.limit=5;srv.used=3")
+        ok(tag + 'Long quiz: Parts with tick boxes (Select / Clear all, one form each, titles listed, forms-left check) or My own range; several forms made one after another with a line each; a failing form keeps the ones before it and stays ticked to try again')
 
         # 4. My Google Forms: groups, status, search, menu actions, Drive bar
         page.locator('[data-gf-tab="list"]').click()
-        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===6")
+        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===8")
         page.wait_for_function("document.getElementById('qlGfItems').textContent.includes('12 responses')")
         groups = [g.lower() for g in page.locator('#qlGfItems .ql-sa-gh').all_inner_texts()]
         assert groups == ['today', 'this week', 'older'], groups
@@ -276,7 +308,7 @@ with sync_playwright() as p:
         page.locator('#qlGfSearch').fill('cardio')
         page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===2")
         page.locator('#qlGfSearch').fill('')
-        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===6")
+        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===8")
         c3 = page.locator('[data-gf-id="r3"]').inner_text()
         assert 'Made ' in c3 and '20 days ago' in c3 and 'forms.gle/F3' in c3, c3
         page.locator('[data-gf-id="r1"] [data-gf-act="menu"]').click()

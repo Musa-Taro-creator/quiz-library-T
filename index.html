@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-11-v5">
+<meta name="ql-shell-generation" content="reliability-2026-11-11-v6">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -20651,6 +20651,22 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
 .ql-gf-parts{display:flex;gap:6px;flex-wrap:wrap}
 .ql-gf-parts button{min-height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--sa-line);background:var(--sa-card);color:var(--sa-t);font:inherit;font-size:12.5px;font-weight:750;cursor:pointer}
 .ql-gf-parts button.on{background:var(--gf);border-color:var(--gf);color:#fff}
+/* long quiz → Parts (tick several, one form each) or My own range */
+.ql-gf-mode{justify-self:start}
+.ql-gf-parts-h{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;font-weight:750;color:var(--sa-t)}
+.ql-gf-parts-h button{border:0;background:none;color:var(--gf);font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;padding:4px 2px}body.ql-ocean .ql-gf-parts-h button,body.ql-neon .ql-gf-parts-h button{color:#c4b5fd}
+.ql-gf-plist{display:grid;gap:8px}
+.ql-gf-pt{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:10px 12px;border-radius:12px;border:1px solid var(--sa-line);background:var(--sa-card);color:var(--sa-t);font:inherit;font-size:14px;text-align:left;cursor:pointer}
+.ql-gf-pt .ck{flex:none;width:22px;height:22px;border-radius:7px;border:2px solid var(--sa-f,#94a3b8);display:grid;place-items:center;font-size:13px;font-weight:900;color:#fff}
+.ql-gf-pt.on{border-color:var(--gf);background:color-mix(in srgb,var(--gf) 12%,var(--sa-card))}.ql-gf-pt.on .ck{background:var(--gf);border-color:var(--gf)}
+.ql-gf-pt .n{margin-left:auto;font-size:12.5px;color:var(--sa-m);text-align:right}
+.ql-gf-titles{display:grid;gap:6px}.ql-gf-titles div{font-size:13px;padding:8px 10px;border-radius:10px;background:var(--sa-card);border:1px solid var(--sa-line);color:var(--sa-t);overflow-wrap:anywhere}
+.ql-gf-titles small{display:block;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--sa-m)}
+.ql-gf-proglist{display:grid;gap:6px}
+.ql-gf-pq{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:8px 10px;border-radius:10px;background:var(--sa-card);border:1px solid var(--sa-line);color:var(--sa-t)}
+.ql-gf-pq span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ql-gf-pq b{flex:none;font-size:12.5px;color:var(--sa-m)}
+.ql-gf-pq.ok b{color:#059669}.ql-gf-pq.now b{color:var(--gf)}.ql-gf-pq.fail b{color:#dc2626}
+body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-ocean .ql-gf-pq.now b,body.ql-neon .ql-gf-pq.now b{color:#c4b5fd}body.ql-ocean .ql-gf-pq.fail b,body.ql-neon .ql-gf-pq.fail b{color:#fca5a5}
 .ql-gf-drivenote{display:flex;gap:8px;align-items:flex-start}.ql-gf-drivenote svg{flex:none;margin-top:2px;color:#10b981}
 /* progress while the form is made */
 .ql-gf-busy{opacity:.4;pointer-events:none;user-select:none}
@@ -20781,7 +20797,8 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
       <div id="qlGfSrcQuiz" class="ql-gf-pane hidden"><label class="ql-gf-f">Quiz <select id="qlGfQuiz">${qs.length?`<option value="">Choose a quiz…</option>`+qs.map(q=>`<option value="${h(q.id)}">${h(q.title||"Quiz")}</option>`).join(""):`<option value="">You have no quizzes yet</option>`}</select></label>
         <div id="qlGfRange" class="ql-gf-range hidden"></div></div>
       <div id="qlGfParsed" class="ql-gf-parsed"></div>
-      <label class="ql-gf-f">Form title <input type="text" id="qlGfTitle" maxlength="200" placeholder="e.g. Cardio MCQ – Block 2"></label>
+      <label class="ql-gf-f"><span id="qlGfTitleLbl">Form title</span> <input type="text" id="qlGfTitle" maxlength="200" placeholder="e.g. Cardio MCQ – Block 2"></label>
+      <div id="qlGfTitles" class="ql-gf-titles hidden"></div>
       <label class="ql-gf-f">Your Gmail <small>optional — to edit the form and see scores</small><input type="email" id="qlGfEmail" autocomplete="email" placeholder="you@gmail.com" value="${h(savedEmail())}"></label>
       <div class="ql-gf-note ql-gf-drivenote">${ic("drive",16)} <span>The form is saved in your own Quiz Library folder in Google Drive. Add your Gmail to get edit access to that folder — every form you make goes there, so you can edit them and see scores.</span></div>
       <div id="qlGfPics" class="ql-gf-pics hidden"></div>
@@ -20789,7 +20806,7 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
       <div id="qlGfStatus" class="status hidden"></div>
       <button type="button" id="qlGfMakeBtn" class="ql-gf-make" disabled>${ic("form",18)} Make Google Form</button>`;
     const $$=s=>pane.querySelector(s);
-    let picked=null,quizRows=null,quizLoad=0,from=1,to=1,autoTitle="";
+    let picked=null,quizRows=null,quizLoad=0,from=1,to=1,autoTitle="",mode="parts",sel=new Set();
     /* daily limit: admin / Users → Manage / the plan / the global number; Unlimited has a safety cap */
     const unl=!!info.unlimited,left=Number(info.left||0),limit=unl?null:Number(info.limit??5),off=!unl&&limit===0&&(info.mode==="custom"||info.mode==="plan");
     const planTxt=info.mode==="plan"&&info.plan_name?` <span class="ql-gf-plan">(${h(info.plan_name)} plan)</span>`:"";
@@ -20798,35 +20815,55 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
       :`<span class="ql-gf-dots">${Array.from({length:Math.min(limit,10)},(_,i)=>`<i class="${i<left?"on":""}"></i>`).join("")}</span><span>Forms left today: <b id="qlGfLeftN">${left}</b> of ${limit}${planTxt}</span>`;
     const bulk=window.qlBulkPastePanel?window.qlBulkPastePanel($$("#qlGfBulk"),{max:maxQ,onChange:()=>refresh()}):null;
     const setSrc=k=>{src=k;pane.querySelectorAll("[data-gf-src]").forEach(b=>b.classList.toggle("on",b.dataset.gfSrc===k));$$("#qlGfSrcPaste").classList.toggle("hidden",k!=="paste");$$("#qlGfSrcQuiz").classList.toggle("hidden",k!=="quiz");refresh()};
+    /* a long quiz in Parts mode: one form per ticked part */
+    const partsOf=()=>{const n=quizRows?quizRows.length:0;return n>maxQ?Array.from({length:Math.ceil(n/maxQ)},(_,i)=>[i*maxQ+1,Math.min(n,(i+1)*maxQ)]):[]};
+    const usingParts=()=>src==="quiz"&&mode==="parts"&&partsOf().length>0;
     function current(){
       if(src==="paste")return bulk?bulk.items():[];
+      if(usingParts())return partsOf().filter((_,i)=>sel.has(i)).flatMap(([a,b])=>quizRows.slice(a-1,b));
       return quizRows?quizRows.slice(from-1,to):[];
     }
-    /* quizzes with more questions than one form allows: choose From – To (and quick parts) */
+    /* the forms to make: [{part, title, rows}] */
+    function formsToMake(){
+      const base=$$("#qlGfTitle").value.trim()||(src==="quiz"&&picked?picked.title:"")||"Quiz";
+      if(usingParts())return partsOf().map(([a,b],i)=>({i,a,b})).filter(x=>sel.has(x.i)).map(({i,a,b})=>({part:i,title:`${base} (Q${a}–${b})`,rows:quizRows.slice(a-1,b)}));
+      const rows=current();return rows.length?[{part:null,title:base,rows}]:[];
+    }
+    /* quizzes with more questions than one form allows: tick the parts to make (one form each),
+       or "My own range" = From / To for one form */
     function drawRange(){
-      const box=$$("#qlGfRange"),n=quizRows?quizRows.length:0;
+      const box=$$("#qlGfRange"),n=quizRows?quizRows.length:0,parts=partsOf();
       box.classList.toggle("hidden",!n);if(!n){box.innerHTML="";return}
-      const parts=n>maxQ?Array.from({length:Math.ceil(n/maxQ)},(_,i)=>[i*maxQ+1,Math.min(n,(i+1)*maxQ)]):[];
-      box.innerHTML=`<div class="ql-gf-range-h"><b>Questions</b><span>This quiz has ${n} question${n===1?"":"s"}${n>maxQ?` — a form can have up to ${maxQ}`:""}.</span></div>
-        <div class="ql-gf-range-row"><label>From <input type="number" id="qlGfFrom" min="1" max="${n}" step="1" inputmode="numeric" value="${from}"></label><label>To <input type="number" id="qlGfTo" min="1" max="${n}" step="1" inputmode="numeric" value="${to}"></label></div>
-        ${parts.length?`<div class="ql-gf-parts">${parts.map(([a,b],i)=>`<button type="button" data-gf-part="${a}-${b}" class="${a===from&&b===to?"on":""}">Part ${i+1} · ${a}–${b}</button>`).join("")}</div>`:""}`;
-      const fi=$$("#qlGfFrom"),ti=$$("#qlGfTo");
-      const read=()=>{from=Math.round(Number(fi.value));to=Math.round(Number(ti.value));box.querySelectorAll("[data-gf-part]").forEach(b=>b.classList.toggle("on",b.dataset.gfPart===`${from}-${to}`));retitle();refresh()};
-      fi.oninput=read;ti.oninput=read;
-      box.querySelectorAll("[data-gf-part]").forEach(b=>b.onclick=()=>{[from,to]=b.dataset.gfPart.split("-").map(Number);fi.value=from;ti.value=to;read()});
+      const head=`<div class="ql-gf-range-h"><b>Questions</b><span>This quiz has ${n} question${n===1?"":"s"}${n>maxQ?` — a form can have up to ${maxQ}`:""}.</span></div>`;
+      const seg=parts.length?`<div class="ql-gf-seg ql-gf-mode" role="group" aria-label="How to split"><button type="button" data-gf-mode="parts" class="${mode==="parts"?"on":""}">Parts</button><button type="button" data-gf-mode="range" class="${mode==="range"?"on":""}">My own range</button></div>`:"";
+      const rangeHtml=`<div class="ql-gf-range-row"><label>From <input type="number" id="qlGfFrom" min="1" max="${n}" step="1" inputmode="numeric" value="${from}"></label><label>To <input type="number" id="qlGfTo" min="1" max="${n}" step="1" inputmode="numeric" value="${to}"></label></div>`;
+      const all=parts.length&&parts.every((_,i)=>sel.has(i));
+      const partsHtml=`<div class="ql-gf-parts-h"><span>Make one form for each ticked part</span><button type="button" id="qlGfAll">${all?"Clear all":"Select all"}</button></div>
+        <div class="ql-gf-plist">${parts.map(([a,b],i)=>`<button type="button" class="ql-gf-pt${sel.has(i)?" on":""}" data-gf-pt="${i}" role="checkbox" aria-checked="${sel.has(i)}"><span class="ck" aria-hidden="true">${sel.has(i)?"✓":""}</span><b>Part ${i+1}</b><span class="n">Q${a}–${b} · ${b-a+1} question${b-a+1===1?"":"s"}</span></button>`).join("")}</div>`;
+      box.innerHTML=head+seg+(usingParts()?partsHtml:rangeHtml);
+      box.querySelectorAll("[data-gf-mode]").forEach(x=>x.onclick=()=>{mode=x.dataset.gfMode;drawRange();retitle();refresh()});
+      if(usingParts()){
+        box.querySelectorAll("[data-gf-pt]").forEach(x=>x.onclick=()=>{const i=Number(x.dataset.gfPt);if(sel.has(i))sel.delete(i);else sel.add(i);drawRange();refresh()});
+        box.querySelector("#qlGfAll").onclick=()=>{if(all)sel.clear();else parts.forEach((_,i)=>sel.add(i));drawRange();refresh()};
+      }else{
+        const fi=$$("#qlGfFrom"),ti=$$("#qlGfTo");
+        const read=()=>{from=Math.round(Number(fi.value));to=Math.round(Number(ti.value));retitle();refresh()};
+        fi.oninput=read;ti.oninput=read;
+      }
     }
     function rangeError(){
-      if(src!=="quiz"||!quizRows||!quizRows.length)return "";
+      if(src!=="quiz"||!quizRows||!quizRows.length||usingParts())return "";
       const n=quizRows.length;
       if(!Number.isInteger(from)||!Number.isInteger(to)||from<1||to>n||from>to)return `Choose questions from 1 to ${n} (From must not be after To).`;
-      if(to-from+1>maxQ)return `A form can have up to ${maxQ} questions — you chose ${to-from+1}. Make the range smaller or use the parts.`;
+      if(to-from+1>maxQ)return `A form can have up to ${maxQ} questions — you chose ${to-from+1}. Make the range smaller or use Parts.`;
       return "";
     }
     /* the title follows the range while it is still the automatic one */
     function retitle(){
+      $$("#qlGfTitleLbl").textContent=usingParts()?"Title (each form adds its questions, e.g. “(Q1–200)”)":"Form title";
       const t=$$("#qlGfTitle");if(!picked||(t.value.trim()&&t.value!==autoTitle))return;
       const n=quizRows?quizRows.length:0,whole=from===1&&to===n;
-      autoTitle=(picked.title||"Quiz")+(whole||rangeError()?"":` (Q${from}–${to})`);t.value=autoTitle;
+      autoTitle=(picked.title||"Quiz")+(usingParts()||whole||rangeError()?"":` (Q${from}–${to})`);t.value=autoTitle;
     }
     function refresh(){
       const list=current(),s=summarize(list),st=$$("#qlGfStatus"),bs=bulk&&src==="paste"?bulk.state():null;
@@ -20836,17 +20873,24 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
         line=!bs||(!bs.hasText&&!bs.parsed)?"Paste your questions, then tap <b>Apply Answer Key &amp; Preview</b>.":bs.stale||!bs.parsed?"Tap <b>Apply Answer Key &amp; Preview</b> to read your questions.":
           `<b>${s.count} question${s.count===1?"":"s"}</b> ready to send${s.noAns?` · <span class="warn">${s.noAns} without an answer</span>`:""}${problems?` · <span class="warn">${problems} with a problem</span>`:""}`;
       }else{
-        const n=quizRows?quizRows.length:0;
+        const n=quizRows?quizRows.length:0,k=usingParts()?sel.size:0;
         line=!picked?"Choose a quiz above.":quizRows===null?"Loading questions…":!n?"This quiz has no questions.":rErr?`<span class="warn">${h(rErr)}</span>`:
+          usingParts()?(k?`<b>${k} form${k===1?"":"s"}</b> will be made · ${s.count} question${s.count===1?"":"s"} in total${s.noAns?` · <span class="warn">${s.noAns} without an answer</span>`:""}`:`<span class="warn">Tick at least one part.</span>`):
           `<b>${s.count} question${s.count===1?"":"s"}</b> (${from}–${to} of ${n})${s.noAns?` · <span class="warn">${s.noAns} without an answer</span>`:""}`;
       }
+      /* Parts: the title of every form that will be made */
+      {const tl=$$("#qlGfTitles"),fs=usingParts()?formsToMake():[];tl.classList.toggle("hidden",fs.length<1);
+        tl.innerHTML=fs.map((f,x)=>`<div><small>Form ${x+1} title</small>${h(f.title)}</div>`).join("")}
       $$("#qlGfParsed").innerHTML=line;
       const pics=$$("#qlGfPics");pics.classList.toggle("hidden",!s.pics);pics.innerHTML=s.pics?`${ic("pic",18)}<span><b>${s.pics} picture${s.pics===1?"":"s"} won't be included.</b> Google Forms only gets the text. You can add pictures in Google Forms afterwards.</span>`:"";
-      $$("#qlGfMakeBtn").disabled=!s.count||left<=0||tooMany||!!rErr||problems>0;
+      const nForms=usingParts()?sel.size:1,overLeft=!unl&&left>0&&nForms>left;
+      $$("#qlGfMakeBtn").disabled=!s.count||left<=0||(tooMany&&!usingParts())||!!rErr||problems>0||overLeft;
+      $$("#qlGfMakeBtn").innerHTML=`${ic("form",18)} ${nForms>1?`Make ${nForms} Google Forms`:"Make Google Form"}`;
       const msg=left<=0?(off?(info.mode==="plan"?"Your plan does not include Google Forms.":"Making Google Forms is turned off for your account."):unl?`You made ${Number(info.cap||100)} Google Forms today, the safety limit. You can make more tomorrow.`:`You made ${limit} Google Form${limit===1?"":"s"} today. You can make more tomorrow.`)
         :tooMany&&src==="paste"?(maxQ<200?`Your plan allows ${maxQ} questions per form — this list has ${s.count}.`:`A Google Form can have up to 200 questions — this list has ${s.count}.`)+" Remove some questions or split it into two forms."
-        :problems?`Fix the ${problems} problem question${problems===1?"":"s"} in the preview first (each needs text, and multiple choice needs at least 2 options).`:"";
-      if(msg){st.className=left<=0?"status":"status error";st.textContent=msg}else if(st.dataset.keep!=="1"){st.className="status hidden";st.textContent=""}
+        :problems?`Fix the ${problems} problem question${problems===1?"":"s"} in the preview first (each needs text, and multiple choice needs at least 2 options).`
+        :overLeft?`You can make ${left} more Google Form${left===1?"":"s"} today — tick ${left} part${left===1?"":"s"} or fewer.`:"";
+      if(msg){st.className=left<=0||overLeft?"status":"status error";st.textContent=msg}else if(st.dataset.keep!=="1"){st.className="status hidden";st.textContent=""}
     }
     pane.querySelectorAll("[data-gf-src]").forEach(b=>b.onclick=()=>setSrc(b.dataset.gfSrc));
     $$("#qlGfQuiz").onchange=async e=>{
@@ -20855,14 +20899,15 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
       refresh();if(!picked)return;
       try{const rows=await service.getQuizQuestionsAdmin(picked.id);if(mineLoad!==quizLoad||!pane.isConnected)return;quizRows=(rows||[]).slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0))}
       catch(err){if(mineLoad===quizLoad){quizRows=[];const st=$$("#qlGfStatus");st.className="status error";st.textContent=errText(err)}}
-      from=1;to=Math.min(quizRows.length,maxQ)||1;drawRange();retitle();refresh();
+      from=1;to=Math.min(quizRows.length,maxQ)||1;mode="parts";sel=new Set(partsOf().map((_,i)=>i));drawRange();retitle();refresh();
     };
     $$("#qlGfMakeBtn").onclick=()=>{
       const st=$$("#qlGfStatus");const list=current();const email=$$("#qlGfEmail").value.trim().toLowerCase();
       if(!list.length)return;
       if(!emailOk(email)){st.className="status error";st.textContent="That Gmail doesn't look right. Check it or leave it empty.";return}
-      const title=$$("#qlGfTitle").value.trim()||(src==="quiz"&&picked?picked.title:"")||"Quiz";
-      startJob({title,questions:list.slice(0,maxQ).map(toGoogle),editor_email:email,source:src,description:"Made with Quiz Library"});
+      const forms=formsToMake();if(!forms.length)return;
+      startJob(forms.map(f=>({title:f.title,questions:f.rows.slice(0,maxQ).map(toGoogle),editor_email:email,source:src,description:"Made with Quiz Library",part:f.part})),
+        {made:part=>{if(part!=null){sel.delete(part);if(pane.isConnected){drawRange();refresh()}}}});
     };
     setSrc(src);
   }
@@ -20872,22 +20917,28 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
      "add" sends the rest), so no request runs into Supabase's ~150 s limit. The percentage counts
      the parts that are done, and moves inside a part by the usual time (~0.45 s a question).
      If a part fails twice, "discard" removes the half-made form. */
-  function startJob(body){
-    const n=body.questions.length;
+  function startJob(bodies,hooks){
+    hooks=hooks||{};
+    const nAll=bodies.reduce((t,x)=>t+x.questions.length,0);
     /* timing: about 0.45 s a question plus a few seconds a call; parts of PART questions */
-    job={n,done:0,partLen:Math.min(n,30),partStart:Date.now(),started:Date.now(),pct:0,finished:false,title:body.title,step:"check"};
+    job={n:nAll,done:0,partLen:Math.min(bodies[0].questions.length,30),partStart:Date.now(),started:Date.now(),pct:0,finished:false,step:"check",
+      forms:bodies.map(x=>({title:x.title,n:x.questions.length,state:"wait"})),cur:0};
     const tick=()=>{if(!job||job.finished)return;const t=Date.now()-job.partStart,est=4000+450*job.partLen;
       const inPart=t<est?job.partLen*t/est:job.partLen*(.95+.04*(1-Math.exp(-(t-est)/est)));
       job.pct=Math.max(job.pct,Math.min(99,Math.round(2+96*(job.done+Math.min(job.partLen*.99,inPart))/job.n)));paintProgress()};
     job.timer=setInterval(tick,200);tick();
     const pane=document.getElementById("qlGfMake");if(pane)drawProgress(pane);
-    (async()=>{
-      const j=job;
-      const r=await call("make",{...body,chunked:true});
+    const j=job,results=[];
+    /* one form: make (first 30), then add the rest 30 at a time */
+    async function makeOne(body,base){
+      const n=body.questions.length;
+      j.partLen=Math.min(n,30);j.partStart=Date.now();
+      const {part:_p,...send}=body;
+      const r=await call("make",{...send,chunked:true});
       j.step="add";
-      let made=r.form||{};const total=Number(r.total||n),next=Number(r.next||0),part=Number(r.part||30);
+      const made=r.form||{},total=Number(r.total||n),next=Number(r.next||0),part=Number(r.part||30);
       if(next&&next<total){
-        j.done=next;
+        j.done=base+next;
         for(let i=next;i<total;i+=part){
           const qs=body.questions.slice(i,i+part),last=i+part>=total;
           j.partLen=qs.length;j.partStart=Date.now();
@@ -20895,25 +20946,42 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
           for(let tryNo=0;tryNo<2&&!out;tryNo++){try{out=await call("add",{id:made.id,questions:qs,start:i,last})}catch(e){err=e}}
           if(!out){
             try{await call("discard",{id:made.id})}catch{}
-            const e=new Error(`Google stopped after ${i} of ${total} questions, so the half-made form was removed. Please try again. (${errText(err)})`);e.keep=true;throw e;
+            const e=new Error(`Google stopped after ${i} of ${total} questions, so the half-made form was removed. (${errText(err)})`);e.keep=true;throw e;
           }
           r.no_answer=(r.no_answer||0)+(out.no_answer||0);r.short_answers=(r.short_answers||0)+(out.short_answers||0);
-          j.done=i+qs.length;
+          j.done=base+i+qs.length;
         }
       }
       return r;
-    })().then(r=>{
-      const j=job;if(!j)return;clearInterval(j.timer);j.finished=true;j.done=j.n;j.pct=100;paintProgress();
-      rememberEmail(body.editor_email);listCache=null;doneInfo={r,email:body.editor_email};highlight=r.form&&r.form.id||null;
-      setTimeout(()=>{job=null;makeStale=true;if(document.getElementById("qlGfList"))showTab("list");else toast("Your Google Form is ready — it's in My Google Forms.")},650);
+    }
+    (async()=>{
+      let base=0;
+      for(let k=0;k<bodies.length;k++){
+        j.cur=k;j.forms[k].state="now";j.done=base;paintProgress();
+        try{results.push(await makeOne(bodies[k],base))}
+        catch(e){j.forms[k].state="fail";e.formNo=k;throw e}
+        j.forms[k].state="ok";base+=bodies[k].questions.length;j.done=base;
+        try{hooks.made&&hooks.made(bodies[k].part)}catch{}
+        listCache=null;paintProgress();
+      }
+    })().then(()=>{
+      clearInterval(j.timer);j.finished=true;j.done=j.n;j.pct=100;paintProgress();
+      rememberEmail(bodies[0].editor_email);listCache=null;doneInfo={rs:results};highlight=new Set(results.map(r=>r.form&&r.form.id).filter(Boolean));
+      setTimeout(()=>{job=null;makeStale=true;if(document.getElementById("qlGfList"))showTab("list");else toast(results.length>1?`Your ${results.length} Google Forms are ready — they're in My Google Forms.`:"Your Google Form is ready — it's in My Google Forms.")},650);
     }).catch(e=>{
-      const j=job;if(j)clearInterval(j.timer);job=null;listCache=null;const pane=document.getElementById("qlGfMake");const msg=e&&e.keep?e.message:errText(e);
+      clearInterval(j.timer);job=null;listCache=null;
+      /* forms made before the failing one are kept (and highlighted in My Google Forms) */
+      if(results.length){rememberEmail(bodies[0].editor_email);doneInfo={rs:results};highlight=new Set(results.map(r=>r.form&&r.form.id).filter(Boolean))}
+      const pane=document.getElementById("qlGfMake");let msg=e&&e.keep?e.message:errText(e);
+      if(bodies.length>1){const k=e&&e.formNo!=null?e.formNo:results.length;
+        msg=`Form ${k+1} of ${bodies.length} (“${bodies[k].title}”) didn't work: ${msg}`+(results.length?` ${results.length===1?"The form":`The ${results.length} forms`} made before ${results.length===1?"it is":"it are"} in My Google Forms. Tap the button to make the rest.`:" Please try again.")}
+      else if(!(e&&e.keep))msg=msg;else msg+=" Please try again.";
       if(pane&&pane.querySelector("#qlGfMakeBtn")){pane.querySelector("#qlGfProgress")?.remove();pane.querySelectorAll(".ql-gf-busy").forEach(x=>x.classList.remove("ql-gf-busy"));
         const btn=pane.querySelector("#qlGfMakeBtn"),st=pane.querySelector("#qlGfStatus");btn.disabled=false;btn.classList.remove("hidden");st.className="status error";st.dataset.keep="1";st.textContent=msg;setTimeout(()=>{st.dataset.keep=""},50)}
       else{if(pane)drawMake(true);toast(msg)}
     });
   }
-  function stageOf(j){if(j.finished)return "Done! Opening My Google Forms…";
+  function stageOf(j){if(j.finished)return j.forms.length>1?`Done! ${j.forms.length} forms made. Opening My Google Forms…`:"Done! Opening My Google Forms…";
     if(j.step==="check"&&Date.now()-j.started<2500)return "Checking your daily limit…";
     const x=Math.min(j.n,Math.max(1,Math.round(j.n*Math.max(0,j.pct-2)/96)));
     return x>=j.n?"Saving it to your Google Drive folder…":`Adding questions… ${x} of ${j.n}`}
@@ -20924,15 +20992,19 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
       Array.from(pane.children).forEach(c=>c.classList.add("ql-gf-busy"));
       const btn=pane.querySelector("#qlGfMakeBtn");if(btn)btn.classList.add("hidden");
       box=document.createElement("div");box.id="qlGfProgress";box.className="ql-gf-prog";box.setAttribute("role","progressbar");box.setAttribute("aria-valuemin","0");box.setAttribute("aria-valuemax","100");
-      box.innerHTML=`<div class="ql-gf-prog-top"><b>Making “<span id="qlGfProgTitle"></span>”</b><span id="qlGfPct" class="ql-gf-pct">0%</span></div><div class="ql-gf-bar"><i id="qlGfBar"></i></div><div id="qlGfStage" class="ql-gf-stage"></div><small>You can close this window — the form will be in <b>My Google Forms</b> when it's ready.</small>`;
+      box.innerHTML=`<div class="ql-gf-prog-top"><b><span id="qlGfProgNo"></span>“<span id="qlGfProgTitle"></span>”</b><span id="qlGfPct" class="ql-gf-pct">0%</span></div><div class="ql-gf-bar"><i id="qlGfBar"></i></div><div id="qlGfStage" class="ql-gf-stage"></div><div id="qlGfProgList" class="ql-gf-proglist"></div><small>You can close this window — ${job&&job.forms.length>1?"the forms":"the form"} will be in <b>My Google Forms</b> when ${job&&job.forms.length>1?"they're":"it's"} ready.</small>`;
       pane.appendChild(box);
       setTimeout(()=>box.scrollIntoView({block:"nearest",behavior:"smooth"}),30);
     }
-    box.querySelector("#qlGfProgTitle").textContent=job?job.title:"";paintProgress();
+    paintProgress();
   }
   function paintProgress(){
     const j=job,box=document.getElementById("qlGfProgress");if(!j||!box)return;
     box.setAttribute("aria-valuenow",String(j.pct));box.querySelector("#qlGfPct").textContent=j.pct+"%";box.querySelector("#qlGfBar").style.width=j.pct+"%";box.querySelector("#qlGfStage").textContent=stageOf(j);
+    const many=j.forms.length>1,f=j.forms[Math.min(j.cur,j.forms.length-1)];
+    box.querySelector("#qlGfProgNo").textContent=many?`Form ${j.cur+1} of ${j.forms.length} · `:"Making ";box.querySelector("#qlGfProgTitle").textContent=f?f.title:"";
+    const pl=box.querySelector("#qlGfProgList");pl.classList.toggle("hidden",!many);
+    if(many)pl.innerHTML=j.forms.map((x,k)=>`<div class="ql-gf-pq ${x.state}" data-gf-pq="${k}"><span>Form ${k+1} · ${h(x.title)}</span><b>${x.state==="ok"?"✓ Ready":x.state==="now"?"Making…":x.state==="fail"?"Didn't work":"Waiting"}</b></div>`).join("");
     box.classList.toggle("done",!!j.finished);
   }
 
@@ -20940,13 +21012,16 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
   /* after a form is made: a "ready" banner on top of My Google Forms (the new form is highlighted below) */
   function doneBanner(){
     if(!doneInfo)return "";
-    const {r}=doneInfo,f=r.form||{},notes=[];
-    if(f.editor_email)notes.push(`<div class="ql-gf-note">We added <b>${h(f.editor_email)}</b> as an editor of your Drive folder. Google sends an email; open the edit link with that Gmail to change the form and see scores.</div>`);
+    const rs=doneInfo.rs||[],r=rs[0]||{},f=r.form||{},notes=[],many=rs.length>1;
+    const sum=k=>rs.reduce((t,x)=>t+Number(x[k]||0),0);const sa=sum("short_answers"),na=sum("no_answer");
+    const last=rs[rs.length-1]||r;
+    if(f.editor_email)notes.push(`<div class="ql-gf-note"><b>${h(f.editor_email)}</b> can edit ${many?"these forms":"this form"} and see scores (it's an editor of your Drive folder). Open <b>Edit</b> while signed in to Google with that Gmail. Google may or may not send an email about it.</div>`);
     else if(r.editor_error)notes.push(`<div class="ql-gf-note warn">${h(r.editor_error)} The form was made; you can add your Gmail later with ⋯ → Add my Gmail as editor.</div>`);
     else notes.push(`<div class="ql-gf-note">No Gmail added, so only the student link works for you. To edit the form or see scores, tap ⋯ → <b>Add my Gmail as editor</b>.</div>`);
-    if(r.short_answers)notes.push(`<div class="ql-gf-note warn">${r.short_answers} short-answer question${r.short_answers===1?"":"s"}: Google Forms can't get their answer from Quiz Library, so mark them in Google Forms (the answer is in each question's feedback).</div>`);
-    if(r.no_answer)notes.push(`<div class="ql-gf-note warn">${r.no_answer} question${r.no_answer===1?" has":"s have"} no correct answer yet. Set ${r.no_answer===1?"it":"them"} in Google Forms.</div>`);
-    return `<div class="ql-gf-done" id="qlGfDone"><div class="ql-gf-ok"><span>${ic("check",22)}</span><div><b>Your Google Form is ready</b><small>${h(f.title||"Quiz")} · ${Number(f.question_count||0)} questions · Forms left today: ${r.unlimited?"Unlimited":`${Number(r.left||0)} of ${Number(r.limit??5)}`}${r.mode==="plan"&&r.plan_name?` (${h(r.plan_name)} plan)`:""}</small><small>Copy its link below. It stays in this list until you remove it.</small></div><button type="button" class="ql-gf-x" id="qlGfDoneX" aria-label="Close">×</button></div>
+    if(sa)notes.push(`<div class="ql-gf-note warn">${sa} short-answer question${sa===1?"":"s"}: Google Forms can't get their answer from Quiz Library, so mark them in Google Forms (the answer is in each question's feedback).</div>`);
+    if(na)notes.push(`<div class="ql-gf-note warn">${na} question${na===1?" has":"s have"} no correct answer yet. Set ${na===1?"it":"them"} in Google Forms.</div>`);
+    const what=many?rs.map(x=>`${h((x.form||{}).title||"Quiz")} (${Number((x.form||{}).question_count||0)} questions)`).join(" · "):`${h(f.title||"Quiz")} · ${Number(f.question_count||0)} questions`;
+    return `<div class="ql-gf-done" id="qlGfDone"><div class="ql-gf-ok"><span>${ic("check",22)}</span><div><b>${many?`${rs.length} Google Forms are ready`:"Your Google Form is ready"}</b><small>${what} · Forms left today: ${last.unlimited?"Unlimited":`${Number(last.left||0)} of ${Number(last.limit??5)}`}${last.mode==="plan"&&last.plan_name?` (${h(last.plan_name)} plan)`:""}</small><small>${many?"Copy their links below. They stay":"Copy its link below. It stays"} in this list until you remove ${many?"them":"it"}.</small></div><button type="button" class="ql-gf-x" id="qlGfDoneX" aria-label="Close">×</button></div>
       ${notes.join("")}<div class="ql-gf-acts"><button type="button" class="btn" id="qlGfAnother">${ic("plus",15)} Make another</button></div></div>`;
   }
 
@@ -20971,12 +21046,12 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
       box.innerHTML=groups.map(g=>`<div class="ql-sa-gh">${g.g}</div><div class="ql-gf-list">${g.rows.map(card).join("")}</div>`).join("");
       wire(box);drive();
       /* just made: show the "ready" banner and the new form (top of the list) */
-      if(highlight){const el=box.querySelector(`[data-gf-id="${CSS.escape(highlight)}"]`);if(el&&!el.dataset.seen){el.dataset.seen="1";const top=pane.querySelector("#qlGfDone")||el;setTimeout(()=>top.scrollIntoView({block:"start",behavior:"smooth"}),60)}}
+      if(highlight&&highlight.size){const el=box.querySelector(".ql-gf-card.new");if(el&&!el.dataset.seen){el.dataset.seen="1";const top=pane.querySelector("#qlGfDone")||el;setTimeout(()=>top.scrollIntoView({block:"start",behavior:"smooth"}),60)}}
     }
     function card(f){
       const s=statusCache[f.form_id];const accepting=s&&!s.missing?s.accepting:f.accepting;
       const st=s&&s.missing?`<span class="pill gone">Deleted in Google</span>`:`<span class="pill ${accepting?"open":"closed"}">${accepting?"Open":"Closed"}</span><span>${s?`${s.responses} response${s.responses===1?"":"s"}`:statusLoaded?"":"…"}</span>`;
-      const isNew=highlight&&f.id===highlight;
+      const isNew=!!(highlight&&highlight.has&&highlight.has(f.id));
       return `<div class="ql-gf-card${isNew?" new":""}" data-gf-id="${h(f.id)}">${tile(19)}<div class="t" title="${h(f.title)}">${isNew?`<span class="ql-gf-newpill">NEW</span> `:""}${h(f.title||"Quiz")}</div><div class="ql-gf-st">${st}</div>
         <div class="s">${Number(f.question_count||0)} questions · <span class="ql-gf-made" title="${h(new Date(f.created_at).toLocaleString())}">Made ${h(madeOn(f.created_at))} · ${h(agoTxt(f.created_at))}</span>${f.editor_email?` · ${h(f.editor_email)}`:" · no Gmail added"}</div>
         ${f.responder_url?`<div class="ql-gf-url"><span class="lbl">Link</span><a href="${h(f.responder_url)}" target="_blank" rel="noopener" data-gf-act="url">${h(String(f.responder_url).replace(/^https?:\/\//,""))}</a></div>`:""}

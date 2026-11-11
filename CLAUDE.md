@@ -11,7 +11,7 @@ the full details. This file is the short version.
 - Every release of the student app changes the version name in **both**
   `index.html` (`<meta name="ql-shell-generation">`, line ~20) and `sw.js`
   (`APP_CACHE` + `SHELL_GENERATION`). Use the form `reliability-YYYY-MM-DD-vN`.
-  The version in the repo on 2026-11-11 is `reliability-2026-11-11-v5` (not live until merged to main; v4 is live).
+  The version in the repo on 2026-11-11 is `reliability-2026-11-11-v6` (not live until merged to main; v5 is live).
 - CDN libraries stay pinned (supabase-js 2.118.0, tus 4.3.1, pdf-lib 1.17.1). If you
   change one, change it in index.html, admin.html, sw.js and the offline tests.
 - A new picture in `assets/` must also be added to `SHELL` in `sw.js` (a test checks this).
@@ -61,7 +61,8 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
 - `qlGoogleForms` (before `qlRoomsLoader`): Make Google Form button (after Create Quiz), window with Make new
   and My Google Forms. Paste = `window.qlBulkPastePanel` (end of `quizFeatureScript`): the quiz editor's Bulk Paste
   panel (upload, guides, answer key, Apply & Preview, Missing/Problem panels, editable preview), no Destination/Position.
-  One of my quizzes = From–To + parts of the per-form max. Forms over 30 questions are sent in parts of 30
+  One of my quizzes longer than one form: Parts (tick several, one form each, made one after another; a failed
+  one keeps the forms before it) or My own range (From–To). Forms over 30 questions are sent in parts of 30
   (`make` with chunked → first 30, then `add` per part, `discard` if a part fails twice) so no call hits
   Supabase's ~150 s limit; needs Apps Script version 2 (older script = one call). The % counts the parts.
   Then My Google Forms opens with a "ready" banner and the new form highlighted (link, made date, days ago).
