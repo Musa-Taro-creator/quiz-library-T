@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-11-v11">
+<meta name="ql-shell-generation" content="reliability-2026-11-11-v13">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -19654,7 +19654,9 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     new_pdf:['#newMenu [data-new="pdf"]','#adminQuickActions [data-quick="pdf"]'],new_quiz:['#newMenu [data-quiz-new]','#adminQuickActions [data-quiz-quick]'],gform:['#newMenu [data-gform-new]','#adminQuickActions [data-gform-quick]','#adminQuickActions .ql-gf-div'],
     item_share_in:['#itemMenu [data-ql-feat="item_share_in"]'],item_share_ex:['#itemMenu [data-ql-feat="item_share_ex"]'],item_duplicate:['#itemMenu [data-ql-feat="item_duplicate"]'],
     item_move:['#itemMenu [data-ql-feat="item_move"]'],item_edit:['#itemMenu [data-ql-feat="item_edit"]'],item_trash:['#itemMenu [data-ql-feat="item_trash"]'],
-    nav_dashboard:['#qlDashNav'],nav_rooms:['#qlRoomsNav'],nav_support:['#qlSupportNav','.ql-sup-pf'],item_share_dash:['#itemMenu [data-ql-feat="item_share_dash"]'],dash_menu:['.ql-dash-more'],dash_save:['.ql-dash-save'],
+    nav_dashboard:['#qlDashNav'],nav_rooms:['#qlRoomsNav'],
+    room_create:['[data-rm-create]'],room_join:['[data-rm-join]'],room_pdf:['[data-rm-tool="pdf"]'],room_link:['[data-rm-tool="link"]'],room_folder:['[data-rm-tool="folder"]'],room_quiz:['[data-rm-tool="quiz"]'],
+    room_edit:['[data-room-action="edit"]','[data-room-action="move"]','[data-room-action="duplicate"]'],room_trash:['[data-room-action="trash"]','[data-room-action="restore"]','[data-room-action="delete"]'],room_save_copy:['[data-room-action="copy"]'],nav_support:['#qlSupportNav','.ql-sup-pf'],item_share_dash:['#itemMenu [data-ql-feat="item_share_dash"]'],dash_menu:['.ql-dash-more'],dash_save:['.ql-dash-save'],
     sel_share_in:['#selShareInBtn'],sel_share_ex:['#selShareExBtn'],sel_copy:['#copySelectedBtn'],sel_duplicate:['#duplicateSelectedBtn'],sel_move:['#moveSelectedBtn'],sel_trash:['#trashSelectedBtn'],
     quiz_autoadv:['#qzToolsAutoAdv','#qzBtnAutoAdvance'],quiz_shuffle:['#qzToolsShuffle','#qzBtnShuffle'],quiz_bookmark:['#qzBookmarkBtn','#qzFlagBtn'],quiz_summary:['#qzSummaryBtn'],quiz_results:['#qzBtnResults'],
     ed_addnew:['#qzBtnAddNew'],ed_images:['#qzBtnImageManager'],ed_move:['#qzBtnMoveQuestions'],ed_sections:['#qzBtnSessions'],ed_find:['#qzFindBar'],ed_share_in:['#qzBtnShare'],ed_share_ex:['#qzBtnShareExternal'],
@@ -19676,6 +19678,8 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   const featMode=k=>((cfg&&cfg.settings&&cfg.settings.features)||{})[k]||"on";
   function allowed(k){if(k==="signup"&&cfg&&cfg.signups_full)return "off";const m=featMode(k);if(m==="off")return "off";if(m==="lock")return k==="signup"?"on":"frozen";if(m==="plan"){if(k==="signup")return "on";const p=curPlan();return p&&p.features&&p.features[k]?"on":"locked"}return "on"}
 
+  /* "on" | "off" (Hidden) | "frozen" (Lock) | "locked" (By plan, not in this plan); rooms.mjs uses it */
+  window.qlFeatureMode=k=>ready?allowed(k):"on";
   window.qlCanOpenRooms=()=>{const mode=ready?allowed("nav_rooms"):"on";if(mode==="on")return true;if(mode==="locked")openUpgrade("Rooms is available on a higher plan.");else toast(mode==="frozen"?"🔒 Rooms is locked for now.":"Rooms is not available right now.");return false};
 
   /* ---------- load ---------- */
@@ -19920,7 +19924,8 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
      "Features in this plan" (with the limits under its tick), then each line of "Others".
      tests/plan-card-sync.test.mjs checks these lists against admin.html. */
   const CARD_LIMITS=[["storage_mb","Storage"],["results_kept","Results kept per quiz"],["devices","Devices at the same time"]];
-  const CARD_FEATURES=[["nav_dashboard","Dashboard"],["nav_rooms","Rooms"],["nav_random","Random Quiz"],["nav_inbox","Shared with me"],["nav_favorites","Favorites"],["nav_recent","Recent"],["nav_shared_links","Shared Links"],["nav_trash","Trash"],["nav_install","Install app"],["nav_support","Help & Support"],
+  const CARD_FEATURES=[["nav_dashboard","Dashboard"],["nav_random","Random Quiz"],["nav_inbox","Shared with me"],["nav_favorites","Favorites"],["nav_recent","Recent"],["nav_shared_links","Shared Links"],["nav_trash","Trash"],["nav_install","Install app"],["nav_support","Help & Support"],
+    ["nav_rooms","Rooms"],["room_create","Create Room"],["room_join","Join by code"],["room_pdf","Upload PDFs"],["room_link","Add quiz links"],["room_folder","Create folders"],["room_quiz","Create quizzes"],["room_edit","Edit content"],["room_trash","Trash content"],["room_save_copy","Save independent copies"],
     ["new_folder","Create Folder"],["new_link","Add Quiz Link"],["new_pdf","Upload PDF"],["new_quiz","Create Quiz"],["gform","Make Google Form"],
     ["item_share_in","Share internally"],["item_share_ex","Share externally (link + QR)"],["item_duplicate","Duplicate"],["item_move","Move"],["item_edit","Edit"],["item_trash","Move to trash"],["item_share_dash","Post to Dashboard"],
     ["dash_menu","⋮ menu on Dashboard items"],["dash_save","Save to my library (full access, inside ⋮)"],
@@ -19929,7 +19934,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     ["ed_addnew","Add New Questions"],["ed_images","Image Manager"],["ed_move","Move Questions"],["ed_sections","Sections"],["ed_find","Find & check problems"],["ed_share_in","Share internally (quiz editor)"],["ed_share_ex","Share externally (quiz editor)"],
     ["pf_edit","Edit Profile"],["pf_avatar","Change Avatar"],["pf_themes","App themes"],["pf_devices","Devices list"]];
   /* "Select many" names get a prefix on the card so they don't look like the ⋮ menu ones */
-  const CARD_PREFIX={sel_share_in:"Select many: ",sel_share_ex:"Select many: ",sel_copy:"Select many: ",sel_duplicate:"Select many: ",sel_move:"Select many: ",sel_trash:"Select many: "};
+  const CARD_PREFIX={room_join:"Rooms: ",room_pdf:"Rooms: ",room_link:"Rooms: ",room_folder:"Rooms: ",room_quiz:"Rooms: ",room_edit:"Rooms: ",room_trash:"Rooms: ",room_save_copy:"Rooms: ",sel_share_in:"Select many: ",sel_share_ex:"Select many: ",sel_copy:"Select many: ",sel_duplicate:"Select many: ",sel_move:"Select many: ",sel_trash:"Select many: "};
   const CARD_FEAT_LIMITS={new_folder:[["folders","folders"]],new_link:[["links","quiz links"]],new_pdf:[["pdfs","PDFs"]],new_quiz:[["quizzes","quizzes"],["questions_per_quiz","questions each"]],gform:[["gform_per_day","Google Forms a day"],["gform_questions","questions per form"]]};
   /* Edit plan → "👁 Shown / Hidden" on each limit row (features._card = {limit: true/false}).
      No saved choice = shown, except these. Keep in sync with admin.html CARD_HIDDEN_BY_DEFAULT.

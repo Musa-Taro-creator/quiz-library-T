@@ -10,7 +10,7 @@ source=(ROOT/'index.html').read_text().replace('const MOCK_MODE=false;','const M
 needle='const service=MOCK_MODE?createMockService():createSupabaseService();';source=source.replace(needle,needle+'\nservice.client=window.auditClient;\n',1)
 init=(ROOT/'tests/fixtures/dashboard-quiz-browser.js').read_text()+r'''
 const beforeRoomsRpc=auditRpc;
-auditRpc=async(name,args)=>name==='ql_room_v1'?await fetch('/rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:state.user.id,args})}).then(r=>r.json()):beforeRoomsRpc(name,args);
+auditRpc=async(name,args)=>name==='ql_room_v1'||name==='ql_room_look_v1'?await fetch('/rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:state.user.id,fn:name,args})}).then(r=>r.json()):beforeRoomsRpc(name,args);
 auditClient.storage={from(){return {createSignedUrl:async()=>({data:{signedUrl:location.origin+'/tests/fixtures/sample.pdf'},error:null})}}};
 '''
 checks=[]
@@ -59,9 +59,9 @@ try:
     assert page.locator('[data-rm-open]').count()==3
     assert page.locator('#qlRooms').evaluate('(e)=>e.scrollWidth<=e.clientWidth+1')
     if width in [390,768]:page.screenshot(path=f'/tmp/rooms-new-list-{theme}-{width}.png')
-    page.locator(f'[data-rm-open="{rid}"]').click();page.locator('[data-rm-tool="quiz"]').wait_for()
+    page.locator(f'[data-rm-open="{rid}"]').click();page.locator('[data-rm-add]').wait_for()
     assert 'All Rooms' in page.locator('[data-rm-back]').inner_text();assert page.locator('#qlRooms').evaluate('(e)=>e.scrollTop')==0
-    for element in page.locator('[data-rm-tool],[data-rm-back],[data-rm-close],[data-rm-manage]').all():
+    for element in page.locator('[data-rm-add],[data-rm-search],[data-rm-back],[data-rm-close],[data-rm-manage]').all():
      box=element.bounding_box();assert box['x']>=-1 and box['x']+box['width']<=width+1,(width,theme,box)
     if width in [390,768]:page.screenshot(path=f'/tmp/rooms-new-library-{theme}-{width}.png')
     # A real click scrolls the last card into view; Back restores that exact root position.
@@ -88,7 +88,7 @@ try:
     box=page.locator('[data-rm-back]').bounding_box();assert 0<=box['y']<150
     page.locator('[data-rm-back]').click();page.locator('[data-rm-open]').first.wait_for()
     assert page.locator(f'[data-rm-open="{rid}"]').evaluate('(e)=>e===document.activeElement')
-    page.locator(f'[data-rm-open="{rid}"]').click();page.locator('[data-rm-tool="quiz"]').wait_for();page.evaluate('history.back()');page.locator('[data-rm-open]').first.wait_for()
+    page.locator(f'[data-rm-open="{rid}"]').click();page.locator('[data-rm-add]').wait_for();page.evaluate('history.back()');page.locator('[data-rm-open]').first.wait_for()
     page.evaluate('history.back()');page.wait_for_function('!document.querySelector("#qlRooms")')
     assert not page.evaluate('state.items.some(x=>x._room_id)')
     if theme=='white' and width==390:

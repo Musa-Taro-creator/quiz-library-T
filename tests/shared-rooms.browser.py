@@ -10,7 +10,7 @@ source=(ROOT/'index.html').read_text().replace('const MOCK_MODE=false;','const M
 needle='const service=MOCK_MODE?createMockService():createSupabaseService();';source=source.replace(needle,needle+'\nservice.client=window.auditClient;\n',1)
 init=(ROOT/'tests/fixtures/dashboard-quiz-browser.js').read_text()+r'''
 const beforeRoomsRpc=auditRpc;
-auditRpc=async(name,args)=>name==='ql_room_v1'?await fetch('/rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:state.user.id,args})}).then(r=>r.json()):beforeRoomsRpc(name,args);
+auditRpc=async(name,args)=>name==='ql_room_v1'||name==='ql_room_look_v1'?await fetch('/rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:state.user.id,fn:name,args})}).then(r=>r.json()):beforeRoomsRpc(name,args);
 auditClient.storage={from(){return {createSignedUrl:async()=>({data:{signedUrl:location.origin+'/tests/fixtures/sample.pdf'},error:null})}}};
 '''
 checks=[]
@@ -70,27 +70,27 @@ try:
   rid=page.evaluate('qlRooms.active()');room=rpc(A,'open',rid)['room'];code=room['invite_code']
   assert page.locator('[data-rm-tool]:enabled').count()==4;ok('Create Room exposes all four tools and owner controls')
   page.locator('[data-rm-manage]').click();assert page.locator('#rmEditName').bounding_box()['height']>=44;page.locator('#rmManageClose').click()
-  page.locator('[data-rm-tool="folder"]').click();page.locator('#folderEditorTitle').fill('Shared folder');page.locator('#folderEditorSave').click();page.locator('.rm-item .item-title',has_text='Shared folder').wait_for();folder=next(x for x in rpc(A,'open',rid)['items'] if x['kind']=='folder')
-  page.locator('[data-rm-tool="link"]').click();page.locator('#editorTitle').fill('Study link');page.locator('#editorUrl').fill('https://example.test/study');page.locator('#editorSave').click();page.locator('.rm-item .item-title',has_text='Study link').wait_for()
+  page.locator('[data-rm-add]').click();page.locator('[data-rm-tool=\"folder\"]').click();page.locator('#folderEditorTitle').fill('Shared folder');page.locator('#folderEditorSave').click();page.locator('.rm-item .item-title',has_text='Shared folder').wait_for();folder=next(x for x in rpc(A,'open',rid)['items'] if x['kind']=='folder')
+  page.locator('[data-rm-add]').click();page.locator('[data-rm-tool=\"link\"]').click();page.locator('#editorTitle').fill('Study link');page.locator('#editorUrl').fill('https://example.test/study');page.locator('#editorSave').click();page.locator('.rm-item .item-title',has_text='Study link').wait_for()
   link=next(x for x in rpc(A,'open',rid)['items'] if x['kind']=='link');page.locator(f'[data-rm-more="{link["id"]}"]').click();page.locator('[data-room-action="move"]').click()
   page.evaluate('(id)=>{const e=document.querySelector("#moveParent");e.value=id;e.dispatchEvent(new Event("change",{bubbles:true}))}',folder['id']);page.locator('#moveSave').click();page.wait_for_timeout(250)
   assert rpc(A,'item_get',rid,{'id':link['id']})['parent_id']==folder['id']
   page.locator(f'[data-rm-item="{folder["id"]}"]').click();page.locator(f'[data-rm-more="{link["id"]}"]').click();page.locator('[data-room-action="trash"]').click();page.wait_for_timeout(150);assert rpc(A,'item_get',rid,{'id':link['id']})['is_trashed']
   page.locator('[data-rm-trash]').click();page.locator(f'[data-rm-more="{link["id"]}"]').click();page.locator('[data-room-action="restore"]').click();page.wait_for_timeout(150);assert not rpc(A,'item_get',rid,{'id':link['id']})['is_trashed'];page.locator('[data-rm-trash]').click()
   ok('Add Quiz Link, Move, Trash and Restore use room data and retain the selected folder')
-  page.locator('[data-rm-tool="quiz"]').click();page.locator('#qzNewTitle').fill('Collaborative quiz');page.locator('#qzNewCreate').click();page.locator('#qzBtnAddNew').wait_for(state='attached')
+  page.locator('[data-rm-add]').click();page.locator('[data-rm-tool=\"quiz\"]').click();page.locator('#qzNewTitle').fill('Collaborative quiz');page.locator('#qzNewCreate').click();page.locator('#qzBtnAddNew').wait_for(state='attached')
   page.evaluate('document.querySelector("#qzBtnAddNew").click()');page.locator('[data-tab="bulk"]').click();page.locator('#qzAqBulkArea').fill('1. Pick No?\nA. Yes\nB. No\nAnswer: B\n\n2. Choose both?\nA. One\nB. Two\nC. Three\nAnswer: A, C');page.locator('#qzAqKeyArea').fill('1.B\n2.A,C');page.locator('#qzAqParse').click();page.locator('#qzAddQSubmit').click()
   page.wait_for_timeout(2400);page.locator('#qzTopClose').click();page.wait_for_function('!document.querySelector("#qzPageOverlay").classList.contains("show")')
   quiz=next(x for x in rpc(A,'open',rid)['items'] if x['kind']=='quiz');assert quiz['quiz_settings']['question_count']==2
   ok('Existing folder picker and full quiz editor save staged room questions to the shared folder')
   page.locator('[data-rm-back]').click();page.wait_for_timeout(150)
-  page.locator('[data-rm-tool="pdf"]').click();page.locator('#pdfInput').set_input_files(str(ROOT/'tests/fixtures/sample.pdf'));page.locator('#uploadStart').click();page.wait_for_timeout(1800)
+  page.locator('[data-rm-add]').click();page.locator('[data-rm-tool=\"pdf\"]').click();page.locator('#pdfInput').set_input_files(str(ROOT/'tests/fixtures/sample.pdf'));page.locator('#uploadStart').click();page.wait_for_timeout(1800)
   assert any(x['kind']=='pdf' for x in rpc(A,'open',rid)['items'])
 
   if page.locator('#uploadCancel').is_visible():page.locator('#uploadCancel').click()
   ok('Upload PDF stores shared room metadata with the uploader’s authorized Storage path')
   # Another signed-in student joins and edits the same quiz using the real editor.
-  member,mp,me,md=boot(B,390);mp.locator('[data-rm-join]').click();mp.locator('#rmCode').fill(code);mp.locator('#rmSubmit').click();mp.locator('[data-rm-tool="folder"]').wait_for()
+  member,mp,me,md=boot(B,390);mp.locator('[data-rm-join]').click();mp.locator('#rmCode').fill(code);mp.locator('#rmSubmit').click();mp.locator('[data-rm-add]').wait_for()
   mp.locator(f'[data-rm-item="{folder["id"]}"]').click();mp.locator(f'[data-rm-more="{quiz["id"]}"]').click();mp.locator('[data-room-action="edit"]').click();mp.locator('.qz-prompt').first.fill('Edited by a room member');mp.wait_for_timeout(2400);mp.locator('#qzTopClose').click();mp.wait_for_function('!document.querySelector("#qzPageOverlay").classList.contains("show")')
   full=rpc(A,'item_get',rid,{'id':quiz['id']});assert full['_student_questions'][0]['prompt']=='Edited by a room member';ok('A second member can join by code and edit shared questions on a phone-sized screen')
   rpc(B,'quiz_tools',rid,{'id':quiz['id'],'settings':{'show_answer_immediately':True,'layout':'vertical'}})
@@ -100,7 +100,7 @@ try:
   mp.locator('#qzFinishBtn').click() if mp.locator('#qzFinishBtn').count() else mp.locator('#qzNavNext').click();mp.locator('#qzResultRestartTop').wait_for()
   assert '100%' in mp.locator('.qz-result-big-percent').inner_text();assert len(rpc(B,'quiz_history',rid,{'id':quiz['id']}))==1;assert rpc(A,'quiz_history',rid,{'id':quiz['id']})==[];ok('Taking a room quiz grades instantly and stores only that student’s server-verified history')
   mp.locator('#qzResultDone').click();mp.locator('#qzTopClose').click();mp.wait_for_function('!document.querySelector("#qzPageOverlay").classList.contains("show")')
-  rpc(A,'member',rid,{'user_id':B,'can_edit':False});mp.evaluate('qlRooms.refresh()');mp.locator('[data-rm-tool="quiz"]:disabled').wait_for();assert mp.locator('[data-rm-manage]').count()==0
+  rpc(A,'member',rid,{'user_id':B,'can_edit':False});mp.evaluate('qlRooms.refresh()');mp.locator('[data-rm-tool=\"quiz\"]:disabled').wait_for(state='attached');assert mp.locator('[data-rm-manage]').count()==0
   mp.locator(f'[data-rm-more="{quiz["id"]}"]').click();assert mp.locator('[data-room-action="edit"]').count()==0;mp.locator('[data-room-action="close"]').click();ok('Owner restrictions remove editing controls while the member can still take quizzes')
   rpc(A,'member',rid,{'user_id':B,'can_edit':True});rpc(C,'settings',rid,{'locked':True});mp.evaluate('qlRooms.refresh()');assert mp.locator('[data-rm-tool="folder"]').is_disabled();rpc(C,'settings',rid,{'locked':False});ok('Website admin can override room settings')
   # Room duplicates retain questions, and personal copies use the existing independent writer.
@@ -119,7 +119,7 @@ try:
   assert {q['id'] for q in private_questions}.isdisjoint({q['id'] for q in full['_student_questions']})
   page.evaluate('async x=>{const qs=await service.getQuizQuestionsAdmin(x.id);qs[0].prompt="Private copy edit";await service.saveQuizQuestions(x.id,qs,x.quiz_settings)}',copies[0]);assert rpc(A,'item_get',rid,{'id':quiz['id']})['_student_questions'][0]['prompt']=='Edited by a room member';ok('Editing a saved personal copy leaves shared room questions unchanged')
   # Image-heavy saves split by bytes, not just question count.
-  page.locator('#qlRoomsNav').click();page.locator(f'[data-rm-open="{rid}"]').click();page.locator('[data-rm-tool="quiz"]').wait_for()
+  page.locator('#qlRoomsNav').click();page.locator(f'[data-rm-open="{rid}"]').click();page.locator('[data-rm-add]').wait_for()
   image_quiz=page.evaluate("async()=>{const item=await service.insertItem({id:uid(),kind:'quiz',title:'Image batches',parent_id:null,quiz_settings:{}});const qs=Array.from({length:2},(_,n)=>({id:uid(),type:'true_false',prompt:'Image '+n,correct_answer:false,image:'data:image/jpeg;base64,'+'A'.repeat(4100000),question_position:n}));return await service.saveQuizQuestions(item.id,qs,{})}")
   assert len(rpc(A,'item_get',rid,{'id':image_quiz['id']})['_student_questions'])==2
   for theme in ['white','neon','ocean']:
@@ -159,8 +159,8 @@ try:
   for mode in ['off','lock','plan','on']:
    row.locator(f'[data-m="{mode}"]').click();ap.wait_for_function("(mode)=>adminFixture.settings.find(x=>x.key==='features').value.nav_rooms===mode",arg=mode)
   assert ap.evaluate("adminFixture.settings.find(x=>x.key==='features').value.other_feature")=='lock'
-  ap.locator('[data-gall="Left menu & tabs"][data-m="off"]').click();ap.wait_for_function("adminFixture.settings.find(x=>x.key==='features').value.nav_rooms==='off'")
-  ap.locator('[data-gall="Left menu & tabs"][data-m="on"]').click();ap.wait_for_function("adminFixture.settings.find(x=>x.key==='features').value.nav_rooms==='on'")
+  ap.locator('[data-gall="Rooms"][data-m="off"]').click();ap.wait_for_function("adminFixture.settings.find(x=>x.key==='features').value.nav_rooms==='off'")
+  ap.locator('[data-gall="Rooms"][data-m="on"]').click();ap.wait_for_function("adminFixture.settings.find(x=>x.key==='features').value.nav_rooms==='on'")
   ap.screenshot(path='/tmp/rooms-website-control.png')
   ap.locator('.nav[data-v="plans"]').click();ap.locator('[data-edit="free"]').click();ap.locator('[data-feat="nav_rooms"]').check();ap.locator('#pSave').click();ap.wait_for_function('adminFixture.plan.features.nav_rooms===true')
   ap.locator('[data-edit="free"]').click();ap.locator('[data-feat="nav_rooms"]').uncheck();ap.locator('#pSave').click();ap.wait_for_function('!adminFixture.plan.features.nav_rooms')

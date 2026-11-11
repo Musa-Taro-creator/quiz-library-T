@@ -11,7 +11,7 @@ the full details. This file is the short version.
 - Every release of the student app changes the version name in **both**
   `index.html` (`<meta name="ql-shell-generation">`, line ~20) and `sw.js`
   (`APP_CACHE` + `SHELL_GENERATION`). Use the form `reliability-YYYY-MM-DD-vN`.
-  The version in the repo on 2026-11-11 is `reliability-2026-11-11-v11` (not live until merged to main; v10 is live).
+  The version in the repo on 2026-11-11 is `reliability-2026-11-11-v13` (Rooms Part 1 + 2, on branch `claude/peaceful-keller-drbzyi`; not live until merged to main; v11 is live).
 - CDN libraries stay pinned (supabase-js 2.118.0, tus 4.3.1, pdf-lib 1.17.1). If you
   change one, change it in index.html, admin.html, sw.js and the offline tests.
 - A new picture in `assets/` must also be added to `SHELL` in `sw.js` (a test checks this).
@@ -24,7 +24,7 @@ the full details. This file is the short version.
 |---|---|
 | `index.html` (~20k lines) | The whole student app: HTML, CSS and many `<script id=…>` blocks added over time. Later blocks wrap and override earlier ones, often by wrapping `render`. |
 | `admin.html` | Admin page. Views (`data-v`): dash, users, plans, pay (receipts / activation codes / KHQR), msgs, ctl (website control), board (Dashboard), rooms, news, settings. Also admin Web Push. |
-| `rooms.mjs`, `rooms.css` | Rooms (shared spaces). Imported on demand by `qlRoomsLoader`. Everything goes through the RPC `ql_room_v1`. It swaps in its own `service.*` methods while a room is open. |
+| `rooms.mjs`, `rooms.css` | Rooms (shared spaces). Imported on demand by `qlRoomsLoader`. Everything goes through the RPC `ql_room_v1`. It swaps in its own `service.*` methods while a room is open. Room buttons follow Website Control → Rooms (`window.qlFeatureMode`, `SEL` in `qlPlans`); each item has "Who can change this?" (`accessForm`: everyone / only the creator / creator + chosen members, + copies) and Room settings has the owner's item rules (`item_default`, `creator_choice`). The room page (Part 2): cover theme + emoji (`themeForm`), live header (studying now, stats), "since your last visit" strip, + Add menu, search / sort / grid-list / filter chips, owner pins and colourful cards; that extra data comes from the RPC `ql_room_look_v1` (`loadLook`, every refresh) and the page still works without it. |
 | `sw.js` | Service worker. Network-first pages, offline copy of the shell, libraries and PDF.js (with integrity hashes). It removes old `ql-app-*` caches. Supabase is never cached. |
 | `vendor/pdfjs-6.4.299/` | Local PDF.js. |
 | `supabase/*.sql` | Database migrations (order below). `supabase/functions/ql-push/` is the Edge Function for admin push. |
@@ -99,7 +99,12 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
 26 read_schema_for_reliability (read only), then **either** reliability_release_v2
 **or** (student_quiz_atomic_save_v2 + dashboard_reliable_posting_v2), never both →
 27 dashboard_quiz_access_v1 → 28 dashboard_quiz_instant_feedback_v1 → 29 shared_rooms_v1 →
-30 security_storage_fix → 31 google_forms (+ Edge Function ql-gform, Apps Script) → 31b google_forms_user_limits → 31c google_forms_plan_limits.
+30 security_storage_fix → 31 google_forms (+ Edge Function ql-gform, Apps Script) → 31b google_forms_user_limits → 31c google_forms_plan_limits →
+32 rooms_controls_v1 (needs 24 dashboard and 29 shared_rooms_v1; it replaces `ql_room_v1`, so if 29 is ever run again, run 32 again after it) →
+33 rooms_look_v1 (room theme/emoji, item dates, pins, visits, opened items; RPC `ql_room_look_v1`).
+Rooms: Website Control → Rooms (`nav_rooms`, `room_create`, `room_join`, `room_pdf`, `room_link`, `room_folder`, `room_quiz`, `room_edit`,
+`room_trash`, `room_save_copy`) is checked in `ql_room_v1` for the person doing the action (their own plan, `ql__feature_ok`); the admin is never blocked.
+Admin → Rooms keeps only Enable Rooms and the limits. The room owner and the website admin can always change any room item.
 The Google Forms rule/mine/reserve functions are copied identically in 31, 31b and 31c (tests check it): change all three.
 Supabase has safeupdate on: every UPDATE/DELETE needs a WHERE (tests/sql-safe-update.test.mjs checks).
 `security_check.sql` is read only and can be run any time. No rows returned means all good.
