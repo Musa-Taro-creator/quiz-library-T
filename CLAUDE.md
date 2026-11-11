@@ -11,7 +11,7 @@ the full details. This file is the short version.
 - Every release of the student app changes the version name in **both**
   `index.html` (`<meta name="ql-shell-generation">`, line ~20) and `sw.js`
   (`APP_CACHE` + `SHELL_GENERATION`). Use the form `reliability-YYYY-MM-DD-vN`.
-  The version in the repo on 2026-11-10 is `reliability-2026-11-10-v8` (live).
+  The version in the repo on 2026-11-11 is `reliability-2026-11-11-v1` (not live until merged to main).
 - CDN libraries stay pinned (supabase-js 2.118.0, tus 4.3.1, pdf-lib 1.17.1). If you
   change one, change it in index.html, admin.html, sw.js and the offline tests.
 - A new picture in `assets/` must also be added to `SHELL` in `sw.js` (a test checks this).
@@ -63,7 +63,10 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
   Feature key `gform` (Website Control). Admin → Settings card `gfCard()` stores the Apps Script URL + secret
   and the safety cap; Admin → Users → Manage sets one person's Google Forms per day (badge in the list);
   Edit plan → Make Google Form: limits.gform_per_day (number / "unlimited" / absent = global) and limits.gform_questions (1–200).
-- `qlPlans` (~19095): plans, limits incl. `questions_per_quiz`, sale price, codes, KHQR, payments.
+- `qlPlans` (~19498): plans, limits incl. `questions_per_quiz`, sale price, codes, KHQR, payments.
+  The "Choose your plan" cards come only from the saved plan (`featureLines` = `window.qlPlanCardLines`):
+  `CARD_LIMITS` / `CARD_FEATURES` / `CARD_FEAT_LIMITS` must match admin.html `LIMITS` / `FEATURES` /
+  `FEAT_LIMITS` (tests/plan-card-sync.test.mjs checks). An open window re-draws on every config refresh.
 - `qlSupport` (Help & Support), `qlOfflineMode` (offline mode + PDF.js loading),
   `qlWorkspaceLoading` ("Loading your library…" instead of 0 items), `qlRoomsLoader`.
 - Hidden tabs pause polling: look for `visibilityState` checks (devices, update checker,
