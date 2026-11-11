@@ -1,4 +1,4 @@
-"""Make Google Form in the student app: toolbar button (after Create Quiz, NEW tag), Make new
+"""Make Google Form in the student app: toolbar button (after Create Quiz, same look as its neighbours in each theme), Make new
 (Paste = the quiz editor's Bulk Paste panel without Destination/Position; or one of my quizzes
 with From–To and parts for long quizzes), picture warning, forms left today, a progress
 percentage while the form is made, then My Google Forms opens with the new form (link, date,
@@ -109,18 +109,22 @@ with sync_playwright() as p:
         def bp(text):
             page.locator('#qlGfPaste').wait_for(); page.locator('#qlGfPaste').fill(text); page.locator('#qlBpParse').click()
 
-        # 1. toolbar: right after Create Quiz, thin divider, NEW tag (tablet); "+ New" menu (all sizes)
+        # 1. toolbar: right after Create Quiz, thin divider, no NEW tag, same look as the other buttons in this theme; "+ New" menu
         page.evaluate("render()")
         page.wait_for_function("document.querySelector('#newMenu [data-gform-new]')")
         order = page.evaluate("[...document.querySelectorAll('#adminQuickActions > *')].map(e=>e.dataset.quizQuick?'quiz':e.classList.contains('ql-gf-div')?'div':e.dataset.gformQuick?'gform':'other')")
         i = order.index('quiz'); assert order[i:i + 3] == ['quiz', 'div', 'gform'], order
-        assert 'NEW' in page.locator('[data-gform-quick]').inner_text()
+        assert page.locator('[data-gform-quick]').inner_text().strip() == 'Make Google Form', 'no NEW tag'
+        assert page.locator('#newMenu [data-gform-new]').inner_text().strip() == 'Make Google Form', 'no NEW in + New'
         if width > 500:
             assert page.locator('[data-gform-quick]').is_visible()
-            bg = page.evaluate("getComputedStyle(document.querySelector('[data-gform-quick]')).backgroundImage")
-            assert 'gradient' in bg, bg
+            look = page.evaluate("""(()=>{const k=e=>{const c=getComputedStyle(e);return [c.backgroundColor,c.backgroundImage,c.color,c.borderTopColor,c.borderRadius,c.boxShadow,c.height]};
+              return {same:JSON.stringify(k(document.querySelector('[data-gform-quick]')))===JSON.stringify(k(document.querySelector('[data-quiz-quick]'))),
+                icon:getComputedStyle(document.querySelector('[data-gform-quick] .quick-icon')).color}})()""")
+            assert look['same'], 'looks like Create Quiz in the ' + theme + ' theme'
+            assert look['icon'] == 'rgb(139, 92, 246)', look
             shot('0-toolbar')
-        ok(tag + 'Toolbar: Make Google Form sits right after Create Quiz with a divider and a NEW tag; also in + New')
+        ok(tag + 'Toolbar: Make Google Form sits right after Create Quiz with a divider, no NEW tag, same look as the other buttons; also in + New')
 
         # 2. Make new → Paste questions = the quiz editor's Bulk Paste panel (no Destination / Position)
         page.evaluate("qlOpenGoogleForm()")
@@ -308,7 +312,7 @@ with sync_playwright() as p:
 
         # 3e. Exam tab (before My Google Forms): student fields, exam rules, numbering; same questions as Practice
         tabs = [t.replace('\n', ' ').strip() for t in page.locator('[data-gf-tab]').all_inner_texts()]
-        assert tabs == ['Practice', 'Exam NEW', 'My Google Forms'], tabs
+        assert tabs == ['Practice', 'Exam', 'My Google Forms'], tabs
         assert page.locator('#qlGfExamOpts').is_hidden()
         page.locator('[data-gf-tab="exam"]').click()
         page.locator('#qlGfExamOpts').wait_for()
@@ -392,6 +396,33 @@ with sync_playwright() as p:
         page.evaluate("srv.limit=5;srv.used=3")
         ok(tag + 'Parts: Questions per part (typed or quick 25/50/100/max/Half), parts redraw while typing, too big or 0 explained, size remembered')
 
+        # 3h. Paste questions: more than one form's worth → the same Parts / My own range as quizzes
+        page.evaluate("srv.limit=50;srv.used=0")
+        page.locator('[data-gf-tab="make"]').click(); page.locator('[data-gf-src="paste"]').wait_for(); page.locator('[data-gf-src="paste"]').click()
+        many = '\n\n'.join(f'{i}. Pasted question {i}?\nA) Yes\nB) No\nAnswer: A' for i in range(1, 301))
+        page.locator('#qlGfKey').fill(''); bp(many)
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('2 forms will be made · 300 questions in total')")
+        assert page.locator('#qlBpPreview .qz-bp-max').count() == 0, 'no "too many" block any more'
+        assert 'You pasted 300 questions — a form can have up to 200' in page.locator('#qlGfRange').inner_text()
+        parts = [t.replace('\n', ' ') for t in page.locator('[data-gf-pt]').all_inner_texts()]
+        assert parts[0].endswith('Q1–200 · 200 questions') and parts[1].endswith('Q201–300 · 100 questions'), parts
+        page.locator('#qlGfTitle').fill('Cardio bank')
+        page.locator('#qlGfPartSize').fill('100')
+        page.wait_for_function("document.querySelectorAll('[data-gf-pt]').length===3 && document.getElementById('qlGfParsed').textContent.includes('3 forms will be made')")
+        titles = page.locator('#qlGfTitles').inner_text()
+        assert 'Cardio bank (Q1–100)' in titles and 'Cardio bank (Q201–300)' in titles, titles
+        assert page.locator('#qlGfNumStart').is_visible() and 'Make 3 Google Forms' in page.locator('#qlGfMakeBtn').inner_text()
+        # My own range on the pasted list: a single form, From / To checked against the max
+        page.locator('[data-gf-mode="range"]').click(); page.locator('#qlGfFrom').fill('101'); page.locator('#qlGfTo').fill('150')
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('50 questions (101–150 of 300)') && !document.getElementById('qlGfMakeBtn').disabled")
+        page.locator('#qlGfTo').fill('301')
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('Choose questions from 1 to 300') && document.getElementById('qlGfMakeBtn').disabled")
+        page.locator('[data-gf-mode="parts"]').click(); page.locator('#qlGfChips button', has_text='200').click()
+        assert no_overflow(), 'paste parts overflow'
+        shot('3h-paste-parts')
+        page.evaluate("srv.limit=5;srv.used=3")
+        ok(tag + 'Paste questions: more than one form → Parts (Questions per part, ticks, titles) or My own range, like quizzes; no "too many" block')
+
         # 4. My Google Forms: groups, status, search, menu actions, Drive bar
         page.locator('[data-gf-tab="list"]').click()
         page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===9")
@@ -463,7 +494,11 @@ with sync_playwright() as p:
         page.evaluate("srv.mode='plan';srv.planName='Pro';srv.limit=10;srv.used=7;srv.maxQ=3;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
         page.wait_for_function("document.getElementById('qlGfLeft')?.textContent.includes('Forms left today: 3 of 10 (Pro plan)')")
         page.locator('[data-gf-src="paste"]').click(); bp(PASTE)
-        page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('Your plan allows 3 questions per form — this list has 4') && document.getElementById('qlGfMakeBtn').disabled")
+        # more pasted questions than the plan allows per form: Parts of the plan's size (3 + 1) instead of a block
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('2 forms will be made · 4 questions in total') && !document.getElementById('qlGfMakeBtn').disabled")
+        assert 'You pasted 4 questions — a form can have up to 3' in page.locator('#qlGfRange').inner_text() and page.locator('#qlGfPartSize').get_attribute('max') == '3'
+        page.locator('[data-gf-mode="range"]').click(); page.locator('#qlGfTo').fill('4')
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('Your plan allows 3 questions per form — you chose 4') && document.getElementById('qlGfMakeBtn').disabled")
         shot('7-plan')
         bp(PASTE.split('\n\n4.')[0])
         page.wait_for_function("!document.getElementById('qlGfMakeBtn').disabled && document.getElementById('qlGfStatus').classList.contains('hidden')")
