@@ -28,7 +28,7 @@ const answers={
  ql_my_plan:()=>({plan:plans[0],subscription:null,usage:{quizzes:0,pdfs:0,links:0,folders:0,storage_bytes:0}}),
  ql_support_mine:()=>[],ql_support_unread:()=>0,ql_my_gifts:()=>[],ql_my_greeting:()=>null,ql_my_payments:()=>[],
  ql_received_item_share_count:()=>0,ql_received_quiz_share_count:()=>0,ql_ensure_share_profile:()=>({share_id:'QL-MINE0001',display_name:'Local test'}),
- ql_gform_mine:()=>{const unl=srv.mode==='unlimited'||srv.mode==='admin'||(srv.mode==='plan'&&srv.limit==null),max=unl?srv.cap:srv.limit;return {enabled:srv.enabled,set_up:srv.setUp,mode:srv.mode,unlimited:unl,cap:srv.cap,plan_name:srv.planName||null,max_questions:srv.maxQ||200,limit:unl?null:srv.limit,used_today:srv.used,left:Math.max(0,max-srv.used),forms:srv.forms.slice()}},
+ ql_gform_mine:()=>{const unl=srv.mode==='unlimited'||srv.mode==='admin'||(srv.mode==='plan'&&srv.limit==null),max=unl?srv.cap:srv.limit;return {enabled:srv.enabled,set_up:srv.setUp,mode:srv.mode,unlimited:unl,cap:srv.cap,plan_name:srv.planName||null,max_questions:srv.maxQ||200,limit:unl?null:srv.limit,used_today:srv.used,period:srv.mode==='plan_total'?'total':'day',used_total:srv.usedTotal||0,left:srv.mode==='plan_total'?Math.max(0,Math.min(srv.limit-(srv.usedTotal||0),srv.cap-srv.used)):Math.max(0,max-srv.used),forms:srv.forms.slice()}},
  ql_gform_remove:a=>{srv.forms=srv.forms.filter(f=>f.id!==a.p_id);return null}
 };
 const fn={
@@ -511,8 +511,16 @@ with sync_playwright() as p:
         page.evaluate("srv.limit=0;srv.used=0;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
         bp(PASTE)
         page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('Your plan does not include Google Forms')")
+        # How many Google Forms (total for the plan): "left on your plan", and all used = upgrade message
+        page.evaluate("srv.mode='plan_total';srv.planName='Free';srv.limit=5;srv.used=0;srv.usedTotal=2;srv.maxQ=200;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
+        page.wait_for_function("document.getElementById('qlGfLeft')?.textContent.includes('Google Forms left on your plan: 3 of 5 (Free plan)')")
+        page.evaluate("srv.usedTotal=5;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
+        bp(PASTE)
+        page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('You have made all 5 Google Forms in the Free plan. Forms you delete still count. Upgrade to make more.')")
+        assert page.locator('#qlGfMakeBtn').is_disabled()
+        page.evaluate("srv.usedTotal=0")
         page.evaluate("srv.mode='custom';srv.planName=null;srv.maxQ=200")
-        ok(tag + 'Plan limits: "3 of 10 (Pro plan)", questions per form blocks with a clear message, plan 0 says the plan has no Google Forms')
+        ok(tag + 'Plan limits: "3 of 10 (Pro plan)", questions per form blocks with a clear message, plan 0 says the plan has no Google Forms; a plan total shows "left on your plan" and the all-used message')
         page.evaluate("srv.limit=0;srv.used=0;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
         bp(PASTE)
         page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('turned off for your account') && document.getElementById('qlGfMakeBtn').disabled")

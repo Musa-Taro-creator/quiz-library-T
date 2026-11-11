@@ -506,9 +506,10 @@ function manageUser(r){
   dvLoad();
   const gfLoad=async()=>{const now=o.querySelector("#gfNow");try{const g=await rpc("ql_admin_gform_user_rule_get",{p_user:r.user_id});
       o.querySelectorAll("[data-gfm]").forEach(x=>x.classList.toggle("on",x.dataset.gfm===(g.mode==="admin"?"unlimited":g.mode)));o.querySelector("#gfN").value=g.mode==="custom"?g.limit:"";
-      const made=` · made today: ${Number(g.used_today||0)}`;
+      const made=` · made today: ${Number(g.used_today||0)}`+(g.used_total!=null?` · made in total: ${Number(g.used_total)}`:"");
       now.innerHTML=g.mode==="admin"?`<b>Right now: Unlimited — admin account</b> (safety cap ${g.cap} a day)${made}.`:g.mode==="unlimited"?`<b>Right now: Unlimited</b> (safety cap ${g.cap} a day)${made}.`
         :g.mode==="custom"?`<b>Right now: ${g.limit===0?"cannot make Google Forms":g.limit+" a day"}</b> (set for this person)${made}.`
+        :g.mode==="plan_total"?`<b>Right now: ${g.limit===0?"cannot make Google Forms":g.limit+" in total"}</b> (from the ${h(g.plan_name||"")} plan; deleted forms still count)${made}.`
         :g.mode==="plan"?`<b>Right now: ${g.limit==null?"Unlimited":g.limit===0?"cannot make Google Forms":g.limit+" a day"}</b> (from the ${h(g.plan_name||"")} plan${g.limit==null?`, safety cap ${g.cap} a day`:""})${made}.`
         :`<b>Right now: ${g.global} a day</b> (the default from Settings)${made}.`;
       if(g.mode==="admin")o.querySelectorAll("#gfMode button,#gfN,#gfNSave").forEach(x=>x.disabled=true)}
@@ -566,9 +567,12 @@ function editPlan(p,clone){
   /* "Show" switch = on the student plan card (same look as the Unlimited switch) */
   const showSw=k=>{const on=cardShown(F,k);return `<span class="uu ql-show"><button type="button" class="sw sm ${on?"on":""}" data-show="${k}" role="switch" aria-checked="${on}" aria-label="Show on the student plan card" title="Show on the student plan card"></button>Show</span>`};
   const limRow=(k,l)=>{const v=k==="devices"&&!(k in L)?1:L[k];return `<div class="lim"><span>${l}</span><input class="in" data-lim="${k}" type="number" min="${k==="devices"?1:0}" value="${v??""}" ${v==null?"disabled":""}><span class="uu"><button type="button" class="sw sm ${v==null?"on":""}" data-unl="${k}"></button>Unlimited</span>${showSw(k)}</div>`};
-  /* Make Google Form per day: empty = global number, a number, or "unlimited" (google_forms_plan_limits.sql) */
-  const gfGlobal=Number(((settings.gform||{}).daily_limit)??5),gfDay=L.gform_per_day;
-  const gfDayRow=()=>`<div class="lim"><span>Google Forms per day</span><input class="in" id="pGfDay" type="number" min="0" max="1000" placeholder="Default (${gfGlobal})" value="${typeof gfDay==="number"?gfDay:""}" ${gfDay==="unlimited"?"disabled":""}><span class="uu"><button type="button" class="sw sm ${gfDay==="unlimited"?"on":""}" id="pGfDayUnl"></button>Unlimited</span>${showSw("gform_per_day")}</div>`;
+  /* Make Google Form: HOW MANY in total for the plan (limits.gform_total): empty = the global number a day, a number,
+     or "unlimited" (google_forms_plan_limits.sql). Made forms always count, also after they are deleted.
+     An older plan may still have limits.gform_per_day: it is shown as a hint, keeps working while the box is empty,
+     and is removed once a total (or Unlimited) is saved. */
+  const gfGlobal=Number(((settings.gform||{}).daily_limit)??5),gfTot=L.gform_total,gfOldDay=L.gform_per_day;
+  const gfDayRow=()=>`<div class="lim"><span>How many Google Forms <small style="color:var(--muted)">(total)</small></span><input class="in" id="pGfDay" type="number" min="0" max="100000" placeholder="${gfTot==null&&gfOldDay!=null?h("Was "+(gfOldDay==="unlimited"?"Unlimited":gfOldDay)+" a day"):"Default ("+gfGlobal+" a day)"}" value="${typeof gfTot==="number"?gfTot:""}" ${gfTot==="unlimited"?"disabled":""}><span class="uu"><button type="button" class="sw sm ${gfTot==="unlimited"?"on":""}" id="pGfDayUnl"></button>Unlimited</span>${showSw("gform_total")}</div>`;
   const priceRow=(k,l)=>`<div class="lim"><span>${l}</span><input class="in" data-price="${k}" type="number" min="0" step="0.01" value="${p[k]??""}" placeholder="—" ${p[k]==null?"disabled":""}><span class="uu"><button type="button" class="sw sm ${p[k]!=null?"on":""}" data-poff="${k}"></button>Offer</span></div>`;
   const o=modal(clone?"Clone plan":isNew?"Add new plan":`Edit plan · ${h(p.name)}`,`<div class="two"><div>
     <div class="sec-t">Name &amp; look</div>
@@ -594,7 +598,7 @@ function editPlan(p,clone){
     ${LIMITS.map(([k,l,u])=>limRow(k,l+(u?` (${u})`:""))).join("")}
     <div class="sec-t">Features in this plan</div>
     <div class="note" style="margin:0 0 6px">Ticks count for features set to "By plan" in Website Control.</div>
-    ${FEATURES.flatMap(g=>g[1]).filter(f=>f[0]!=="signup").map(([k,l])=>`<label class="chk"><input type="checkbox" data-feat="${k}" ${F[k]?"checked":""}>${l}<span class="tag" style="margin-left:auto">${modeLabel((settings.features||{})[k])}</span></label>${FEAT_LIMITS[k]?`<div class="flim ${F[k]?"":"hidden"}" data-flim="${k}">${k==="gform"?gfDayRow():""}${FEAT_LIMITS[k].map(([lk,ll])=>limRow(lk,ll)).join("")}${k==="gform"?`<div class="note" style="margin:2px 0 6px">Per day: empty = the default from Settings (${gfGlobal}). Unlimited still stops at the safety cap. Questions: Unlimited = 200. A person's own number (Users → Manage) wins over the plan.</div>`:""}</div>`:""}`).join("")}
+    ${FEATURES.flatMap(g=>g[1]).filter(f=>f[0]!=="signup").map(([k,l])=>`<label class="chk"><input type="checkbox" data-feat="${k}" ${F[k]?"checked":""}>${l}<span class="tag" style="margin-left:auto">${modeLabel((settings.features||{})[k])}</span></label>${FEAT_LIMITS[k]?`<div class="flim ${F[k]?"":"hidden"}" data-flim="${k}">${k==="gform"?gfDayRow():""}${FEAT_LIMITS[k].map(([lk,ll])=>limRow(lk,ll)).join("")}${k==="gform"?`<div class="note" style="margin:2px 0 6px">Total for the plan: every form made counts, also after it is deleted (failed ones do not). Empty = the default from Settings (${gfGlobal} a day). Unlimited still stops at the safety cap. Questions: Unlimited = 200. A person's own number (Users → Manage) wins over the plan.</div>`:""}</div>`:""}`).join("")}
    </div></div>`,{wide:true,foot:`${isNew||p.is_default?"":`<button class="btn r" id="pDel">Delete plan</button>`}<span class="sp"></span><button class="btn" id="pCancel">Cancel</button><button class="btn p" id="pSave">Save plan</button>`});
   let color=p.color,badge=p.badge,vis=p.visibility;
   o.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{color=b.dataset.c;o.querySelectorAll("[data-c]").forEach(x=>x.classList.toggle("on",x===b))});
@@ -617,7 +621,7 @@ function editPlan(p,clone){
   o.querySelector("#pSave").onclick=async()=>{
     const limits={};o.querySelectorAll("[data-lim]").forEach(i=>limits[i.dataset.lim]=i.disabled||i.value===""?null:Number(i.value));
     if(limits.gform_questions!=null&&!(Number.isInteger(limits.gform_questions)&&limits.gform_questions>=1&&limits.gform_questions<=200))return alert("Questions per form: type a whole number from 1 to 200, or turn on Unlimited (= 200).");
-    {const i=o.querySelector("#pGfDay"),u=o.querySelector("#pGfDayUnl");if(i){if(u&&u.classList.contains("on"))limits.gform_per_day="unlimited";else if(i.value.trim()!==""){const n=Number(i.value);if(!(Number.isInteger(n)&&n>=0&&n<=1000))return alert("Google Forms per day: type a whole number from 0 to 1000, leave it empty for the default, or turn on Unlimited.");limits.gform_per_day=n}else delete limits.gform_per_day}}
+    {const i=o.querySelector("#pGfDay"),u=o.querySelector("#pGfDayUnl");if(i){if(u&&u.classList.contains("on")){limits.gform_total="unlimited";delete limits.gform_per_day}else if(i.value.trim()!==""){const n=Number(i.value);if(!(Number.isInteger(n)&&n>=0&&n<=100000))return alert("How many Google Forms: type a whole number from 0 to 100000, leave it empty for the default, or turn on Unlimited.");limits.gform_total=n;delete limits.gform_per_day}else{delete limits.gform_total;if(gfOldDay!=null)limits.gform_per_day=gfOldDay}}}
     const features={};o.querySelectorAll("[data-feat]").forEach(i=>{if(i.checked)features[i.dataset.feat]=true});
     const sp=o.querySelector("#pSalePct");if(sp&&Number(sp.value)>0){const pct=Math.min(90,Math.round(Number(sp.value))),u=o.querySelector("#pSaleUntil").value;features._sale={pct,until:u?new Date(u+"T23:59:59").toISOString():null}}
     const others=o.querySelector("#pOthers").value.split("\n").map(x=>x.trim()).filter(Boolean).slice(0,12).map(x=>x.slice(0,80));if(others.length)features._others=others;

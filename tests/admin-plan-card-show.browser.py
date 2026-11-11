@@ -20,7 +20,7 @@ window.supabase.createClient=(...a)=>{const c=baseCreate(...a),rpc0=c.rpc;
  c.rpc=async(name,args)=>{
   if(name==='ql_admin_plans')return {data:[
      {id:'free',name:'Free',color:'#94a3b8',limits:{storage_mb:100,results_kept:3,devices:1,folders:3},features:{new_folder:true},is_default:true,visibility:'public',sort:1},
-     {id:'pro',name:'Pro',color:'#6366f1',price_month:4,limits:{storage_mb:2048,results_kept:null,devices:2,gform_per_day:5},features:{gform:true,_card:{storage_mb:true,devices:false,gform_per_day:false}},visibility:'public',sort:2}],error:null};
+     {id:'pro',name:'Pro',color:'#6366f1',price_month:4,limits:{storage_mb:2048,results_kept:null,devices:2,gform_total:5},features:{gform:true,_card:{storage_mb:true,devices:false,gform_total:false}},visibility:'public',sort:2}],error:null};
   if(name==='ql_admin_save_plan'){pc.saves.push(args.p);return {data:args.p,error:null}}
   return rpc0(name,args)};
  return c};
@@ -54,7 +54,7 @@ with sync_playwright() as p:
         st = state()
         assert st['storage_mb'] is False, st
         assert all(v for k, v in st.items() if k != 'storage_mb'), st
-        for k in ('results_kept', 'devices', 'folders', 'quizzes', 'questions_per_quiz', 'links', 'pdfs', 'gform_questions', 'gform_per_day'):
+        for k in ('results_kept', 'devices', 'folders', 'quizzes', 'questions_per_quiz', 'links', 'pdfs', 'gform_questions', 'gform_total'):
             assert k in st, (k, st)
         # the Show switch looks exactly like the Unlimited switch on the same row
         look = page.evaluate('''(()=>{const css=e=>{const c=getComputedStyle(e),a=getComputedStyle(e,'::after');return [e.className.replace(/\\bon\\b/,'').trim(),c.width,c.height,c.borderRadius,a.width,a.height,a.backgroundColor]};
@@ -90,11 +90,11 @@ with sync_playwright() as p:
         # 3. a saved choice comes back when the plan is opened again
         page.locator('[data-edit="pro"]').click(); page.locator('[data-show="storage_mb"]').wait_for()
         st = state()
-        assert st['storage_mb'] is True and st['devices'] is False and st['gform_per_day'] is False and st['results_kept'] is True, st
+        assert st['storage_mb'] is True and st['devices'] is False and st['gform_total'] is False and st['results_kept'] is True, st
         page.locator('#pSave').click(); page.wait_for_function('pc.saves.length===2')
-        assert page.evaluate('pc.saves.at(-1).features._card.gform_per_day') is False
-        assert page.evaluate('pc.saves.at(-1).limits.gform_per_day') == 5
-        ok(tag + "Edit plan Pro: the saved Show choices come back (incl. Google Forms per day) and save again unchanged")
+        assert page.evaluate('pc.saves.at(-1).features._card.gform_total') is False
+        assert page.evaluate('pc.saves.at(-1).limits.gform_total') == 5
+        ok(tag + "Edit plan Pro: the saved Show choices come back (incl. How many Google Forms) and save again unchanged")
         assert not errors, errors
         context.close()
     browser.close()

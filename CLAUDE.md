@@ -11,7 +11,7 @@ the full details. This file is the short version.
 - Every release of the student app changes the version name in **both**
   `index.html` (`<meta name="ql-shell-generation">`, line ~20) and `sw.js`
   (`APP_CACHE` + `SHELL_GENERATION`). Use the form `reliability-YYYY-MM-DD-vN`.
-  The version in the repo on 2026-11-11 is `reliability-2026-11-11-v13` (Rooms Part 1 + 2, on branch `claude/peaceful-keller-drbzyi`; not live until merged to main; v11 is live).
+  The version in the repo on 2026-11-11 is `reliability-2026-11-11-v14` (Google Forms total per plan, on branch `claude/peaceful-keller-drbzyi`; not live until merged to main; v13 is live).
 - CDN libraries stay pinned (supabase-js 2.118.0, tus 4.3.1, pdf-lib 1.17.1). If you
   change one, change it in index.html, admin.html, sw.js and the offline tests.
 - A new picture in `assets/` must also be added to `SHELL` in `sw.js` (a test checks this).
@@ -75,7 +75,10 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
   Then My Google Forms opens with a "ready" banner and the new form highlighted (link, made date, days ago).
   Feature key `gform` (Website Control). Admin → Settings card `gfCard()` stores the Apps Script URL + secret
   and the safety cap; Admin → Users → Manage sets one person's Google Forms per day (badge in the list);
-  Edit plan → Make Google Form: limits.gform_per_day (number / "unlimited" / absent = global) and limits.gform_questions (1–200).
+  Edit plan → Make Google Form: limits.gform_total = "How many Google Forms" in TOTAL for the plan (number / "unlimited"; every form ever made
+  counts, deleted ones too, failed ones not; mode `plan_total`, `ql__gform_used_total`; the daily safety cap still applies), older plans may
+  still have limits.gform_per_day (used only while gform_total is empty; absent = global per day), and limits.gform_questions (1–200).
+  A person's own number (Users → Manage) is per day and wins over the plan.
 - `qlPlans` (~19498): plans, limits incl. `questions_per_quiz`, sale price, codes, KHQR, payments.
   The "Choose your plan" cards come only from the saved plan (`featureLines` = `window.qlPlanCardLines`):
   `CARD_LIMITS` / `CARD_FEATURES` / `CARD_FEAT_LIMITS` must match admin.html `LIMITS` / `FEATURES` /
