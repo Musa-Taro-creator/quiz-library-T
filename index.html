@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-11-v8">
+<meta name="ql-shell-generation" content="reliability-2026-11-11-v9">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -20842,6 +20842,9 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
           <div id="qlGfRules" class="ql-gf-rules"></div>
           <small class="ql-gf-scorenote">Score: Google shows students their score after they submit. To hide it until you're ready, change it once in Google Forms → Settings → Release marks (Google doesn't let the app set this).</small></div>
       </div>
+      <div class="ql-gf-sec" id="qlGfPracOpts"><b>Practice settings</b>
+        <label class="ql-gf-sw"><button type="button" class="ql-gf-tg" id="qlGfPShuffle" role="switch"></button><span>Shuffle question order<small>Off by default. On = every student gets the questions in a different order.</small></span></label>
+        <small class="ql-gf-scorenote">✓ After Submit, students tap <b>View score</b>: their score, ✓ / ✗ for each answer, the right answer and your feedback.</small></div>
       <div class="ql-gf-sec" id="qlGfNumBox"><label class="ql-gf-sw"><button type="button" class="ql-gf-tg" id="qlGfNum" role="switch"></button><span>Number the questions<small>“1. What is…”, “2. …” in the Google Form</small></span></label>
         <div id="qlGfNumStart" class="ql-gf-numstart hidden"><span>Start at</span><div class="ql-gf-seg"><button type="button" data-gf-ns="one">1</button><button type="button" data-gf-ns="quiz">Quiz numbers</button></div></div>
         <div id="qlGfNumWarn" class="ql-gf-numwarn hidden">⚠ “Shuffle question order” is on, so students would see the numbers mixed up (e.g. 17, 3, 42). Turn one of them off.</div></div>
@@ -20857,7 +20860,7 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
     let picked=null,quizRows=null,quizLoad=0,from=1,to=1,autoTitle="",mode="parts",sel=new Set();
     /* numbering (Practice + Exam, on by default) and the exam settings, remembered on this device */
     const exKey="ql_gf_exam_"+(state.user&&state.user.id||"");
-    const exDefault={num:true,numStart:"one",fields:[["Full name",true],["Student ID",true],["Class / Group",true],["Phone number",false]],one:true,email:true,shuffle:true,lock:true};
+    const exDefault={num:true,numStart:"one",pshuffle:false,fields:[["Full name",true],["Student ID",true],["Class / Group",true],["Phone number",false]],one:true,email:true,shuffle:true,lock:true};
     let ex=(()=>{try{const v=JSON.parse(localStorage.getItem(exKey)||"null");return v&&Array.isArray(v.fields)?{...exDefault,...v}:{...exDefault,fields:exDefault.fields.map(f=>f.slice())}}catch{return {...exDefault,fields:exDefault.fields.map(f=>f.slice())}}})();
     const saveEx=()=>{try{localStorage.setItem(exKey,JSON.stringify(ex))}catch{}};
     const RULES=[["one","One answer per student","Students sign in to Google; each Google account can submit once."],["email","Record each student's Gmail","Shown next to their answers in Responses."],["shuffle","Shuffle question order","Every student gets the questions in a different order."],["lock","No editing after submit","And no “submit another answer” link."]];
@@ -20874,7 +20877,8 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
       const t=$$("#qlGfNum");t.classList.toggle("on",!!ex.num);t.setAttribute("aria-checked",String(!!ex.num));
       $$("#qlGfNumStart").classList.toggle("hidden",!ex.num||src!=="quiz");
       pane.querySelectorAll("[data-gf-ns]").forEach(b=>b.classList.toggle("on",b.dataset.gfNs===ex.numStart));
-      $$("#qlGfNumWarn").classList.toggle("hidden",!(ex.num&&kind==="exam"&&ex.shuffle));
+      $$("#qlGfNumWarn").classList.toggle("hidden",!(ex.num&&(kind==="exam"?ex.shuffle:ex.pshuffle)));
+      const ps=$$("#qlGfPShuffle");ps.classList.toggle("on",!!ex.pshuffle);ps.setAttribute("aria-checked",String(!!ex.pshuffle));
     }
     /* daily limit: admin / Users → Manage / the plan / the global number; Unlimited has a safety cap */
     const unl=!!info.unlimited,left=Number(info.left||0),limit=unl?null:Number(info.limit??5),off=!unl&&limit===0&&(info.mode==="custom"||info.mode==="plan");
@@ -21002,16 +21006,17 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
       const num=(rows,first)=>rows.slice(0,maxQ).map((q,i)=>{const g=toGoogle(q);if(ex.num)g.prompt=`${(ex.numStart==="quiz"&&src==="quiz"?first:1)+i}. ${g.prompt}`;return g});
       startJob(forms.map(f=>({title:f.title,questions:num(f.rows,f.first||1),editor_email:email,source:(exam?"exam_":"")+src,
           description:exam?"Made with Quiz Library · Fill in your details, then answer every question."+(ex.one?" You can submit only once.":""):"Made with Quiz Library",
-          exam:examBody,part:f.part})),
+          exam:examBody,practice:exam?undefined:{shuffle:!!ex.pshuffle},part:f.part})),
         {made:part=>{if(part!=null){sel.delete(part);if(pane.isConnected){if($$("#qlGfPartList"))drawParts();else drawRange();refresh()}}}});
     };
     $$("#qlGfNum").onclick=()=>{ex.num=!ex.num;saveEx();drawNum()};
+    $$("#qlGfPShuffle").onclick=()=>{ex.pshuffle=!ex.pshuffle;saveEx();drawNum()};
     pane.querySelectorAll("[data-gf-ns]").forEach(b=>b.onclick=()=>{ex.numStart=b.dataset.gfNs;saveEx();drawNum()});
     const addField=()=>{const i=$$("#qlGfNewField"),v=i.value.trim().slice(0,100);if(!v)return i.focus();if(ex.fields.length>=10)return toast("Up to 10 questions for students.");ex.fields.push([v,true]);i.value="";saveEx();drawExam();refresh()};
     $$("#qlGfAddField").onclick=addField;$$("#qlGfNewField").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addField()}};
     /* Practice / Exam share this pane: switching tabs keeps the questions, only the extras change */
     kindHook=()=>{if(!pane.isConnected)return;const exam=kind==="exam";
-      $$("#qlGfExamOpts").classList.toggle("hidden",!exam);pane.classList.toggle("ql-gf-isexam",exam);
+      $$("#qlGfExamOpts").classList.toggle("hidden",!exam);$$("#qlGfPracOpts").classList.toggle("hidden",exam);pane.classList.toggle("ql-gf-isexam",exam);
       drawExam();drawNum();retitle();refresh()};
     kindHook();
     setSrc(src);
@@ -21124,6 +21129,7 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
     else if(r.editor_error)notes.push(`<div class="ql-gf-note warn">${h(r.editor_error)} The form was made; you can add your Gmail later with ⋯ → Add my Gmail as editor.</div>`);
     else notes.push(`<div class="ql-gf-note">No Gmail added, so only the student link works for you. To edit the form or see scores, tap ⋯ → <b>Add my Gmail as editor</b>.</div>`);
     if(doneInfo.exam)notes.push(`<div class="ql-gf-note">Students fill in their details first (name, ID…), then answer. Share the link only when the exam starts; use ⋯ → <b>Stop accepting answers</b> when time is up.</div>`);
+    if(!doneInfo.exam&&rs.some(x=>x.from_template===false))notes.push(`<div class="ql-gf-note warn">Students won't see their score after Submit yet: the practice template isn't set up (ask the admin), or open the form → Settings → Release marks → <b>Immediately after each submission</b>.</div>`);
     if(sa)notes.push(`<div class="ql-gf-note warn">${sa} short-answer question${sa===1?"":"s"}: Google Forms can't get their answer from Quiz Library, so mark them in Google Forms (the answer is in each question's feedback).</div>`);
     if(na)notes.push(`<div class="ql-gf-note warn">${na} question${na===1?" has":"s have"} no correct answer yet. Set ${na===1?"it":"them"} in Google Forms.</div>`);
     const what=many?rs.map(x=>`${h((x.form||{}).title||"Quiz")} (${Number((x.form||{}).question_count||0)} questions)`).join(" · "):`${h(f.title||"Quiz")} · ${Number(f.question_count||0)} questions`;

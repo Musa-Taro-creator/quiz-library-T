@@ -24,7 +24,7 @@ function google(){
    getTitle:()=>form.title,setTitle:t=>{form.title=t},getPublishedUrl:()=>'https://docs.google.com/forms/d/e/'+id+'/viewform',shortenFormUrl:()=>'https://forms.gle/'+id,getEditUrl:()=>'https://docs.google.com/forms/d/'+id+'/edit'};
    forms.set(id,form);files.set(id,{id,name:title,parents:['root'],trashed:false});if(google.failOn&&title.includes(google.failOn))form.addMultipleChoiceItem=()=>{throw Error('Google said no')};return form},
   openById(id){if(!forms.has(id))throw Error('No item with the given ID');return forms.get(id)},createFeedback:()=>{let t='';const b={setText:x=>{t=x;return b},build:()=>({text:t})};return b}};
- const DriveApp={getFileById(id){const f=files.get(id);if(!f)throw Error('missing');return {getId:()=>id,setTrashed:v=>{f.trashed=v},moveTo:folder=>{f.parents=[folder.getId()]},setName:n=>{f.name=n},getParents:()=>{const p=[...f.parents];return {hasNext:()=>p.length>0,next:()=>folders.get(p.shift())||{getId:()=>'root'}}}}},
+ const DriveApp={getFileById(id){const f=files.get(id);if(!f)throw Error('missing');return {getId:()=>id,isTrashed:()=>!!f.trashed,makeCopy:name=>{const src=forms.get(id);const c=FormApp.create(name),cf=forms.get(c.getId());cf.settings={...src.settings};cf.quiz=src.quiz;cf.copiedFrom=id;src.items.forEach(i=>cf.items.push(i));files.get(cf.id).parents=[...f.parents];return {getId:()=>cf.id}},setTrashed:v=>{f.trashed=v},moveTo:folder=>{f.parents=[folder.getId()]},setName:n=>{f.name=n},getParents:()=>{const p=[...f.parents];return {hasNext:()=>p.length>0,next:()=>folders.get(p.shift())||{getId:()=>'root'}}}}},
   getFolderById(id){if(!folders.has(id))throw Error('missing');return folders.get(id)},getFoldersByName:n=>{const m=[...folders.values()].filter(f=>f.name===n);return {hasNext:()=>m.length>0,next:()=>m.shift()}},createFolder:n=>mkFolder(n,null)};
  const ctx={FormApp,DriveApp,Logger:{log:m=>log.push(m)},Session:{getEffectiveUser:()=>({getEmail:()=>'quizlibrary.forms@gmail.com'})},
   Utilities:{getUuid:()=>'aaaaaaaa-bbbb-cccc-dddd-'+String(++seq).padStart(12,'0')},LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},
@@ -148,7 +148,7 @@ test('Big forms go in parts of 30 (no call long enough for Supabase to cut it of
  const old=await call('user:'+B,{action:'make',title:'Old app',questions:big});
  assert.deepEqual([old.next,g.forms.get(old.form.form_id).items.length,g.forms.get(old.form.form_id).accepting],[null,75,true]);
  // an Apps Script from before this change (no "add"): everything in one call too
- g.ctx.VERSION=1;const oldScript=await call('user:'+B,{action:'make',title:'Old script',questions:big,chunked:true});g.ctx.VERSION=3;
+ g.ctx.VERSION=1;const oldScript=await call('user:'+B,{action:'make',title:'Old script',questions:big,chunked:true});g.ctx.VERSION=4;
  assert.deepEqual([oldScript.next,g.forms.get(oldScript.form.form_id).items.length],[null,75]);
  // a part that keeps failing: the app discards the half-made form (trashed in Drive, gone from the list)
  const half=await call('user:'+B,{action:'make',title:'Half',questions:big,chunked:true});
@@ -168,11 +168,25 @@ test('Exam forms: settings cleaned and passed to the Apps Script; an older Apps 
  assert.equal(a.ok,true);assert.equal(g.lastScriptBody.required,true);assert.ok(form.items.slice(-10).every(i=>i.required));
  await as(ADM);const mine=(await db.query('select public.ql_gform_mine() v')).rows[0].v;await db.exec('reset role');
  assert.equal(mine.forms.find(f=>f.id===r.form.id).source,'exam_quiz','the list knows it is an exam');
- g.ctx.VERSION=2;const old=await call('user:'+ADM,{action:'make',title:'Old exam',questions:big.slice(0,5),exam});g.ctx.VERSION=3;
+ g.ctx.VERSION=2;const old=await call('user:'+ADM,{action:'make',title:'Old exam',questions:big.slice(0,5),exam});g.ctx.VERSION=4;
  assert.deepEqual([old.status,old.ok],[503,false]);assert.match(old.error,/Exam forms need the new Apps Script \(version 3\)/);
  assert.equal([...g.forms.values()].filter(f=>f.title==='Old exam').length,0,'no form made');
  await as(ADM);const after=(await db.query('select public.ql_gform_mine() v')).rows[0].v;await db.exec('reset role');
  assert.ok(!after.forms.some(f=>f.title==='Old exam'));
+});
+test('Practice: shuffle passed to the Apps Script (v4), from_template reported, ping shows the version and the template; an older Apps Script refuses shuffle',async()=>{
+ const pong=await call('user:'+ADM,{action:'ping'});assert.deepEqual([pong.version,pong.practice_template],[4,false]);
+ const tid=g.ctx.setupPracticeTemplate();assert.equal((await call('user:'+ADM,{action:'ping'})).practice_template,true);
+ const r=await call('user:'+ADM,{action:'make',title:'Shuffled practice',questions:QS,practice:{shuffle:true,extra:1}});
+ assert.equal(r.ok,true,JSON.stringify(r));assert.deepEqual(g.lastScriptBody.practice,{shuffle:true});assert.equal(r.from_template,true);
+ assert.equal(g.forms.get(r.form.form_id).copiedFrom,tid);assert.equal(g.forms.get(r.form.form_id).settings.shuffle,true);
+ const ex=await call('user:'+ADM,{action:'make',title:'Exam x',questions:QS,exam:{fields:['Full name']},practice:{shuffle:true}});
+ assert.equal(g.lastScriptBody.practice,null,'exams get no practice settings');assert.equal(ex.from_template,false);
+ g.ctx.VERSION=3;const old=await call('user:'+ADM,{action:'make',title:'Old shuffle',questions:QS,practice:{shuffle:true}});
+ const plain=await call('user:'+ADM,{action:'make',title:'Old no shuffle',questions:QS});g.ctx.VERSION=4;
+ assert.deepEqual([old.status,old.ok],[503,false]);assert.match(old.error,/Shuffle for practice forms needs the new Apps Script \(version 4\)/);
+ assert.equal(plain.ok,true,'without shuffle an older Apps Script still works');
+ g.files.get(tid).trashed=true;
 });
 test('The daily limit holds through the Edge Function too',async()=>{
  for(let i=0;i<3;i++)assert.equal((await call('user:'+A,{action:'make',title:'Q'+i,questions:QS})).ok,true); // 2 made above + 3 = 5

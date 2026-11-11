@@ -11,7 +11,7 @@ the full details. This file is the short version.
 - Every release of the student app changes the version name in **both**
   `index.html` (`<meta name="ql-shell-generation">`, line ~20) and `sw.js`
   (`APP_CACHE` + `SHELL_GENERATION`). Use the form `reliability-YYYY-MM-DD-vN`.
-  The version in the repo on 2026-11-11 is `reliability-2026-11-11-v8` (not live until merged to main; v7 is live).
+  The version in the repo on 2026-11-11 is `reliability-2026-11-11-v9` (not live until merged to main; v8 is live).
 - CDN libraries stay pinned (supabase-js 2.118.0, tus 4.3.1, pdf-lib 1.17.1). If you
   change one, change it in index.html, admin.html, sw.js and the offline tests.
 - A new picture in `assets/` must also be added to `SHELL` in `sw.js` (a test checks this).
@@ -61,7 +61,9 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
 - `qlGoogleForms` (before `qlRoomsLoader`): Make Google Form button (after Create Quiz), window with tabs
   Practice · Exam · My Google Forms (Practice and Exam share one pane; Exam adds student fields asked first on their
   own page + rules: one answer per Google account, record Gmail, shuffle, no editing; source `exam_paste`/`exam_quiz`;
-  needs Apps Script version 3). "Number the questions" (both tabs, on by default; start at 1 or quiz numbers) is added
+  needs Apps Script version 3). Practice forms (Apps Script version 4) are copies of a template form
+  (`setupPracticeTemplate`, Release marks set to "Immediately" by hand once — Google doesn't let a script set it) so
+  students see "View score" after Submit; Practice settings: Shuffle (off by default). "Number the questions" (both tabs, on by default; start at 1 or quiz numbers) is added
   by the app to each prompt. Exam settings are remembered per device (`ql_gf_exam_<uid>`). Paste = `window.qlBulkPastePanel` (end of `quizFeatureScript`): the quiz editor's Bulk Paste
   panel (upload, guides, answer key, Apply & Preview, Missing/Problem panels, editable preview), no Destination/Position.
   One of my quizzes (2+ questions): Parts (Questions per part: typed or quick 25/50/100/max/Half, 1…max, remembered

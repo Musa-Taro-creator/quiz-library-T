@@ -16,7 +16,7 @@ function google(){
    getTitle:()=>form.title,setTitle:t=>{form.title=t},getPublishedUrl:()=>'https://docs.google.com/forms/d/e/'+id+'/viewform',shortenFormUrl:()=>'https://forms.gle/'+id,getEditUrl:()=>'https://docs.google.com/forms/d/'+id+'/edit'};
    forms.set(id,form);files.set(id,{id,name:title,parents:['root'],trashed:false});if(google.failOn&&title.includes(google.failOn))form.addMultipleChoiceItem=()=>{throw Error('Google said no')};return form},
   openById(id){if(!forms.has(id))throw Error('No item with the given ID');return forms.get(id)},createFeedback:()=>{let t='';const b={setText:x=>{t=x;return b},build:()=>({text:t})};return b}};
- const DriveApp={getFileById(id){const f=files.get(id);if(!f)throw Error('missing');return {getId:()=>id,setTrashed:v=>{f.trashed=v},moveTo:folder=>{f.parents=[folder.getId()]},setName:n=>{f.name=n},getParents:()=>{const p=[...f.parents];return {hasNext:()=>p.length>0,next:()=>folders.get(p.shift())||{getId:()=>'root'}}}}},
+ const DriveApp={getFileById(id){const f=files.get(id);if(!f)throw Error('missing');return {getId:()=>id,isTrashed:()=>!!f.trashed,makeCopy:name=>{const src=forms.get(id);const c=FormApp.create(name),cf=forms.get(c.getId());cf.settings={...src.settings};cf.quiz=src.quiz;cf.copiedFrom=id;src.items.forEach(i=>cf.items.push(i));files.get(cf.id).parents=[...f.parents];return {getId:()=>cf.id}},setTrashed:v=>{f.trashed=v},moveTo:folder=>{f.parents=[folder.getId()]},setName:n=>{f.name=n},getParents:()=>{const p=[...f.parents];return {hasNext:()=>p.length>0,next:()=>folders.get(p.shift())||{getId:()=>'root'}}}}},
   getFolderById(id){if(!folders.has(id))throw Error('missing');return folders.get(id)},getFoldersByName:n=>{const m=[...folders.values()].filter(f=>f.name===n);return {hasNext:()=>m.length>0,next:()=>m.shift()}},createFolder:n=>mkFolder(n,null)};
  const ctx={FormApp,DriveApp,Logger:{log:m=>log.push(m)},Session:{getEffectiveUser:()=>({getEmail:()=>'quizlibrary.forms@gmail.com'})},
   Utilities:{getUuid:()=>'aaaaaaaa-bbbb-cccc-dddd-'+String(++seq).padStart(12,'0')},LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){}})},
@@ -44,7 +44,7 @@ test('Without the right secret nothing happens',()=>{
  assert.deepEqual(g.post({action:'ping'}),{ok:false,error:'Not allowed'});
  assert.deepEqual(g.post({action:'ping',secret:'x'.repeat(64)}),{ok:false,error:'Not allowed'});
  assert.equal(JSON.parse(g.ctx.doGet().text).ok,true);assert.ok(!g.ctx.doGet().text.includes('@'),'GET does not reveal the Gmail');
- assert.deepEqual(g.post({action:'ping',secret:g.props.get('SECRET')}),{ok:true,owner:'quizlibrary.forms@gmail.com',version:3});
+ assert.deepEqual(g.post({action:'ping',secret:g.props.get('SECRET')}),{ok:true,owner:'quizlibrary.forms@gmail.com',version:4,practice_template:false});
 });
 test('make: a quiz with right answers, points, feedback, published, in the student folder, shared',()=>{
  const g=google();g.ctx.setup();const secret=g.props.get('SECRET');
@@ -91,7 +91,7 @@ test('status, rename, open/close and share only touch forms in that student fold
 });
 test('Big forms in parts: make with more keeps it closed, add appends to the same form, discard trashes; only in that student folder',()=>{
  const g=google();g.ctx.setup();const secret=g.props.get('SECRET');
- assert.equal(g.post({action:'ping',secret}).version,3);
+ assert.equal(g.post({action:'ping',secret}).version,4);
  const r=g.post({action:'make',secret,user_id:'u-1',user_label:'Bona',title:'Big',questions:QS,more:true});
  assert.equal(r.ok,true,JSON.stringify(r));assert.equal(r.more,true);const form=g.forms.get(r.form_id);
  assert.deepEqual([form.items.length,form.accepting],[5,false],'closed to answers until the last part');
@@ -124,4 +124,30 @@ test('Exam forms: student fields first (required) on their own page, every quest
  // practice: no fields, nothing required, no exam settings
  const p=g.post({action:'make',secret,user_id:'u-1',user_label:'Bona',title:'Practice',questions:QS});
  const pf=g.forms.get(p.form_id);assert.deepEqual(plain(pf.settings),{});assert.ok(pf.items.every(i=>!i.required));
+});
+test('Practice template: setupPracticeTemplate makes it once; practice forms are copies (keep Release marks), say "View score", can shuffle; exams and a missing template fall back',()=>{
+ const g=google();g.ctx.setup();const secret=g.props.get('SECRET');
+ // no template yet: made the old way, no View score message
+ const before=g.post({action:'make',secret,user_id:'u-1',user_label:'Bona',title:'Before',questions:QS});
+ assert.equal(before.from_template,false);assert.equal(g.forms.get(before.form_id).settings.confirm,undefined);
+ const tid=g.ctx.setupPracticeTemplate();assert.equal(g.ctx.setupPracticeTemplate(),tid,'running it again keeps the same template');
+ const tpl=g.forms.get(tid);assert.equal(tpl.title,'Quiz Library – practice template (do not delete)');assert.equal(tpl.quiz,true);
+ assert.ok(g.log.some(l=>l.includes('Release marks')),'the log says what to change');
+ assert.equal(g.files.get(tid).parents[0],[...g.folders.values()].find(f=>f.name==='Quiz Library forms').id,'kept in the main folder');
+ assert.equal(g.post({action:'ping',secret}).practice_template,true);
+ tpl.settings.release='immediately';// what Kuza sets by hand in Google Forms
+ const r=g.post({action:'make',secret,user_id:'u-1',user_label:'Bona',title:'Practice',questions:QS,practice:{shuffle:true}});
+ assert.equal(r.ok,true,JSON.stringify(r));assert.equal(r.from_template,true);
+ const form=g.forms.get(r.form_id);
+ assert.deepEqual([form.copiedFrom,form.title,form.settings.release,form.settings.shuffle,form.items.length],[tid,'Practice','immediately',true,5]);
+ assert.match(form.settings.confirm,/View score/);
+ assert.equal(g.files.get(r.form_id).parents[0],[...g.folders.values()].find(f=>f.name==='Quiz Library - Bona').id,'moved to the student folder');
+ assert.equal(tpl.items.length,0,'the template stays empty');
+ const plain2=g.post({action:'make',secret,user_id:'u-1',user_label:'Bona',title:'No shuffle',questions:QS});assert.equal(g.forms.get(plain2.form_id).settings.shuffle,undefined);
+ // exams are not copied from the practice template
+ const ex=g.post({action:'make',secret,user_id:'u-1',user_label:'Bona',title:'Exam',questions:QS,exam:{fields:['Full name'],one_response:true}});
+ assert.equal(ex.from_template,false);assert.equal(g.forms.get(ex.form_id).copiedFrom,undefined);
+ // template deleted: practice forms are still made, the old way
+ g.files.get(tid).trashed=true;assert.equal(g.post({action:'ping',secret}).practice_template,false);
+ const after=g.post({action:'make',secret,user_id:'u-1',user_label:'Bona',title:'After',questions:QS});assert.equal(after.ok,true);assert.equal(after.from_template,false);
 });

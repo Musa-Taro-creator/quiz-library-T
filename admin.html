@@ -1005,11 +1005,15 @@ async function gfCard(){
   let capWas=null;rpc("ql_admin_gform_cap_get").then(c=>{capWas=c;const i=$("#gfCap");if(i)i.value=c}).catch(()=>{const i=$("#gfCap");if(i){i.disabled=true;i.placeholder="Run google_forms_user_limits.sql"}});
   const save=async(url,secret)=>{const cap=$("#gfCap")&&$("#gfCap").value.trim();if(cap&&Number(cap)!==capWas)await rpc("ql_admin_gform_cap_set",{p_cap:Number(cap)});const lim=$("#gfLimit").value===""?null:Number($("#gfLimit").value);await rpc("ql_admin_gform_save",{p_script_url:url,p_secret:secret,p_daily_limit:lim})};
   const ping=async()=>{const {data,error}=await sb.functions.invoke("ql-gform",{body:{action:"ping"}});let d=data;if(error){try{d=await error.context.json()}catch{d={error:error.message}}}
-    if(!d||!d.ok)throw new Error(d&&d.error||"No answer");return d.owner};
+    if(!d||!d.ok)throw new Error(d&&d.error||"No answer");return d};
+  /* Apps Script version + the practice template (version 4: practice forms show "View score") */
+  const pingText=d=>{const v=Number(d.version||0);if(!v)return "";
+    if(v<4)return ` · Apps Script version ${v} — update it to version 4 so practice forms show the score after Submit.`;
+    return d.practice_template?" · Apps Script version "+v+" · Practice template: ✓ ready (scores shown after Submit)":" · Apps Script version "+v+" · ⚠ Practice template missing: in Apps Script run setupPracticeTemplate, then set its Release marks to Immediately."};
   $("#gfSave").onclick=async e=>{const b=e.currentTarget;b.disabled=true;try{await save($("#gfUrl").value.trim(),$("#gfSecret").value.trim());toast("Google Forms settings saved");
-      let owner=null;try{owner=await ping()}catch{}await gfCard();if(owner)msg("✅ Saved and connected. Forms are made by "+owner)}catch(x){msg(errMsg(x),true)}finally{b.disabled=false}};
+      let d=null;try{d=await ping()}catch{}await gfCard();if(d)msg("✅ Saved and connected. Forms are made by "+d.owner+pingText(d))}catch(x){msg(errMsg(x),true)}finally{b.disabled=false}};
   $("#gfPing").onclick=async e=>{const b=e.currentTarget;b.disabled=true;msg("Asking the Apps Script…");
-    try{const owner=await ping();await gfCard();msg("✅ Connected. Forms are made by "+owner)}
+    try{const d=await ping();await gfCard();msg("✅ Connected. Forms are made by "+d.owner+pingText(d))}
     catch(x){msg("❌ "+(/Function not found|404|Failed to send/i.test(errMsg(x))?"The Edge Function ql-gform is not deployed yet.":errMsg(x)),true)}finally{b.disabled=false}};
   $$("[data-gf-use]").forEach(b=>b.onclick=async()=>{if(!confirm("Make new forms with this Gmail again?"))return;try{await save(b.dataset.gfUse,"");toast("Switched");gfCard()}catch(x){msg(errMsg(x),true)}});
 }

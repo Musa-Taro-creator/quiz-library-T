@@ -35,7 +35,7 @@ window.supabase.createClient=(...a)=>{const c=baseCreate(...a),rpc0=c.rpc;
     return {data:{},error:null}}
   return rpc0(name,args)};
  c.functions={invoke:async(name,o)=>{gf.invokes.push(o.body);const a=gf.owners.find(x=>x.active);if(!a)return {data:{ok:false,error:'not set up'},error:null};
-   a.owner_email=a.script_url.includes('Two')?'second.forms@gmail.com':'quizlibrary.forms@gmail.com';a.checked_at=new Date().toISOString();return {data:{ok:true,owner:a.owner_email},error:null}}};
+   a.owner_email=a.script_url.includes('Two')?'second.forms@gmail.com':'quizlibrary.forms@gmail.com';a.checked_at=new Date().toISOString();return {data:{ok:true,owner:a.owner_email,version:gf.version??4,practice_template:!!gf.tpl},error:null}}};
  return c};
 '''
 URL1 = 'https://script.google.com/macros/s/AKfycbOne/exec'
@@ -81,9 +81,16 @@ with sync_playwright() as p:
         page.wait_for_function(f"gf.owners.find(o=>o.active).script_url==='{URL1}'")
         page.locator('#gfPing').click()
         page.wait_for_function("document.getElementById('gfMsg').textContent.includes('Connected. Forms are made by quizlibrary.forms@gmail.com')")
+        assert 'Practice template missing' in page.locator('#gfMsg').inner_text() and 'setupPracticeTemplate' in page.locator('#gfMsg').inner_text()
+        page.evaluate("gf.tpl=true"); page.locator('#gfPing').click()
+        page.wait_for_function("document.getElementById('gfMsg').textContent.includes('Practice template: ✓ ready')")
+        assert 'Apps Script version 4' in page.locator('#gfMsg').inner_text()
+        page.evaluate("gf.version=3"); page.locator('#gfPing').click()
+        page.wait_for_function("document.getElementById('gfMsg').textContent.includes('update it to version 4')")
+        page.evaluate("gf.version=4")
         assert page.evaluate('gf.saves.at(-1)')['p_secret'] == '', 'switching back keeps the saved secret'
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth+1")
-        ok(tag + 'Switch to a second Gmail and back ("Use this one"); Check connection names the Gmail')
+        ok(tag + 'Switch to a second Gmail and back ("Use this one"); Check connection names the Gmail, the Apps Script version and the practice template')
         # safety cap for Unlimited, saved with Save
         assert page.locator('#gfCap').input_value() == '100'
         page.locator('#gfCap').fill('150'); page.locator('#gfSave').click()
