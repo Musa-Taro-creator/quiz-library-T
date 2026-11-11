@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-11-v1">
+<meta name="ql-shell-generation" content="reliability-2026-11-11-v2">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -19789,14 +19789,19 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   /* "Select many" names get a prefix on the card so they don't look like the ⋮ menu ones */
   const CARD_PREFIX={sel_share_in:"Select many: ",sel_share_ex:"Select many: ",sel_copy:"Select many: ",sel_duplicate:"Select many: ",sel_move:"Select many: ",sel_trash:"Select many: "};
   const CARD_FEAT_LIMITS={new_folder:[["folders","folders"]],new_link:[["links","quiz links"]],new_pdf:[["pdfs","PDFs"]],new_quiz:[["quizzes","quizzes"],["questions_per_quiz","questions each"]],gform:[["gform_per_day","Google Forms a day"],["gform_questions","questions per form"]]};
+  /* Edit plan → "👁 Shown / Hidden" on each limit row (features._card = {limit: true/false}).
+     No saved choice = shown, except these. Keep in sync with admin.html CARD_HIDDEN_BY_DEFAULT.
+     Hidden only means "not on the card": the limit itself still applies. */
+  const CARD_HIDDEN_BY_DEFAULT=["storage_mb"];
+  const cardShown=(F,k)=>{const c=F&&F._card;return c&&typeof c==="object"&&k in c?c[k]!==false:!CARD_HIDDEN_BY_DEFAULT.includes(k)};
   const cardMb=v=>Number(v)>=1024?(Number(v)/1024).toFixed(Number(v)%1024?1:0)+" GB":Number(v)+" MB";
   function featureLines(p){
     const L=(p&&p.limits)||{},F=(p&&p.features)||{},out=[];
     /* absent or null = the admin's Unlimited toggle is on (admin shows it the same way); devices absent = 1 */
     const lim=k=>k==="devices"&&!(k in L)?1:L[k];
-    for(const [k,l] of CARD_LIMITS){const v=lim(k);out.push([`${l}: ${v==null?"Unlimited":k==="storage_mb"?cardMb(v):v}`,true])}
+    for(const [k,l] of CARD_LIMITS){if(!cardShown(F,k))continue;const v=lim(k);out.push([`${l}: ${v==null?"Unlimited":k==="storage_mb"?cardMb(v):v}`,true])}
     for(const [k,l] of CARD_FEATURES){if(!F[k])continue;
-      const parts=(CARD_FEAT_LIMITS[k]||[]).map(([lk,ll])=>{const v=L[lk];
+      const parts=(CARD_FEAT_LIMITS[k]||[]).filter(([lk])=>cardShown(F,lk)).map(([lk,ll])=>{const v=L[lk];
         if(lk==="gform_per_day")return v==="unlimited"?"Unlimited Google Forms a day":typeof v==="number"?`${v} ${ll}`:null;/* empty = the default from Settings */
         if(lk==="gform_questions")return `${v==null?200:v} ${ll}`;/* Unlimited = 200 */
         return `${v==null?"Unlimited":v} ${ll}`}).filter(Boolean);
