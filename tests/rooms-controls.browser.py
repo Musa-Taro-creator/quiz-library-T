@@ -12,7 +12,7 @@ source=(ROOT/'index.html').read_text().replace('const MOCK_MODE=false;','const M
 needle='const service=MOCK_MODE?createMockService():createSupabaseService();';source=source.replace(needle,needle+'\nservice.client=window.auditClient;\n',1)
 init=(ROOT/'tests/fixtures/dashboard-quiz-browser.js').read_text()+r'''
 const beforeRoomsRpc=auditRpc;
-auditRpc=async(name,args)=>name==='ql_room_v1'?await fetch('/rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:state.user.id,args})}).then(r=>r.json()):beforeRoomsRpc(name,args);
+auditRpc=async(name,args)=>name==='ql_room_v1'||name==='ql_room_look_v1'?await fetch('/rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:state.user.id,fn:name,args})}).then(r=>r.json()):beforeRoomsRpc(name,args);
 '''
 checks=[]
 def ok(s):checks.append(s);print('PASS:',s,flush=True)
@@ -66,12 +66,13 @@ try:
   op.locator('[data-rm-create]').wait_for(state='hidden');assert not op.locator('[data-rm-join]').is_visible()
   assert 'Creating rooms' in rpc(A,'create',None,{'name':'x'},fail=True);ok('Hidden: Create Room / Join are gone on the page and refused by the server')
   set_features([op],{})
-  op.locator(f'[data-rm-open="{rid}"]').click();op.locator('[data-rm-tool="pdf"]').wait_for()
+  op.locator(f'[data-rm-open="{rid}"]').click();op.locator('[data-rm-add]').wait_for();op.locator('[data-rm-add]').click();op.locator('[data-rm-tool="pdf"]').wait_for()
   set_features([op],{'room_pdf':'off'});op.locator('[data-rm-tool="pdf"]').wait_for(state='hidden');assert op.locator('[data-rm-tool="link"]').is_visible()
   set_features([op],{'room_pdf':'lock'});op.locator('[data-rm-tool="pdf"].ql-locked').wait_for();op.locator('[data-rm-tool="pdf"]').click()
   op.wait_for_timeout(300);assert op.locator('#pdfInput').count()==0 or not op.locator('#pdfInput').is_visible();assert 'locked' in op.locator('#toast').inner_text();assert op.locator('.qu-plans').count()==0
   set_features([op],{'room_pdf':'plan'});op.locator('[data-rm-tool="pdf"].ql-locked').wait_for();op.locator('[data-rm-tool="pdf"]').click();op.locator('.qu-plans').wait_for();op.locator('#modalClose').click()
   set_features([op],{'room_pdf':'plan'},{'room_pdf':True});op.locator('[data-rm-tool="pdf"]:not(.ql-locked)').wait_for()
+  op.locator('[data-rm-add]').click();op.locator('.rm-add-menu').wait_for(state='hidden')
   set_features([op],{});ok('Upload PDF follows Hidden, Lock (toast), By plan without it (Choose your plan) and By plan with it')
   set_features([op],{'room_edit':'lock','room_trash':'off','room_save_copy':'plan'})
   op.locator(f'[data-rm-more="{link["id"]}"]').click();op.locator('[data-room-action="edit"].ql-locked').wait_for()

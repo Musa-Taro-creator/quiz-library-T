@@ -88,6 +88,7 @@ before these files and are not in this repository.
 31b. `google_forms_user_limits.sql`: Google Forms per day per person (Admin → Users). Run after 31.
 31c. `google_forms_plan_limits.sql`: Google Forms per day and questions per form per plan (Edit plan). Run after 31b.
 32. `rooms_controls_v1.sql`: Website Control → Rooms (every room button: Everyone / By plan / Lock / Hidden, checked on the server for each person's own plan), "Who can change this?" on room items and the room owner's item rules. Run after 29 (and run it again if 29 is ever run again).
+33. `rooms_look_v1.sql`: the new room page: cover colour and emoji, pins, "since your last visit", studying now, NEW badges and quiz scores on the cards. Run after 32.
 
 `security_check.sql` is read only: run it any time. Every row it returns is
 something to look at; no rows means all good.
