@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-11-v16">
+<meta name="ql-shell-generation" content="reliability-2026-11-11-v17">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -21248,4 +21248,42 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
  const prior=render;render=function(){const out=prior.apply(this,arguments);place();return out};setTimeout(place,900);
 })();
 </script>
+<script id="qlScrollLock">
+/* While a window or full-screen layer is open, the page behind it must not scroll (Kuza: on iPad
+   "Choose your plan" and other windows let the background scroll). html gets .ql-scroll-locked
+   (overflow hidden, which keeps the page where it was), and on touch screens a swipe that is not
+   inside something scrollable in the open layer is stopped, so iPad Safari cannot scroll the page. */
+(function(){
+  const LAYERS='.overlay.show,.qz-page-overlay.show,.qz-subdialog-overlay.show,.qz-tools-overlay.show,.viewer.show,#qlRooms,#qlDash,#qlItemViewer,#qlOffPdf,.ql-gp,.ql-kick-ov,.ql-loc-ov,.qz-aa2-overlay,.sidebar-shade.show,.profile-strong-backdrop,.ql-strong-password-backdrop,.qz-navdrawer-backdrop';
+  const shown=e=>{if(!e.isConnected||!e.getClientRects().length)return false;const c=getComputedStyle(e);return c.display!=="none"&&c.visibility!=="hidden"&&Number(c.opacity)!==0};
+  const openLayers=()=>[...document.querySelectorAll(LAYERS)].filter(shown);
+  let raf=0;
+  function update(){raf=0;document.documentElement.classList.toggle("ql-scroll-locked",openLayers().length>0)}
+  const later=()=>{if(!raf)raf=requestAnimationFrame(update)};
+  new MutationObserver(later).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:["class","style","hidden"]});
+  update();
+  /* can this element (or one above it, inside the open layer) scroll in the swipe's direction? */
+  function canScroll(el,dx,dy){
+    for(;el&&el!==document.body&&el!==document.documentElement;el=el.parentElement){
+      const c=getComputedStyle(el);
+      if(Math.abs(dy)>=Math.abs(dx)&&/(auto|scroll)/.test(c.overflowY)&&el.scrollHeight>el.clientHeight+1){
+        if(dy>0?el.scrollTop>0:el.scrollTop+el.clientHeight<el.scrollHeight-1)return true}
+      if(Math.abs(dx)>Math.abs(dy)&&/(auto|scroll)/.test(c.overflowX)&&el.scrollWidth>el.clientWidth+1){
+        if(dx>0?el.scrollLeft>0:el.scrollLeft+el.clientWidth<el.scrollWidth-1)return true}
+    }
+    return false;
+  }
+  let sx=0,sy=0;
+  document.addEventListener("touchstart",e=>{const t=e.touches[0];if(t){sx=t.clientX;sy=t.clientY}},{passive:true,capture:true});
+  document.addEventListener("touchmove",e=>{
+    if(!document.documentElement.classList.contains("ql-scroll-locked")||e.touches.length>1)return;
+    const t=e.touches[0];if(!t)return;
+    const tgt=e.target instanceof Element?e.target:null;
+    if(tgt&&tgt.closest("input[type=range],textarea,select"))return;
+    if(!(tgt&&canScroll(tgt,t.clientX-sx,t.clientY-sy))&&e.cancelable)e.preventDefault();
+  },{passive:false,capture:true});
+  window.qlScrollLockUpdate=update;
+})();
+</script>
+<style id="qlScrollLockCss">html.ql-scroll-locked,html.ql-scroll-locked body{overflow:hidden!important;overscroll-behavior:none}</style>
 </body></html>

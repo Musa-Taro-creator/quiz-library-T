@@ -1139,5 +1139,43 @@ addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(v&&v!==cur&
   if(btn)btn.onclick=()=>qlAdminInstall();
 })();
 </script>
+<script id="qlScrollLock">
+/* Admin: while a window is open, the page behind it must not scroll (same as index.html qlScrollLock;
+   Kuza: on iPad windows let the background scroll). html gets .ql-scroll-locked
+   (overflow hidden, which keeps the page where it was), and on touch screens a swipe that is not
+   inside something scrollable in the open layer is stopped, so iPad Safari cannot scroll the page. */
+(function(){
+  const LAYERS='.ovl'; /* every admin window (modal()) is an .ovl */
+  const shown=e=>{if(!e.isConnected||!e.getClientRects().length)return false;const c=getComputedStyle(e);return c.display!=="none"&&c.visibility!=="hidden"&&Number(c.opacity)!==0};
+  const openLayers=()=>[...document.querySelectorAll(LAYERS)].filter(shown);
+  let raf=0;
+  function update(){raf=0;document.documentElement.classList.toggle("ql-scroll-locked",openLayers().length>0)}
+  const later=()=>{if(!raf)raf=requestAnimationFrame(update)};
+  new MutationObserver(later).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:["class","style","hidden"]});
+  update();
+  /* can this element (or one above it, inside the open layer) scroll in the swipe's direction? */
+  function canScroll(el,dx,dy){
+    for(;el&&el!==document.body&&el!==document.documentElement;el=el.parentElement){
+      const c=getComputedStyle(el);
+      if(Math.abs(dy)>=Math.abs(dx)&&/(auto|scroll)/.test(c.overflowY)&&el.scrollHeight>el.clientHeight+1){
+        if(dy>0?el.scrollTop>0:el.scrollTop+el.clientHeight<el.scrollHeight-1)return true}
+      if(Math.abs(dx)>Math.abs(dy)&&/(auto|scroll)/.test(c.overflowX)&&el.scrollWidth>el.clientWidth+1){
+        if(dx>0?el.scrollLeft>0:el.scrollLeft+el.clientWidth<el.scrollWidth-1)return true}
+    }
+    return false;
+  }
+  let sx=0,sy=0;
+  document.addEventListener("touchstart",e=>{const t=e.touches[0];if(t){sx=t.clientX;sy=t.clientY}},{passive:true,capture:true});
+  document.addEventListener("touchmove",e=>{
+    if(!document.documentElement.classList.contains("ql-scroll-locked")||e.touches.length>1)return;
+    const t=e.touches[0];if(!t)return;
+    const tgt=e.target instanceof Element?e.target:null;
+    if(tgt&&tgt.closest("input[type=range],textarea,select"))return;
+    if(!(tgt&&canScroll(tgt,t.clientX-sx,t.clientY-sy))&&e.cancelable)e.preventDefault();
+  },{passive:false,capture:true});
+  window.qlScrollLockUpdate=update;
+})();
+</script>
+<style id="qlScrollLockCss">html.ql-scroll-locked,html.ql-scroll-locked body{overflow:hidden!important;overscroll-behavior:none}</style>
 </body>
 </html>
