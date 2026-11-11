@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-11-v13">
+<meta name="ql-shell-generation" content="reliability-2026-11-11-v14">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -19935,7 +19935,7 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     ["pf_edit","Edit Profile"],["pf_avatar","Change Avatar"],["pf_themes","App themes"],["pf_devices","Devices list"]];
   /* "Select many" names get a prefix on the card so they don't look like the ⋮ menu ones */
   const CARD_PREFIX={room_join:"Rooms: ",room_pdf:"Rooms: ",room_link:"Rooms: ",room_folder:"Rooms: ",room_quiz:"Rooms: ",room_edit:"Rooms: ",room_trash:"Rooms: ",room_save_copy:"Rooms: ",sel_share_in:"Select many: ",sel_share_ex:"Select many: ",sel_copy:"Select many: ",sel_duplicate:"Select many: ",sel_move:"Select many: ",sel_trash:"Select many: "};
-  const CARD_FEAT_LIMITS={new_folder:[["folders","folders"]],new_link:[["links","quiz links"]],new_pdf:[["pdfs","PDFs"]],new_quiz:[["quizzes","quizzes"],["questions_per_quiz","questions each"]],gform:[["gform_per_day","Google Forms a day"],["gform_questions","questions per form"]]};
+  const CARD_FEAT_LIMITS={new_folder:[["folders","folders"]],new_link:[["links","quiz links"]],new_pdf:[["pdfs","PDFs"]],new_quiz:[["quizzes","quizzes"],["questions_per_quiz","questions each"]],gform:[["gform_total","Google Forms"],["gform_per_day","Google Forms a day"],["gform_questions","questions per form"]]};
   /* Edit plan → "👁 Shown / Hidden" on each limit row (features._card = {limit: true/false}).
      No saved choice = shown, except these. Keep in sync with admin.html CARD_HIDDEN_BY_DEFAULT.
      Hidden only means "not on the card": the limit itself still applies. */
@@ -19949,7 +19949,8 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
     for(const [k,l] of CARD_LIMITS){if(!cardShown(F,k))continue;const v=lim(k);out.push([`${l}: ${v==null?"Unlimited":k==="storage_mb"?cardMb(v):v}`,true])}
     for(const [k,l] of CARD_FEATURES){if(!F[k])continue;
       const parts=(CARD_FEAT_LIMITS[k]||[]).filter(([lk])=>cardShown(F,lk)).map(([lk,ll])=>{const v=L[lk];
-        if(lk==="gform_per_day")return v==="unlimited"?"Unlimited Google Forms a day":typeof v==="number"?`${v} ${ll}`:null;/* empty = the default from Settings */
+        if(lk==="gform_total")return v==="unlimited"?"Unlimited Google Forms":typeof v==="number"?`${v} ${ll}`:null;/* a total for the plan */
+        if(lk==="gform_per_day")return L.gform_total!=null?null:v==="unlimited"?"Unlimited Google Forms a day":typeof v==="number"?`${v} ${ll}`:null;/* older plans; empty = the default from Settings */
         if(lk==="gform_questions")return `${v==null?200:v} ${ll}`;/* Unlimited = 200 */
         return `${v==null?"Unlimited":v} ${ll}`}).filter(Boolean);
       out.push([(CARD_PREFIX[k]||"")+l+(parts.length?" · "+parts.join(" · "):""),true])}
@@ -20886,11 +20887,13 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
       const ps=$$("#qlGfPShuffle");ps.classList.toggle("on",!!ex.pshuffle);ps.setAttribute("aria-checked",String(!!ex.pshuffle));
     }
     /* daily limit: admin / Users → Manage / the plan / the global number; Unlimited has a safety cap */
-    const unl=!!info.unlimited,left=Number(info.left||0),limit=unl?null:Number(info.limit??5),off=!unl&&limit===0&&(info.mode==="custom"||info.mode==="plan");
-    const planTxt=info.mode==="plan"&&info.plan_name?` <span class="ql-gf-plan">(${h(info.plan_name)} plan)</span>`:"";
+    const unl=!!info.unlimited,left=Number(info.left||0),limit=unl?null:Number(info.limit??5),off=!unl&&limit===0&&(info.mode==="custom"||info.mode==="plan"||info.mode==="plan_total");
+    /* plan_total: the plan's "How many Google Forms" counts every form ever made (deleted ones too) */
+    const total=info.period==="total"||info.mode==="plan_total",usedAll=total&&!off&&Number(info.used_total||0)>=limit;
+    const planTxt=(info.mode==="plan"||info.mode==="plan_total")&&info.plan_name?` <span class="ql-gf-plan">(${h(info.plan_name)} plan)</span>`:"";
     const maxQ=Math.max(1,Math.min(200,Number(info.max_questions||200)));
     $$("#qlGfLeft").innerHTML=unl?`<span class="ql-gf-unl" aria-hidden="true">∞</span><span>Forms left today: <b id="qlGfLeftN">Unlimited</b>${planTxt}</span>`
-      :`<span class="ql-gf-dots">${Array.from({length:Math.min(limit,10)},(_,i)=>`<i class="${i<left?"on":""}"></i>`).join("")}</span><span>Forms left today: <b id="qlGfLeftN">${left}</b> of ${limit}${planTxt}</span>`;
+      :`<span class="ql-gf-dots">${Array.from({length:Math.min(limit,10)},(_,i)=>`<i class="${i<left?"on":""}"></i>`).join("")}</span><span>${total?"Google Forms left on your plan":"Forms left today"}: <b id="qlGfLeftN">${left}</b> of ${limit}${planTxt}</span>`;
     const bulk=window.qlBulkPastePanel?window.qlBulkPastePanel($$("#qlGfBulk"),{max:100000,onChange:()=>refresh()}):null;
     const setSrc=k=>{src=k;pane.querySelectorAll("[data-gf-src]").forEach(b=>b.classList.toggle("on",b.dataset.gfSrc===k));$$("#qlGfSrcPaste").classList.toggle("hidden",k!=="paste");$$("#qlGfSrcQuiz").classList.toggle("hidden",k!=="quiz");try{drawNum()}catch{}refresh()};
     /* a long quiz in Parts mode: one form per ticked part */
@@ -20997,9 +21000,9 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
       $$("#qlGfMakeBtn").disabled=!s.count||left<=0||(tooMany&&!usingParts())||!!rErr||problems>0||overLeft||(usingParts()&&!sizeOk());
       const exam=kind==="exam";$$("#qlGfMakeBtn").classList.toggle("exam",exam);
       $$("#qlGfMakeBtn").innerHTML=exam?`${ic("exam",18)} ${nForms>1?`Make ${nForms} exam forms`:"Make exam form"}`:`${ic("form",18)} ${nForms>1?`Make ${nForms} Google Forms`:"Make Google Form"}`;
-      const msg=left<=0?(off?(info.mode==="plan"?"Your plan does not include Google Forms.":"Making Google Forms is turned off for your account."):unl?`You made ${Number(info.cap||100)} Google Forms today, the safety limit. You can make more tomorrow.`:`You made ${limit} Google Form${limit===1?"":"s"} today. You can make more tomorrow.`)
+      const msg=left<=0?(off?(info.mode==="plan"||info.mode==="plan_total"?"Your plan does not include Google Forms.":"Making Google Forms is turned off for your account."):usedAll?`You have made all ${limit} Google Form${limit===1?"":"s"} in the ${info.plan_name||"your"} plan. Forms you delete still count. Upgrade to make more.`:total?`You made ${Number(info.cap||100)} Google Forms today, the safety limit. You can make more tomorrow.`:unl?`You made ${Number(info.cap||100)} Google Forms today, the safety limit. You can make more tomorrow.`:`You made ${limit} Google Form${limit===1?"":"s"} today. You can make more tomorrow.`)
         :problems?`Fix the ${problems} problem question${problems===1?"":"s"} in the preview first (each needs text, and multiple choice needs at least 2 options).`
-        :overLeft?`You can make ${left} more Google Form${left===1?"":"s"} today — tick ${left} part${left===1?"":"s"} or fewer.`:"";
+        :overLeft?`You can make ${left} more Google Form${left===1?"":"s"} ${total?"on your plan":"today"} — tick ${left} part${left===1?"":"s"} or fewer.`:"";
       if(msg){st.className=left<=0||overLeft?"status":"status error";st.textContent=msg}else if(st.dataset.keep!=="1"){st.className="status hidden";st.textContent=""}
       try{drawNum()}catch{}
     }

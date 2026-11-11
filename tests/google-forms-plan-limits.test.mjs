@@ -86,3 +86,28 @@ test('The shared functions are written the same in all three SQL files',()=>{
  assert.equal(part('supabase/google_forms.sql'),part('supabase/google_forms_plan_limits.sql'));
  assert.equal(part('supabase/google_forms_user_limits.sql'),part('supabase/google_forms_plan_limits.sql'));
 });
+test('How many Google Forms (total for the plan): every form ever counts, deleted ones too; failed ones do not',async()=>{
+ await admin(()=>db.exec(`delete from ql_google_forms where user_id='${B}'`));
+ await onPlan(B,'pro');await planLimits('pro',{gform_total:3,gform_per_day:10});await as(B);
+ let m=await mine();assert.deepEqual([m.mode,m.period,m.limit,m.left,m.used_total,m.plan_name],['plan_total','total',3,3,0,'Pro'],'the total wins over an older per-day number');
+ const r=await reserve('one');assert.deepEqual([r.mode,r.limit,r.left],['plan_total',3,2]);
+ await reserve('two');
+ // made on another day, finished, then deleted from My Google Forms: still counts
+ await admin(()=>db.exec(`update ql_google_forms set status='ready',removed=true,created_at=now()-interval '20 days' where user_id='${B}'`));
+ await as(B);m=await mine();assert.deepEqual([m.left,m.used_total,m.used_today],[1,2,0]);
+ // a form that failed to make does not count
+ const failed=await reserve('fails');await admin(()=>db.query(`update ql_google_forms set status='failed' where id=$1`,[failed.record_id]));
+ await as(B);assert.equal((await mine()).left,1);
+ await reserve('three');await assert.rejects(reserve('four'),/You have made all 3 Google Forms in the Pro plan\. Forms you delete still count\. Upgrade to make more\./);
+ await as(ADM);const g=await rpc('ql_admin_gform_user_rule_get',[B]);assert.deepEqual([g.mode,g.limit,g.used_total],['plan_total',3,3]);
+ // a bigger total on the plan gives room again; the daily safety cap still applies
+ await planLimits('pro',{gform_total:50});await as(ADM);await rpc('ql_admin_gform_cap_set',[2]);await as(B);
+ assert.equal((await mine()).left,1,'2 a day safety cap, 1 already made today');await reserve('five');await assert.rejects(reserve('six'),/safety limit/);
+ await as(ADM);await rpc('ql_admin_gform_cap_set',[100]);
+ // Unlimited total = no plan total (safety cap only); 0 = the plan has no Google Forms
+ await planLimits('pro',{gform_total:'unlimited'});await as(B);m=await mine();assert.deepEqual([m.mode,m.unlimited,m.period],['plan',true,'day']);
+ await planLimits('pro',{gform_total:0});await as(B);await assert.rejects(reserve('x'),/plan does not include Google Forms/);
+ // a person's own number (Users → Manage, per day) still wins over the plan
+ await as(ADM);await setUser(B,'custom',4);await as(B);assert.deepEqual([(await mine()).mode,(await mine()).limit],['custom',4]);
+ await as(ADM);await setUser(B,'default');await reset();
+});

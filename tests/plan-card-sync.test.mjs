@@ -33,7 +33,8 @@ test('card lists match admin Edit plan (Limits, Features in this plan, limits un
     const mine = (card.FL[k] || []).map(r => r[0]);
     for (const [lk] of rows) assert.ok(mine.includes(lk), `${k}: limit ${lk} is on the card`);
   }
-  assert.ok(card.FL.gform.some(r => r[0] === 'gform_per_day'), 'Google Forms per day is on the card');
+  assert.ok(card.FL.gform.some(r => r[0] === 'gform_total'), 'How many Google Forms (total) is on the card');
+  assert.ok(card.FL.gform.some(r => r[0] === 'gform_per_day'), 'older per-day plans still show on the card');
   assert.deepEqual(plain(card.HID), plain(a.HID), 'same "hidden on the card by default" list as admin');
   assert.deepEqual(plain(a.HID), ['storage_mb'], 'Storage is hidden by default, every other limit row is shown');
 });
@@ -83,7 +84,7 @@ test('"Show on student card" per limit row: saved choice wins, no choice = defau
 test('admin Edit plan has a Show switch on every limit row and saves it with the plan', () => {
   const ed = admin.slice(admin.indexOf('function editPlan('), admin.indexOf('const modeLabel='));
   assert.match(ed, /const limRow=\(k,l\)=>\{[^\n]*\$\{showSw\(k\)\}<\/div>`\}/, 'every limRow (Limits + rows under a feature tick) has the Show switch');
-  assert.match(ed, /id="pGfDayUnl"><\/button>Unlimited<\/span>\$\{showSw\("gform_per_day"\)\}/, 'Google Forms per day row has the Show switch');
+  assert.match(ed, /id="pGfDayUnl"><\/button>Unlimited<\/span>\$\{showSw\("gform_total"\)\}/, 'How many Google Forms (total) row has the Show switch');
   assert.match(ed, /const showSw=k=>\{[^\n]*<span class="uu ql-show"><button type="button" class="sw sm \$\{on\?"on":""\}" data-show="\$\{k\}"[^\n]*<\/button>Show<\/span>/, 'same "sw sm" switch as Unlimited, labelled Show');
   assert.ok(!/👁|class="eye|\.eye\{/.test(admin), 'no eye icon or eye style left in admin.html');
   assert.match(ed, /features\._card=\{\};o\.querySelectorAll\("\[data-show\]"\)\.forEach\(b=>features\._card\[b\.dataset\.show\]=b\.classList\.contains\("on"\)\)/, 'saved in features._card');
@@ -99,4 +100,12 @@ test('old hard-coded card lines are gone and the open window re-draws on new pla
   assert.match(up, /upLive=render;[\s\S]*loadCfg\(\);/, 'opening the window fetches the newest plans');
   assert.match(plansBlock, /applyAll\(\);upRefresh\(\);/, 'a config refresh (Realtime / poll) re-draws the open window');
   assert.match(plansBlock, /table:"ql_plans"\},\(\)=>\{loadCfg\(\);loadMine\(\)\}/, 'Realtime on ql_plans still reloads');
+});
+
+test('the card shows the plan total "How many Google Forms"; an older per-day number only when no total is set', () => {
+  const card = cardModule();
+  const t = p => lines(card, p).find(x => x.startsWith('Make Google Form'));
+  assert.equal(t({limits: {gform_total: 5}, features: {gform: true}}), 'Make Google Form · 5 Google Forms · 200 questions per form');
+  assert.equal(t({limits: {gform_total: 'unlimited', gform_per_day: 3}, features: {gform: true}}), 'Make Google Form · Unlimited Google Forms · 200 questions per form');
+  assert.equal(t({limits: {gform_per_day: 3}, features: {gform: true}}), 'Make Google Form · 3 Google Forms a day · 200 questions per form');
 });
