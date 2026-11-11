@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-11-v15">
+<meta name="ql-shell-generation" content="reliability-2026-11-11-v16">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -19539,6 +19539,10 @@ body.ql-ocean .qs-acts button.g{background:rgba(255,255,255,.1);color:#fff7ed;bo
 .qu-p .bd{position:absolute;top:-10px;right:12px;font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:999px;color:#fff;background:var(--pc,#6366f1)}
 .qu-p h4{margin:0;font-size:17px}.qu-p .tl{font-size:12.5px;color:#64748b}.qu-p .pr{font-size:26px;font-weight:800;margin:6px 0 2px}.qu-p .pr small{font-size:12px;color:#64748b;font-weight:600}
 .qu-p ul{list-style:none;padding:0;margin:10px 0 14px;display:grid;gap:7px;align-content:start;font-size:13px;color:#334155;flex:1}
+.qu-plans:not(.qu-all) .qu-p li.qu-x{display:none}
+.qu-more{align-self:flex-start;margin:-6px 0 14px;padding:8px 12px;min-height:36px;border-radius:10px;border:1px dashed color-mix(in srgb,var(--pc,#6366f1) 55%,transparent);background:color-mix(in srgb,var(--pc,#6366f1) 8%,transparent);color:inherit;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.qu-more .qu-more-close{display:none}.qu-plans.qu-all .qu-more .qu-more-open{display:none}.qu-plans.qu-all .qu-more .qu-more-close{display:inline}
+.qu-more::after{content:" ▾"}.qu-plans.qu-all .qu-more::after{content:" ▴"}
 .qu-p li::before{content:"✓ ";color:#10b981;font-weight:800}.qu-p li.no{color:#94a3b8}.qu-p li.no::before{content:"✕ ";color:#cbd5e1}
 .qu-p .b{display:block;width:100%;text-align:center;padding:10px;border-radius:12px;font-weight:800;font-size:14px;background:#eef2ff;color:#4338ca;border:0;cursor:pointer;font-family:inherit}
 .qu-p.hl .b{background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff}.qu-p .b:disabled{background:#e2e8f0;color:#64748b;cursor:default}
@@ -19912,7 +19916,8 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
   setInterval(()=>{document.querySelectorAll(".qs-cd[data-end]").forEach(c=>{const ms=Number(c.dataset.end)-now();c.innerHTML=cdHtml(ms);if(ms<=0&&!c.dataset.done){c.dataset.done=1;loadMine()}})},1000);
 
   /* ---------- upgrade / pay / code ---------- */
-  let period="month",quSel=null;
+  /* quAll: "See all details" open on the plan cards (they show the first QU_SHORT lines, then a button) */
+  let period="month",quSel=null,quAll=false;const QU_SHORT=7;
   const periodOf=p=>period==="year"&&p.price_year!=null?"year":period==="lifetime"&&p.price_lifetime!=null?"lifetime":p.price_month!=null?"month":p.price_year!=null?"year":"lifetime";
   const basePrice=(p,per)=>per==="year"?p.price_year:per==="lifetime"?p.price_lifetime:p.price_month;
   /* a sale set by the admin (features._sale = {pct, until}) takes % off every price of the plan */
@@ -19976,11 +19981,11 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       if(period==="year"&&!hasYear||period==="lifetime"&&!hasLife)period="month";
       const body=`${reason?`<div class="status" style="margin-bottom:12px">${h(reason)}</div>`:""}
         <div class="qu-top">${hasYear||hasLife?`<div class="qu-toggle"><button type="button" data-per="month" class="${period==="month"?"on":""}">Monthly</button>${hasYear?`<button type="button" data-per="year" class="${period==="year"?"on":""}">Yearly${save>0?` <em>Save ${save}%</em>`:""}</button>`:""}${hasLife?`<button type="button" data-per="lifetime" class="${period==="lifetime"?"on":""}">Lifetime</button>`:""}</div>`:""}</div>
-        <div class="qu-plans">${ps.map(p=>{const per=periodOf(p),pr=priceOf(p,per),isCur=cur&&cur.id===p.id;
+        <div class="qu-plans ${quAll?"qu-all":""}">${ps.map(p=>{const per=periodOf(p),pr=priceOf(p,per),isCur=cur&&cur.id===p.id;
           return `<div class="qu-p ${isCur?"cur":""} ${quSel===p.id?"hl":""}" data-qusel="${h(p.id)}" style="--pc:${h(p.color)}">${p.badge?`<span class="bd">${h(p.badge)}</span>`:""}<h4>${h(p.name)}</h4><div class="tl">${h(p.tagline||"")}</div>
           <div class="pr">${!p.is_default&&saleOf(p)?`<s class="qu-was">${money(basePrice(p,per))}</s> `:""}${p.is_default?"$0":money(pr)} ${p.is_default?"":`<small>/ ${per==="lifetime"?"once":per}</small>`}</div>
           ${!p.is_default&&saleOf(p)?`<div class="qu-sale">🏷️ ${saleOf(p).pct}% off${saleOf(p).until?` · until ${new Date(saleOf(p).until).toLocaleDateString([], {day:"numeric",month:"short"})}`:""}</div>`:""}
-          <ul>${featureLines(p).map(([t,ok])=>`<li class="${ok?"":"no"}">${h(t)}</li>`).join("")}</ul>
+          ${(()=>{const ls=featureLines(p),more=ls.length-QU_SHORT;return `<ul>${ls.map(([t,ok],i)=>`<li class="${ok?"":"no"}${i>=QU_SHORT?" qu-x":""}">${h(t)}</li>`).join("")}</ul>${more>0?`<button type="button" class="qu-more" data-qu-more aria-expanded="${quAll}"><span class="qu-more-open">See all ${ls.length} details</span><span class="qu-more-close">Show less</span></button>`:""}`})()}
           ${p.is_default?`<button class="b" type="button" disabled>${isCur?"Your plan":"Free"}</button>`:receipts?`<button class="b" type="button" data-buy="${h(p.id)}" data-per="${per}">${isCur?"Renew "+h(p.name):"Choose "+h(p.name)}</button>`:`<button class="b" type="button" disabled>Ask for a code</button>`}</div>`}).join("")}</div>
         <div class="qu-code"><b>Have a promo code?</b><input id="quCode" placeholder="Enter promo code" autocomplete="off" spellcheck="false"><button type="button" id="quCodeGo">Activate</button></div><div id="quCodeSt" class="status hidden" style="margin-top:8px"></div>`;
       openModal("Choose your plan",body);
@@ -19988,6 +19993,8 @@ body.ql-ocean .ql-ann{background:rgba(253,186,116,.18);color:#fff7ed;border-bott
       document.querySelectorAll("[data-per].qu-toggle button,.qu-toggle [data-per]").forEach(b=>b.onclick=()=>{period=b.dataset.per;render()});
       document.querySelectorAll("[data-qusel]").forEach(c=>c.onclick=()=>{quSel=c.dataset.qusel;document.querySelectorAll("[data-qusel]").forEach(x=>x.classList.toggle("hl",x===c))});
       document.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>openPay(ps.find(p=>p.id===b.dataset.buy),b.dataset.per));
+      /* one button opens every card's full list, so the plans can still be compared side by side */
+      document.querySelectorAll("[data-qu-more]").forEach(b=>b.onclick=e=>{e.stopPropagation();quAll=!quAll;const box=document.querySelector(".qu-plans");if(box)box.classList.toggle("qu-all",quAll);document.querySelectorAll("[data-qu-more]").forEach(x=>x.setAttribute("aria-expanded",String(quAll)));if(!quAll)b.closest(".qu-p")?.scrollIntoView({block:"nearest"})});
       const go=document.getElementById("quCodeGo"),inp=document.getElementById("quCode"),st=document.getElementById("quCodeSt");
       const redeem=async()=>{const code=inp.value.trim();if(!code)return inp.focus();go.disabled=true;st.className="status";st.textContent="Checking code…";
         try{const {data,error}=await cli().rpc("ql_redeem_code",{p_code:code});if(error)throw error;closeModal();await loadMine();showActivated(true)}

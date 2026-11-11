@@ -99,6 +99,22 @@ with sync_playwright() as p:
         page.wait_for_function(f"srv.calls>{n}")
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth+1")
         ok(tag + 'Opening Choose your plan fetches the newest plans; no sideways scroll')
+
+        # 4. long cards: the first 7 lines, then "See all N details" opens every card; "Show less" folds them again
+        page.evaluate("""()=>{Object.assign(srv.plans[0].features,{nav_dashboard:true,nav_random:true,nav_inbox:true,nav_favorites:true,nav_recent:true,nav_trash:true,nav_rooms:true});
+            Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>'visible'});document.dispatchEvent(new Event('visibilitychange'))}""")
+        page.wait_for_function("!!document.querySelector('.modal [data-qu-more]')")
+        card = page.locator('.modal .qu-p', has_text='Free+'); total = card.locator('li').count()
+        assert total > 7 and card.locator('li:visible').count() == 7, total
+        assert card.locator('[data-qu-more]').inner_text().strip().startswith(f'See all {total} details')
+        assert page.locator('.modal .qu-p', has_text='Max').locator('[data-qu-more]').count() == 0, 'short cards have no button'
+        card.locator('[data-qu-more]').click(); assert card.locator('li:visible').count() == total
+        assert 'Show less' in card.locator('[data-qu-more]').inner_text() and page.locator('.modal [data-qu-more]').get_attribute('aria-expanded') == 'true'
+        page.evaluate("closeModal()"); page.evaluate("qlOpenUpgrade()"); page.wait_for_function("!!document.querySelector('.modal .qu-plans.qu-all')")
+        page.locator('.modal [data-qu-more]').first.click(); page.wait_for_function("!document.querySelector('.modal .qu-plans.qu-all')")
+        assert page.locator('.modal .qu-p', has_text='Free+').locator('li:visible').count() == 7
+        assert page.evaluate("document.documentElement.scrollWidth<=innerWidth+1")
+        ok(tag + 'Long plan cards show 7 lines + "See all N details"; it opens every card (kept when reopened) and "Show less" folds them')
         assert not errors, errors
         context.close()
     browser.close()
