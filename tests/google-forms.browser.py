@@ -210,7 +210,7 @@ with sync_playwright() as p:
         assert "3 pictures won't be included" in page.locator('#qlGfPics').inner_text()
         assert 'Forms left today: 3 of 5' in page.locator('#qlGfLeft').inner_text()
         shot('3-make-quiz')
-        assert page.locator('#qlGfRange').inner_text().count('Part') == 0 and page.locator('#qlGfFrom').input_value() == '1' and page.locator('#qlGfTo').input_value() == '2'
+        assert page.locator('[data-gf-mode="range"].on').count() == 1 and page.locator('#qlGfFrom').input_value() == '1' and page.locator('#qlGfTo').input_value() == '2', 'a short quiz starts as one whole form'
         page.locator('#qlGfMakeBtn').click(); page.locator('#qlGfDone').wait_for()
         qs = last_make()['questions']
         assert qs[0]['options'] == ['Epithelium', 'Muscle'] and qs[0]['points'] == 2 and qs[1]['prompt'].startswith('2. (Picture question') and qs[1]['correct'] is False, qs
@@ -342,6 +342,45 @@ with sync_playwright() as p:
         # remembered on this device
         assert page.evaluate("JSON.parse(localStorage.getItem('ql_gf_exam_11111111-1111-4111-8111-111111111111')).fields.length") == 5
         ok(tag + 'Exam tab before My Google Forms: student fields (+ own), rules, numbers + shuffle warning; sends the exam settings; EXAM tag and All / Practice / Exam filter')
+
+        # 3g. Parts: choose how many questions go in each part (typed, quick sizes, Half), checked against the max
+        page.evaluate("""()=>{state.items.push({id:'q-mid',kind:'quiz',title:'Anatomopathology',parent_id:null,library_id:LIBRARY_ID,is_trashed:false,quiz_settings:{}});
+          const prior=service.getQuizQuestionsAdmin;service.getQuizQuestionsAdmin=async id=>id==='q-mid'?Array.from({length:227},(_,i)=>({id:'m'+i,type:'mcq',prompt:'M'+(i+1),options:[{text:'Yes'},{text:'No'}],correct_answer:0,points:1,question_position:i})):prior(id)}""")
+        page.evaluate("srv.limit=50;srv.used=0")
+        page.locator('[data-gf-tab="make"]').click(); page.locator('[data-gf-src="quiz"]').wait_for(); page.locator('[data-gf-src="quiz"]').click()
+        page.locator('#qlGfQuiz').wait_for(); page.locator('#qlGfTitle').fill('')
+        page.locator('#qlGfQuiz').select_option('q-mid')
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('2 forms will be made · 227 questions in total')")
+        assert page.locator('#qlGfPartSize').input_value() == '200'
+        chips = page.locator('#qlGfChips button').all_inner_texts()
+        assert chips == ['25', '50', '100', '200', 'Half (114)'], chips
+        page.locator('#qlGfPartSize').fill('50')
+        page.wait_for_function("document.querySelectorAll('[data-gf-pt]').length===5 && document.getElementById('qlGfParsed').textContent.includes('5 forms will be made')")
+        assert page.evaluate("document.activeElement.id") == 'qlGfPartSize', 'typing keeps the cursor in the box'
+        parts = [t.replace('\n', ' ') for t in page.locator('[data-gf-pt]').all_inner_texts()]
+        assert parts[0].endswith('Q1–50 · 50 questions') and parts[-1].endswith('Q201–227 · 27 questions'), parts
+        assert page.locator('#qlGfChips button.on').inner_text() == '50'
+        page.locator('[data-gf-pt="2"]').click(); page.locator('[data-gf-pt="4"]').click()
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('3 forms will be made · 150 questions in total')")
+        titles = page.locator('#qlGfTitles').inner_text()
+        assert 'Anatomopathology (Q1–50)' in titles and 'Anatomopathology (Q151–200)' in titles and 'Q101–150' not in titles, titles
+        assert 'Make 3 Google Forms' in page.locator('#qlGfMakeBtn').inner_text()
+        shot('3g-size')
+        page.locator('#qlGfPartSize').fill('250')
+        page.wait_for_function("!document.getElementById('qlGfSizeErr').classList.contains('hidden') && document.getElementById('qlGfMakeBtn').disabled")
+        assert 'Type 1–200' in page.locator('#qlGfSizeErr').inner_text() and page.locator('[data-gf-pt]').count() == 0
+        page.locator('#qlGfPartSize').fill('0')
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('Type how many questions go in each part') && document.getElementById('qlGfMakeBtn').disabled")
+        page.locator('#qlGfChips button', has_text='Half').click()
+        page.wait_for_function("document.querySelectorAll('[data-gf-pt]').length===2 && document.getElementById('qlGfSizeErr').classList.contains('hidden')")
+        assert page.locator('#qlGfPartSize').input_value() == '114' and not page.locator('#qlGfMakeBtn').is_disabled()
+        parts = [t.replace('\n', ' ') for t in page.locator('[data-gf-pt]').all_inner_texts()]
+        assert parts[0].endswith('Q1–114 · 114 questions') and parts[1].endswith('Q115–227 · 113 questions'), parts
+        assert page.evaluate("JSON.parse(localStorage.getItem('ql_gf_exam_11111111-1111-4111-8111-111111111111')).partSize") == 114, 'remembered'
+        page.locator('#qlGfChips button', has_text='200').click()
+        assert no_overflow(), 'size row overflows'
+        page.evaluate("srv.limit=5;srv.used=3")
+        ok(tag + 'Parts: Questions per part (typed or quick 25/50/100/max/Half), parts redraw while typing, too big or 0 explained, size remembered')
 
         # 4. My Google Forms: groups, status, search, menu actions, Drive bar
         page.locator('[data-gf-tab="list"]').click()

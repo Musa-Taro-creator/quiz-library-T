@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-11-v7">
+<meta name="ql-shell-generation" content="reliability-2026-11-11-v8">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -20680,6 +20680,14 @@ body.ql-ocean .ql-gf-tg,body.ql-neon .ql-gf-tg{background:#334155}
 .ql-gf-kind.pr{background:#6d28d9}.ql-gf-kind.ex{background:#e11d48}
 .ql-gf-kinds{justify-self:start}
 /* long quiz → Parts (tick several, one form each) or My own range */
+.ql-gf-size{display:grid;grid-template-columns:minmax(0,1fr) 96px auto;gap:10px;align-items:center;font-size:13px;font-weight:750;color:var(--sa-t)}
+.ql-gf-size input{width:100%;min-height:44px;border-radius:12px;border:2px solid var(--gf);background:var(--sa-card);color:var(--sa-t);padding:6px 10px;font:inherit;font-size:17px;font-weight:900;text-align:center}
+.ql-gf-size input.bad{border-color:#ef4444}.ql-gf-size small{color:var(--sa-m);font-weight:600}
+.ql-gf-sizeerr{font-size:12.5px;color:#b91c1c;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.4);border-radius:10px;padding:8px 10px}
+body.ql-ocean .ql-gf-sizeerr,body.ql-neon .ql-gf-sizeerr{color:#fca5a5}
+.ql-gf-chips{display:flex;gap:6px;flex-wrap:wrap}
+.ql-gf-chips button{min-height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--sa-line);background:var(--sa-card);color:var(--sa-t);font:inherit;font-size:12.5px;font-weight:750;cursor:pointer}
+.ql-gf-chips button.on{background:var(--gf);border-color:var(--gf);color:#fff}
 .ql-gf-mode{justify-self:start}
 .ql-gf-parts-h{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;font-weight:750;color:var(--sa-t)}
 .ql-gf-parts-h button{border:0;background:none;color:var(--gf);font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;padding:4px 2px}body.ql-ocean .ql-gf-parts-h button,body.ql-neon .ql-gf-parts-h button{color:#c4b5fd}
@@ -20877,8 +20885,13 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
     const bulk=window.qlBulkPastePanel?window.qlBulkPastePanel($$("#qlGfBulk"),{max:maxQ,onChange:()=>refresh()}):null;
     const setSrc=k=>{src=k;pane.querySelectorAll("[data-gf-src]").forEach(b=>b.classList.toggle("on",b.dataset.gfSrc===k));$$("#qlGfSrcPaste").classList.toggle("hidden",k!=="paste");$$("#qlGfSrcQuiz").classList.toggle("hidden",k!=="quiz");try{drawNum()}catch{}refresh()};
     /* a long quiz in Parts mode: one form per ticked part */
-    const partsOf=()=>{const n=quizRows?quizRows.length:0;return n>maxQ?Array.from({length:Math.ceil(n/maxQ)},(_,i)=>[i*maxQ+1,Math.min(n,(i+1)*maxQ)]):[]};
-    const usingParts=()=>src==="quiz"&&mode==="parts"&&partsOf().length>0;
+    /* Parts: "Questions per part" (1 … the plan's max per form, remembered on this device) */
+    let sizeRaw=String(Math.min(maxQ,Number(ex.partSize)>0?Number(ex.partSize):maxQ));
+    const sizeOk=()=>{const z=Number(sizeRaw);return Number.isInteger(z)&&z>=1&&z<=maxQ};
+    const partSize=()=>sizeOk()?Number(sizeRaw):maxQ;
+    const canParts=()=>!!quizRows&&quizRows.length>=2;
+    const partsOf=()=>{const n=quizRows?quizRows.length:0,z=partSize();return n>=1&&sizeOk()?Array.from({length:Math.ceil(n/z)},(_,i)=>[i*z+1,Math.min(n,(i+1)*z)]):[]};
+    const usingParts=()=>src==="quiz"&&mode==="parts"&&canParts();
     function current(){
       if(src==="paste")return bulk?bulk.items():[];
       if(usingParts())return partsOf().filter((_,i)=>sel.has(i)).flatMap(([a,b])=>quizRows.slice(a-1,b));
@@ -20893,24 +20906,40 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
     /* quizzes with more questions than one form allows: tick the parts to make (one form each),
        or "My own range" = From / To for one form */
     function drawRange(){
-      const box=$$("#qlGfRange"),n=quizRows?quizRows.length:0,parts=partsOf();
+      const box=$$("#qlGfRange"),n=quizRows?quizRows.length:0;
       box.classList.toggle("hidden",!n);if(!n){box.innerHTML="";return}
       const head=`<div class="ql-gf-range-h"><b>Questions</b><span>This quiz has ${n} question${n===1?"":"s"}${n>maxQ?` — a form can have up to ${maxQ}`:""}.</span></div>`;
-      const seg=parts.length?`<div class="ql-gf-seg ql-gf-mode" role="group" aria-label="How to split"><button type="button" data-gf-mode="parts" class="${mode==="parts"?"on":""}">Parts</button><button type="button" data-gf-mode="range" class="${mode==="range"?"on":""}">My own range</button></div>`:"";
+      const seg=canParts()?`<div class="ql-gf-seg ql-gf-mode" role="group" aria-label="How to split"><button type="button" data-gf-mode="parts" class="${mode==="parts"?"on":""}">Parts</button><button type="button" data-gf-mode="range" class="${mode==="range"?"on":""}">My own range</button></div>`:"";
       const rangeHtml=`<div class="ql-gf-range-row"><label>From <input type="number" id="qlGfFrom" min="1" max="${n}" step="1" inputmode="numeric" value="${from}"></label><label>To <input type="number" id="qlGfTo" min="1" max="${n}" step="1" inputmode="numeric" value="${to}"></label></div>`;
-      const all=parts.length&&parts.every((_,i)=>sel.has(i));
-      const partsHtml=`<div class="ql-gf-parts-h"><span>Make one form for each ticked part</span><button type="button" id="qlGfAll">${all?"Clear all":"Select all"}</button></div>
-        <div class="ql-gf-plist">${parts.map(([a,b],i)=>`<button type="button" class="ql-gf-pt${sel.has(i)?" on":""}" data-gf-pt="${i}" role="checkbox" aria-checked="${sel.has(i)}"><span class="ck" aria-hidden="true">${sel.has(i)?"✓":""}</span><b>Part ${i+1}</b><span class="n">Q${a}–${b} · ${b-a+1} question${b-a+1===1?"":"s"}</span></button>`).join("")}</div>`;
-      box.innerHTML=head+seg+(usingParts()?partsHtml:rangeHtml);
-      box.querySelectorAll("[data-gf-mode]").forEach(x=>x.onclick=()=>{mode=x.dataset.gfMode;drawRange();retitle();refresh()});
+      const sizeHtml=`<div class="ql-gf-size"><label for="qlGfPartSize">Questions per part</label><input type="number" id="qlGfPartSize" min="1" max="${maxQ}" step="1" inputmode="numeric" value="${h(sizeRaw)}"><small>max ${maxQ}</small></div>
+        <div id="qlGfSizeErr" class="ql-gf-sizeerr hidden"></div><div class="ql-gf-chips" id="qlGfChips"></div><div id="qlGfPartList"></div>`;
+      box.innerHTML=head+seg+(usingParts()?sizeHtml:rangeHtml);
+      box.querySelectorAll("[data-gf-mode]").forEach(x=>x.onclick=()=>{mode=x.dataset.gfMode;if(mode==="parts"&&!sel.size)sel=new Set(partsOf().map((_,i)=>i));drawRange();retitle();refresh()});
       if(usingParts()){
-        box.querySelectorAll("[data-gf-pt]").forEach(x=>x.onclick=()=>{const i=Number(x.dataset.gfPt);if(sel.has(i))sel.delete(i);else sel.add(i);drawRange();refresh()});
-        box.querySelector("#qlGfAll").onclick=()=>{if(all)sel.clear();else parts.forEach((_,i)=>sel.add(i));drawRange();refresh()};
+        const si=$$("#qlGfPartSize");
+        si.oninput=()=>{sizeRaw=si.value.trim();if(sizeOk()){ex.partSize=Number(sizeRaw);saveEx()}sel=new Set(partsOf().map((_,i)=>i));drawParts();refresh()};
+        drawParts();
       }else{
         const fi=$$("#qlGfFrom"),ti=$$("#qlGfTo");
         const read=()=>{from=Math.round(Number(fi.value));to=Math.round(Number(ti.value));retitle();refresh()};
         fi.oninput=read;ti.oninput=read;
       }
+    }
+    /* quick sizes, the error line and the tick list (redrawn without touching the size box, so typing keeps focus) */
+    function drawParts(){
+      const n=quizRows?quizRows.length:0,parts=partsOf(),z=Number(sizeRaw),half=Math.ceil(n/2);
+      const err=$$("#qlGfSizeErr");err.classList.toggle("hidden",sizeOk());
+      err.textContent=sizeOk()?"":`A form can have up to ${maxQ} questions${maxQ<200?" on your plan":""}. Type 1–${maxQ}.`;
+      $$("#qlGfPartSize").classList.toggle("bad",!sizeOk());
+      const quick=[...new Set([25,50,100,maxQ].filter(x=>x<=maxQ&&x<n))];if(!quick.includes(maxQ)&&maxQ<n)quick.push(maxQ);
+      const chips=quick.map(x=>[String(x),String(x)]);if(n>=2&&half<=maxQ&&!quick.includes(half))chips.push([String(half),`Half (${half})`]);
+      $$("#qlGfChips").innerHTML=chips.map(([v,l])=>`<button type="button" data-gf-size="${v}" class="${sizeOk()&&z===Number(v)?"on":""}">${l}</button>`).join("");
+      $$("#qlGfChips").querySelectorAll("[data-gf-size]").forEach(b=>b.onclick=()=>{sizeRaw=b.dataset.gfSize;$$("#qlGfPartSize").value=sizeRaw;ex.partSize=Number(sizeRaw);saveEx();sel=new Set(partsOf().map((_,i)=>i));drawParts();refresh()});
+      const all=parts.length&&parts.every((_,i)=>sel.has(i));
+      $$("#qlGfPartList").innerHTML=parts.length?`<div class="ql-gf-parts-h"><span>Make one form for each ticked part</span><button type="button" id="qlGfAll">${all?"Clear all":"Select all"}</button></div>
+        <div class="ql-gf-plist">${parts.map(([a,b],i)=>`<button type="button" class="ql-gf-pt${sel.has(i)?" on":""}" data-gf-pt="${i}" role="checkbox" aria-checked="${sel.has(i)}"><span class="ck" aria-hidden="true">${sel.has(i)?"✓":""}</span><b>Part ${i+1}</b><span class="n">Q${a}–${b} · ${b-a+1} question${b-a+1===1?"":"s"}</span></button>`).join("")}</div>`:"";
+      $$("#qlGfPartList").querySelectorAll("[data-gf-pt]").forEach(x=>x.onclick=()=>{const i=Number(x.dataset.gfPt);if(sel.has(i))sel.delete(i);else sel.add(i);drawParts();refresh()});
+      const allBtn=$$("#qlGfAll");if(allBtn)allBtn.onclick=()=>{if(all)sel.clear();else parts.forEach((_,i)=>sel.add(i));drawParts();refresh()};
     }
     function rangeError(){
       if(src!=="quiz"||!quizRows||!quizRows.length||usingParts())return "";
@@ -20936,7 +20965,7 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
       }else{
         const n=quizRows?quizRows.length:0,k=usingParts()?sel.size:0;
         line=!picked?"Choose a quiz above.":quizRows===null?"Loading questions…":!n?"This quiz has no questions.":rErr?`<span class="warn">${h(rErr)}</span>`:
-          usingParts()?(k?`<b>${k} form${k===1?"":"s"}</b> will be made · ${s.count} question${s.count===1?"":"s"} in total${s.noAns?` · <span class="warn">${s.noAns} without an answer</span>`:""}`:`<span class="warn">Tick at least one part.</span>`):
+          usingParts()?(!sizeOk()?`<span class="warn">Type how many questions go in each part (1–${maxQ}).</span>`:k?`<b>${k} form${k===1?"":"s"}</b> will be made · ${s.count} question${s.count===1?"":"s"} in total${s.noAns?` · <span class="warn">${s.noAns} without an answer</span>`:""}`:`<span class="warn">Tick at least one part.</span>`):
           `<b>${s.count} question${s.count===1?"":"s"}</b> (${from}–${to} of ${n})${s.noAns?` · <span class="warn">${s.noAns} without an answer</span>`:""}`;
       }
       /* Parts: the title of every form that will be made */
@@ -20961,7 +20990,7 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
       refresh();if(!picked)return;
       try{const rows=await service.getQuizQuestionsAdmin(picked.id);if(mineLoad!==quizLoad||!pane.isConnected)return;quizRows=(rows||[]).slice().sort((a,b)=>(a.question_position||0)-(b.question_position||0))}
       catch(err){if(mineLoad===quizLoad){quizRows=[];const st=$$("#qlGfStatus");st.className="status error";st.textContent=errText(err)}}
-      from=1;to=Math.min(quizRows.length,maxQ)||1;mode="parts";sel=new Set(partsOf().map((_,i)=>i));drawRange();retitle();refresh();
+      from=1;to=Math.min(quizRows.length,maxQ)||1;mode=quizRows.length>maxQ?"parts":"range";sel=new Set(partsOf().map((_,i)=>i));drawRange();retitle();refresh();
     };
     $$("#qlGfMakeBtn").onclick=()=>{
       const st=$$("#qlGfStatus");const list=current();const email=$$("#qlGfEmail").value.trim().toLowerCase();
@@ -20974,7 +21003,7 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
       startJob(forms.map(f=>({title:f.title,questions:num(f.rows,f.first||1),editor_email:email,source:(exam?"exam_":"")+src,
           description:exam?"Made with Quiz Library · Fill in your details, then answer every question."+(ex.one?" You can submit only once.":""):"Made with Quiz Library",
           exam:examBody,part:f.part})),
-        {made:part=>{if(part!=null){sel.delete(part);if(pane.isConnected){drawRange();refresh()}}}});
+        {made:part=>{if(part!=null){sel.delete(part);if(pane.isConnected){if($$("#qlGfPartList"))drawParts();else drawRange();refresh()}}}});
     };
     $$("#qlGfNum").onclick=()=>{ex.num=!ex.num;saveEx();drawNum()};
     pane.querySelectorAll("[data-gf-ns]").forEach(b=>b.onclick=()=>{ex.numStart=b.dataset.gfNs;saveEx();drawNum()});
