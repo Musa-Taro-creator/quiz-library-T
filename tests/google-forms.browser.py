@@ -116,6 +116,12 @@ with sync_playwright() as p:
         i = order.index('quiz'); assert order[i:i + 3] == ['quiz', 'div', 'gform'], order
         assert page.locator('[data-gform-quick]').inner_text().strip() == 'Make Google Form', 'no NEW tag'
         assert page.locator('#newMenu [data-gform-new]').inner_text().strip() == 'Make Google Form', 'no NEW in + New'
+        # "+ New" menu: same row as the others (icon tile + label), like Create Quiz
+        menu = page.evaluate("""(()=>{const g=document.querySelector('#newMenu [data-gform-new]'),q=document.querySelector('#newMenu [data-quiz-new]');
+          const k=e=>{const c=getComputedStyle(e);return [c.fontSize,c.fontWeight,c.color,c.display,c.paddingLeft,c.height]};
+          const t=e=>{const i=e.querySelector('.ql-mi');if(!i)return null;const c=getComputedStyle(i);return [c.width,c.height,c.borderRadius]};
+          return {row:g.classList.contains('ql-mi-row'),same:JSON.stringify(k(g))===JSON.stringify(k(q)),tile:JSON.stringify(t(g))===JSON.stringify(t(q))&&!!t(g),svg:!!g.querySelector('.ql-mi svg')}})()""")
+        assert menu == {'row': True, 'same': True, 'tile': True, 'svg': True}, menu
         if width > 500:
             assert page.locator('[data-gform-quick]').is_visible()
             look = page.evaluate("""(()=>{const k=e=>{const c=getComputedStyle(e);return [c.backgroundColor,c.backgroundImage,c.color,c.borderTopColor,c.borderRadius,c.boxShadow,c.height]};
