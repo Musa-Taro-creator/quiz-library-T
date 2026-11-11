@@ -392,6 +392,33 @@ with sync_playwright() as p:
         page.evaluate("srv.limit=5;srv.used=3")
         ok(tag + 'Parts: Questions per part (typed or quick 25/50/100/max/Half), parts redraw while typing, too big or 0 explained, size remembered')
 
+        # 3h. Paste questions: more than one form's worth → the same Parts / My own range as quizzes
+        page.evaluate("srv.limit=50;srv.used=0")
+        page.locator('[data-gf-tab="make"]').click(); page.locator('[data-gf-src="paste"]').wait_for(); page.locator('[data-gf-src="paste"]').click()
+        many = '\n\n'.join(f'{i}. Pasted question {i}?\nA) Yes\nB) No\nAnswer: A' for i in range(1, 301))
+        page.locator('#qlGfKey').fill(''); bp(many)
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('2 forms will be made · 300 questions in total')")
+        assert page.locator('#qlBpPreview .qz-bp-max').count() == 0, 'no "too many" block any more'
+        assert 'You pasted 300 questions — a form can have up to 200' in page.locator('#qlGfRange').inner_text()
+        parts = [t.replace('\n', ' ') for t in page.locator('[data-gf-pt]').all_inner_texts()]
+        assert parts[0].endswith('Q1–200 · 200 questions') and parts[1].endswith('Q201–300 · 100 questions'), parts
+        page.locator('#qlGfTitle').fill('Cardio bank')
+        page.locator('#qlGfPartSize').fill('100')
+        page.wait_for_function("document.querySelectorAll('[data-gf-pt]').length===3 && document.getElementById('qlGfParsed').textContent.includes('3 forms will be made')")
+        titles = page.locator('#qlGfTitles').inner_text()
+        assert 'Cardio bank (Q1–100)' in titles and 'Cardio bank (Q201–300)' in titles, titles
+        assert page.locator('#qlGfNumStart').is_visible() and 'Make 3 Google Forms' in page.locator('#qlGfMakeBtn').inner_text()
+        # My own range on the pasted list: a single form, From / To checked against the max
+        page.locator('[data-gf-mode="range"]').click(); page.locator('#qlGfFrom').fill('101'); page.locator('#qlGfTo').fill('150')
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('50 questions (101–150 of 300)') && !document.getElementById('qlGfMakeBtn').disabled")
+        page.locator('#qlGfTo').fill('301')
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('Choose questions from 1 to 300') && document.getElementById('qlGfMakeBtn').disabled")
+        page.locator('[data-gf-mode="parts"]').click(); page.locator('#qlGfChips button', has_text='200').click()
+        assert no_overflow(), 'paste parts overflow'
+        shot('3h-paste-parts')
+        page.evaluate("srv.limit=5;srv.used=3")
+        ok(tag + 'Paste questions: more than one form → Parts (Questions per part, ticks, titles) or My own range, like quizzes; no "too many" block')
+
         # 4. My Google Forms: groups, status, search, menu actions, Drive bar
         page.locator('[data-gf-tab="list"]').click()
         page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===9")
@@ -463,7 +490,11 @@ with sync_playwright() as p:
         page.evaluate("srv.mode='plan';srv.planName='Pro';srv.limit=10;srv.used=7;srv.maxQ=3;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
         page.wait_for_function("document.getElementById('qlGfLeft')?.textContent.includes('Forms left today: 3 of 10 (Pro plan)')")
         page.locator('[data-gf-src="paste"]').click(); bp(PASTE)
-        page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('Your plan allows 3 questions per form — this list has 4') && document.getElementById('qlGfMakeBtn').disabled")
+        # more pasted questions than the plan allows per form: Parts of the plan's size (3 + 1) instead of a block
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('2 forms will be made · 4 questions in total') && !document.getElementById('qlGfMakeBtn').disabled")
+        assert 'You pasted 4 questions — a form can have up to 3' in page.locator('#qlGfRange').inner_text() and page.locator('#qlGfPartSize').get_attribute('max') == '3'
+        page.locator('[data-gf-mode="range"]').click(); page.locator('#qlGfTo').fill('4')
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('Your plan allows 3 questions per form — you chose 4') && document.getElementById('qlGfMakeBtn').disabled")
         shot('7-plan')
         bp(PASTE.split('\n\n4.')[0])
         page.wait_for_function("!document.getElementById('qlGfMakeBtn').disabled && document.getElementById('qlGfStatus').classList.contains('hidden')")

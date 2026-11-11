@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-11-v9">
+<meta name="ql-shell-generation" content="reliability-2026-11-11-v10">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -20832,7 +20832,8 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
     pane.innerHTML=`<div class="ql-gf-seg" role="group" aria-label="Questions from"><button type="button" data-gf-src="paste">Paste questions</button><button type="button" data-gf-src="quiz">Use one of my quizzes</button></div>
       <div id="qlGfSrcPaste" class="ql-gf-pane"><div id="qlGfBulk"></div></div>
       <div id="qlGfSrcQuiz" class="ql-gf-pane hidden"><label class="ql-gf-f">Quiz <select id="qlGfQuiz">${qs.length?`<option value="">Choose a quiz…</option>`+qs.map(q=>`<option value="${h(q.id)}">${h(q.title||"Quiz")}</option>`).join(""):`<option value="">You have no quizzes yet</option>`}</select></label>
-        <div id="qlGfRange" class="ql-gf-range hidden"></div></div>
+</div>
+      <div id="qlGfRange" class="ql-gf-range hidden"></div>
       <div id="qlGfParsed" class="ql-gf-parsed"></div>
       <div id="qlGfExamOpts" class="ql-gf-exam hidden">
         <div class="ql-gf-sec"><b>Ask each student</b><small>Shown first, on its own page. Ticked ones must be filled in to submit.</small>
@@ -20846,7 +20847,7 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
         <label class="ql-gf-sw"><button type="button" class="ql-gf-tg" id="qlGfPShuffle" role="switch"></button><span>Shuffle question order<small>Off by default. On = every student gets the questions in a different order.</small></span></label>
         <small class="ql-gf-scorenote">✓ After Submit, students tap <b>View score</b>: their score, ✓ / ✗ for each answer, the right answer and your feedback.</small></div>
       <div class="ql-gf-sec" id="qlGfNumBox"><label class="ql-gf-sw"><button type="button" class="ql-gf-tg" id="qlGfNum" role="switch"></button><span>Number the questions<small>“1. What is…”, “2. …” in the Google Form</small></span></label>
-        <div id="qlGfNumStart" class="ql-gf-numstart hidden"><span>Start at</span><div class="ql-gf-seg"><button type="button" data-gf-ns="one">1</button><button type="button" data-gf-ns="quiz">Quiz numbers</button></div></div>
+        <div id="qlGfNumStart" class="ql-gf-numstart hidden"><span>Start at</span><div class="ql-gf-seg"><button type="button" data-gf-ns="one">1</button><button type="button" data-gf-ns="quiz">Original numbers</button></div></div>
         <div id="qlGfNumWarn" class="ql-gf-numwarn hidden">⚠ “Shuffle question order” is on, so students would see the numbers mixed up (e.g. 17, 3, 42). Turn one of them off.</div></div>
       <label class="ql-gf-f"><span id="qlGfTitleLbl">Form title</span> <input type="text" id="qlGfTitle" maxlength="200" placeholder="e.g. Cardio MCQ – Block 2"></label>
       <div id="qlGfTitles" class="ql-gf-titles hidden"></div>
@@ -20875,7 +20876,8 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
     }
     function drawNum(){
       const t=$$("#qlGfNum");t.classList.toggle("on",!!ex.num);t.setAttribute("aria-checked",String(!!ex.num));
-      $$("#qlGfNumStart").classList.toggle("hidden",!ex.num||src!=="quiz");
+      const notFirst=usingParts()?partsOf().length>1:from>1;
+      $$("#qlGfNumStart").classList.toggle("hidden",!ex.num||!notFirst);
       pane.querySelectorAll("[data-gf-ns]").forEach(b=>b.classList.toggle("on",b.dataset.gfNs===ex.numStart));
       $$("#qlGfNumWarn").classList.toggle("hidden",!(ex.num&&(kind==="exam"?ex.shuffle:ex.pshuffle)));
       const ps=$$("#qlGfPShuffle");ps.classList.toggle("on",!!ex.pshuffle);ps.setAttribute("aria-checked",String(!!ex.pshuffle));
@@ -20886,33 +20888,41 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
     const maxQ=Math.max(1,Math.min(200,Number(info.max_questions||200)));
     $$("#qlGfLeft").innerHTML=unl?`<span class="ql-gf-unl" aria-hidden="true">∞</span><span>Forms left today: <b id="qlGfLeftN">Unlimited</b>${planTxt}</span>`
       :`<span class="ql-gf-dots">${Array.from({length:Math.min(limit,10)},(_,i)=>`<i class="${i<left?"on":""}"></i>`).join("")}</span><span>Forms left today: <b id="qlGfLeftN">${left}</b> of ${limit}${planTxt}</span>`;
-    const bulk=window.qlBulkPastePanel?window.qlBulkPastePanel($$("#qlGfBulk"),{max:maxQ,onChange:()=>refresh()}):null;
+    const bulk=window.qlBulkPastePanel?window.qlBulkPastePanel($$("#qlGfBulk"),{max:100000,onChange:()=>refresh()}):null;
     const setSrc=k=>{src=k;pane.querySelectorAll("[data-gf-src]").forEach(b=>b.classList.toggle("on",b.dataset.gfSrc===k));$$("#qlGfSrcPaste").classList.toggle("hidden",k!=="paste");$$("#qlGfSrcQuiz").classList.toggle("hidden",k!=="quiz");try{drawNum()}catch{}refresh()};
     /* a long quiz in Parts mode: one form per ticked part */
     /* Parts: "Questions per part" (1 … the plan's max per form, remembered on this device) */
     let sizeRaw=String(Math.min(maxQ,Number(ex.partSize)>0?Number(ex.partSize):maxQ));
     const sizeOk=()=>{const z=Number(sizeRaw);return Number.isInteger(z)&&z>=1&&z<=maxQ};
     const partSize=()=>sizeOk()?Number(sizeRaw):maxQ;
-    const canParts=()=>!!quizRows&&quizRows.length>=2;
-    const partsOf=()=>{const n=quizRows?quizRows.length:0,z=partSize();return n>=1&&sizeOk()?Array.from({length:Math.ceil(n/z)},(_,i)=>[i*z+1,Math.min(n,(i+1)*z)]):[]};
-    const usingParts=()=>src==="quiz"&&mode==="parts"&&canParts();
+    /* the questions Parts / My own range work on: the chosen quiz, or the pasted list after "Apply" */
+    const rowsNow=()=>{if(src==="quiz")return quizRows;if(!bulk)return null;const st=bulk.state();return st.stale||!st.parsed?null:bulk.items()};
+    let lastRows;
+    /* a new list (another quiz, or Apply again): Parts when it is longer than one form, else the whole list */
+    function syncRows(){const r=rowsNow();if(r===lastRows)return;lastRows=r;
+      if(r&&r.length){from=1;to=Math.min(r.length,maxQ);mode=r.length>maxQ?"parts":"range";sel=new Set(partsOf().map((_,i)=>i))}
+      drawRange()}
+    const canParts=()=>{const r=rowsNow();return !!r&&r.length>=2};
+    const partsOf=()=>{const R=rowsNow(),n=R?R.length:0,z=partSize();return n>=1&&sizeOk()?Array.from({length:Math.ceil(n/z)},(_,i)=>[i*z+1,Math.min(n,(i+1)*z)]):[]};
+    const usingParts=()=>mode==="parts"&&canParts();
     function current(){
-      if(src==="paste")return bulk?bulk.items():[];
-      if(usingParts())return partsOf().filter((_,i)=>sel.has(i)).flatMap(([a,b])=>quizRows.slice(a-1,b));
-      return quizRows?quizRows.slice(from-1,to):[];
+      const R=rowsNow();if(!R)return [];
+      if(usingParts())return partsOf().filter((_,i)=>sel.has(i)).flatMap(([a,b])=>R.slice(a-1,b));
+      return R.slice(from-1,to);
     }
     /* the forms to make: [{part, title, rows}] */
     function formsToMake(){
       const base=$$("#qlGfTitle").value.trim()||(src==="quiz"&&picked?picked.title:"")||"Quiz";
-      if(usingParts())return partsOf().map(([a,b],i)=>({i,a,b})).filter(x=>sel.has(x.i)).map(({i,a,b})=>({part:i,title:`${base} (Q${a}–${b})`,rows:quizRows.slice(a-1,b),first:a}));
-      const rows=current();return rows.length?[{part:null,title:base,rows,first:src==="quiz"?from:1}]:[];
+      const R=rowsNow()||[];
+      if(usingParts())return partsOf().map(([a,b],i)=>({i,a,b})).filter(x=>sel.has(x.i)).map(({i,a,b})=>({part:i,title:`${base} (Q${a}–${b})`,rows:R.slice(a-1,b),first:a}));
+      const rows=current();return rows.length?[{part:null,title:base,rows,first:from}]:[];
     }
     /* quizzes with more questions than one form allows: tick the parts to make (one form each),
        or "My own range" = From / To for one form */
     function drawRange(){
-      const box=$$("#qlGfRange"),n=quizRows?quizRows.length:0;
-      box.classList.toggle("hidden",!n);if(!n){box.innerHTML="";return}
-      const head=`<div class="ql-gf-range-h"><b>Questions</b><span>This quiz has ${n} question${n===1?"":"s"}${n>maxQ?` — a form can have up to ${maxQ}`:""}.</span></div>`;
+      const box=$$("#qlGfRange"),R=rowsNow(),n=R?R.length:0;
+      box.classList.toggle("hidden",n<2);if(n<2){box.innerHTML="";return}
+      const head=`<div class="ql-gf-range-h"><b>Questions</b><span>${src==="quiz"?"This quiz has":"You pasted"} ${n} question${n===1?"":"s"}${n>maxQ?` — a form can have up to ${maxQ}`:""}.</span></div>`;
       const seg=canParts()?`<div class="ql-gf-seg ql-gf-mode" role="group" aria-label="How to split"><button type="button" data-gf-mode="parts" class="${mode==="parts"?"on":""}">Parts</button><button type="button" data-gf-mode="range" class="${mode==="range"?"on":""}">My own range</button></div>`:"";
       const rangeHtml=`<div class="ql-gf-range-row"><label>From <input type="number" id="qlGfFrom" min="1" max="${n}" step="1" inputmode="numeric" value="${from}"></label><label>To <input type="number" id="qlGfTo" min="1" max="${n}" step="1" inputmode="numeric" value="${to}"></label></div>`;
       const sizeHtml=`<div class="ql-gf-size"><label for="qlGfPartSize">Questions per part</label><input type="number" id="qlGfPartSize" min="1" max="${maxQ}" step="1" inputmode="numeric" value="${h(sizeRaw)}"><small>max ${maxQ}</small></div>
@@ -20931,7 +20941,7 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
     }
     /* quick sizes, the error line and the tick list (redrawn without touching the size box, so typing keeps focus) */
     function drawParts(){
-      const n=quizRows?quizRows.length:0,parts=partsOf(),z=Number(sizeRaw),half=Math.ceil(n/2);
+      const R=rowsNow(),n=R?R.length:0,parts=partsOf(),z=Number(sizeRaw),half=Math.ceil(n/2);
       const err=$$("#qlGfSizeErr");err.classList.toggle("hidden",sizeOk());
       err.textContent=sizeOk()?"":`A form can have up to ${maxQ} questions${maxQ<200?" on your plan":""}. Type 1–${maxQ}.`;
       $$("#qlGfPartSize").classList.toggle("bad",!sizeOk());
@@ -20946,31 +20956,34 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
       const allBtn=$$("#qlGfAll");if(allBtn)allBtn.onclick=()=>{if(all)sel.clear();else parts.forEach((_,i)=>sel.add(i));drawParts();refresh()};
     }
     function rangeError(){
-      if(src!=="quiz"||!quizRows||!quizRows.length||usingParts())return "";
-      const n=quizRows.length;
+      const R=rowsNow();if(!R||!R.length||usingParts())return "";
+      const n=R.length;
       if(!Number.isInteger(from)||!Number.isInteger(to)||from<1||to>n||from>to)return `Choose questions from 1 to ${n} (From must not be after To).`;
-      if(to-from+1>maxQ)return `A form can have up to ${maxQ} questions — you chose ${to-from+1}. Make the range smaller or use Parts.`;
+      if(to-from+1>maxQ)return `${maxQ<200?`Your plan allows ${maxQ} questions per form`:`A form can have up to ${maxQ} questions`} — you chose ${to-from+1}. Make the range smaller or use Parts.`;
       return "";
     }
     /* the title follows the range while it is still the automatic one */
     function retitle(){
       const t=$$("#qlGfTitle");if(!picked||(t.value.trim()&&t.value!==autoTitle))return;
-      const n=quizRows?quizRows.length:0,whole=from===1&&to===n;
+      const R=rowsNow(),n=R?R.length:0,whole=from===1&&to===n;
       autoTitle=(picked.title||"Quiz")+(usingParts()||whole||rangeError()?"":` (Q${from}–${to})`);t.value=autoTitle;
     }
     function refresh(){
+      syncRows();
       $$("#qlGfTitleLbl").textContent=usingParts()?`${kind==="exam"?"Exam title":"Title"} (each form adds its questions, e.g. “(Q1–200)”)`:kind==="exam"?"Exam title":"Form title";
       const list=current(),s=summarize(list),st=$$("#qlGfStatus"),bs=bulk&&src==="paste"?bulk.state():null;
       const rErr=rangeError(),problems=bs?bs.problems:0,tooMany=s.count>maxQ;
       let line;
-      if(src==="paste"){
-        line=!bs||(!bs.hasText&&!bs.parsed)?"Paste your questions, then tap <b>Apply Answer Key &amp; Preview</b>.":bs.stale||!bs.parsed?"Tap <b>Apply Answer Key &amp; Preview</b> to read your questions.":
-          `<b>${s.count} question${s.count===1?"":"s"}</b> ready to send${s.noAns?` · <span class="warn">${s.noAns} without an answer</span>`:""}${problems?` · <span class="warn">${problems} with a problem</span>`:""}`;
+      const R=rowsNow(),n=R?R.length:0,k=usingParts()?sel.size:0,prob=problems?` · <span class="warn">${problems} with a problem</span>`:"";
+      if(src==="paste"&&(!bs||!bs.parsed||bs.stale)){
+        line=!bs||(!bs.hasText&&!bs.parsed)?"Paste your questions, then tap <b>Apply Answer Key &amp; Preview</b>.":"Tap <b>Apply Answer Key &amp; Preview</b> to read your questions.";
+      }else if(src==="paste"&&!usingParts()&&!rErr&&from===1&&to===n){
+        line=`<b>${s.count} question${s.count===1?"":"s"}</b> ready to send${s.noAns?` · <span class="warn">${s.noAns} without an answer</span>`:""}${prob}`;
       }else{
-        const n=quizRows?quizRows.length:0,k=usingParts()?sel.size:0;
-        line=!picked?"Choose a quiz above.":quizRows===null?"Loading questions…":!n?"This quiz has no questions.":rErr?`<span class="warn">${h(rErr)}</span>`:
+        line=src==="quiz"&&!picked?"Choose a quiz above.":src==="quiz"&&quizRows===null?"Loading questions…":!n?(src==="quiz"?"This quiz has no questions.":"No questions found."):rErr?`<span class="warn">${h(rErr)}</span>`:
           usingParts()?(!sizeOk()?`<span class="warn">Type how many questions go in each part (1–${maxQ}).</span>`:k?`<b>${k} form${k===1?"":"s"}</b> will be made · ${s.count} question${s.count===1?"":"s"} in total${s.noAns?` · <span class="warn">${s.noAns} without an answer</span>`:""}`:`<span class="warn">Tick at least one part.</span>`):
           `<b>${s.count} question${s.count===1?"":"s"}</b> (${from}–${to} of ${n})${s.noAns?` · <span class="warn">${s.noAns} without an answer</span>`:""}`;
+        if(src==="paste"&&!rErr)line+=prob;
       }
       /* Parts: the title of every form that will be made */
       {const tl=$$("#qlGfTitles"),fs=usingParts()?formsToMake():[];tl.classList.toggle("hidden",fs.length<1);
@@ -20978,14 +20991,14 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
       $$("#qlGfParsed").innerHTML=line;
       const pics=$$("#qlGfPics");pics.classList.toggle("hidden",!s.pics);pics.innerHTML=s.pics?`${ic("pic",18)}<span><b>${s.pics} picture${s.pics===1?"":"s"} won't be included.</b> Google Forms only gets the text. You can add pictures in Google Forms afterwards.</span>`:"";
       const nForms=usingParts()?sel.size:1,overLeft=!unl&&left>0&&nForms>left;
-      $$("#qlGfMakeBtn").disabled=!s.count||left<=0||(tooMany&&!usingParts())||!!rErr||problems>0||overLeft;
+      $$("#qlGfMakeBtn").disabled=!s.count||left<=0||(tooMany&&!usingParts())||!!rErr||problems>0||overLeft||(usingParts()&&!sizeOk());
       const exam=kind==="exam";$$("#qlGfMakeBtn").classList.toggle("exam",exam);
       $$("#qlGfMakeBtn").innerHTML=exam?`${ic("exam",18)} ${nForms>1?`Make ${nForms} exam forms`:"Make exam form"}`:`${ic("form",18)} ${nForms>1?`Make ${nForms} Google Forms`:"Make Google Form"}`;
       const msg=left<=0?(off?(info.mode==="plan"?"Your plan does not include Google Forms.":"Making Google Forms is turned off for your account."):unl?`You made ${Number(info.cap||100)} Google Forms today, the safety limit. You can make more tomorrow.`:`You made ${limit} Google Form${limit===1?"":"s"} today. You can make more tomorrow.`)
-        :tooMany&&src==="paste"?(maxQ<200?`Your plan allows ${maxQ} questions per form — this list has ${s.count}.`:`A Google Form can have up to 200 questions — this list has ${s.count}.`)+" Remove some questions or split it into two forms."
         :problems?`Fix the ${problems} problem question${problems===1?"":"s"} in the preview first (each needs text, and multiple choice needs at least 2 options).`
         :overLeft?`You can make ${left} more Google Form${left===1?"":"s"} today — tick ${left} part${left===1?"":"s"} or fewer.`:"";
       if(msg){st.className=left<=0||overLeft?"status":"status error";st.textContent=msg}else if(st.dataset.keep!=="1"){st.className="status hidden";st.textContent=""}
+      try{drawNum()}catch{}
     }
     pane.querySelectorAll("[data-gf-src]").forEach(b=>b.onclick=()=>setSrc(b.dataset.gfSrc));
     $$("#qlGfQuiz").onchange=async e=>{
@@ -21003,7 +21016,7 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
       const forms=formsToMake();if(!forms.length)return;
       const exam=kind==="exam";
       const examBody=exam?{fields:ex.fields.filter(f=>f[1]).map(f=>f[0]),one_response:!!ex.one,collect_email:!!ex.email,shuffle:!!ex.shuffle,lock:!!ex.lock}:null;
-      const num=(rows,first)=>rows.slice(0,maxQ).map((q,i)=>{const g=toGoogle(q);if(ex.num)g.prompt=`${(ex.numStart==="quiz"&&src==="quiz"?first:1)+i}. ${g.prompt}`;return g});
+      const num=(rows,first)=>rows.slice(0,maxQ).map((q,i)=>{const g=toGoogle(q);if(ex.num)g.prompt=`${(ex.numStart==="quiz"?first:1)+i}. ${g.prompt}`;return g});
       startJob(forms.map(f=>({title:f.title,questions:num(f.rows,f.first||1),editor_email:email,source:(exam?"exam_":"")+src,
           description:exam?"Made with Quiz Library · Fill in your details, then answer every question."+(ex.one?" You can submit only once.":""):"Made with Quiz Library",
           exam:examBody,practice:exam?undefined:{shuffle:!!ex.pshuffle},part:f.part})),

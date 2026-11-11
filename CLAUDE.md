@@ -11,7 +11,7 @@ the full details. This file is the short version.
 - Every release of the student app changes the version name in **both**
   `index.html` (`<meta name="ql-shell-generation">`, line ~20) and `sw.js`
   (`APP_CACHE` + `SHELL_GENERATION`). Use the form `reliability-YYYY-MM-DD-vN`.
-  The version in the repo on 2026-11-11 is `reliability-2026-11-11-v9` (not live until merged to main; v8 is live).
+  The version in the repo on 2026-11-11 is `reliability-2026-11-11-v10` (not live until merged to main; v9 is live).
 - CDN libraries stay pinned (supabase-js 2.118.0, tus 4.3.1, pdf-lib 1.17.1). If you
   change one, change it in index.html, admin.html, sw.js and the offline tests.
 - A new picture in `assets/` must also be added to `SHELL` in `sw.js` (a test checks this).
@@ -66,9 +66,10 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
   students see "View score" after Submit; Practice settings: Shuffle (off by default). "Number the questions" (both tabs, on by default; start at 1 or quiz numbers) is added
   by the app to each prompt. Exam settings are remembered per device (`ql_gf_exam_<uid>`). Paste = `window.qlBulkPastePanel` (end of `quizFeatureScript`): the quiz editor's Bulk Paste
   panel (upload, guides, answer key, Apply & Preview, Missing/Problem panels, editable preview), no Destination/Position.
-  One of my quizzes (2+ questions): Parts (Questions per part: typed or quick 25/50/100/max/Half, 1…max, remembered
+  The Questions box (`rowsNow()` = the chosen quiz, or the pasted list after Apply; 2+ questions): Parts (Questions per part: typed or quick 25/50/100/max/Half, 1…max, remembered
   as `partSize`; tick several, one form each, made one after another; a failed one keeps the forms before it) or
-  My own range (From–To). A quiz longer than one form starts in Parts, a shorter one in My own range. Forms over 30 questions are sent in parts of 30
+  My own range (From–To). A list longer than one form starts in Parts, a shorter one in My own range
+  (whole list). "Start at 1 / Original numbers" shows when a form doesn't start at question 1. Forms over 30 questions are sent in parts of 30
   (`make` with chunked → first 30, then `add` per part, `discard` if a part fails twice) so no call hits
   Supabase's ~150 s limit; needs Apps Script version 2 (older script = one call). The % counts the parts.
   Then My Google Forms opens with a "ready" banner and the new form highlighted (link, made date, days ago).
