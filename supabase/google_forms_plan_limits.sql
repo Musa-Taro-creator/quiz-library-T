@@ -1,7 +1,7 @@
 -- Quiz Library — Make Google Form: limits per PLAN (Admin → Plans & Limits → Edit plan).
 --
 -- Run once in Supabase → SQL Editor, after google_forms.sql and google_forms_user_limits.sql.
--- Safe to run again. It only replaces three functions; no tables or plans are changed,
+-- Safe to run again. It only adds or replaces functions; no tables or plans are changed,
 -- so nothing is different until you edit a plan.
 --
 -- In Edit plan, "Make Google Form" now has two boxes (saved in the plan's limits):
