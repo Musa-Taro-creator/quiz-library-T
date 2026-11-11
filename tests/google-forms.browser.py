@@ -1,6 +1,8 @@
 """Make Google Form in the student app: toolbar button (after Create Quiz, NEW tag), Make new
-(paste with Bulk Paste formats + answer key, or one of my quizzes), picture warning, forms
-left today, result links, and My Google Forms (groups, search, status, menu actions, Drive).
+(Paste = the quiz editor's Bulk Paste panel without Destination/Position; or one of my quizzes
+with From–To and parts for long quizzes), picture warning, forms left today, a progress
+percentage while the form is made, then My Google Forms opens with the new form (link, date,
+days ago) and the list keeps groups, search, status, menu actions and Drive.
 
 Real index.html in Chromium (tablet + phone width) with a simulated Supabase and a fake
 Edge Function (functions.invoke). No network, no Google.
@@ -40,7 +42,7 @@ const realFactory=window.supabase.createClient;
 window.supabase.createClient=(...a)=>{const c=realFactory(...a),rpc=c.rpc;
  c.rpc=async(name,args)=>{srv.calls.push({name,args:JSON.parse(JSON.stringify(args||{}))});
   if(name in answers)return {data:answers[name](args||{}),error:null};return rpc(name,args)};
- c.functions={invoke:async(name,o)=>{srv.invokes.push({name,body:JSON.parse(JSON.stringify(o.body))});await new Promise(r=>setTimeout(r,60));return {data:fn[o.body.action](o.body),error:null}}};
+ c.functions={invoke:async(name,o)=>{srv.invokes.push({name,body:JSON.parse(JSON.stringify(o.body))});await new Promise(r=>setTimeout(r,o.body.action==='make'?(srv.delay||60):60));return {data:fn[o.body.action](o.body),error:null}}};
  return c};
 '''
 PASTE = """1. Which valve sits between the left atrium and ventricle?
@@ -95,6 +97,9 @@ with sync_playwright() as p:
         invokes = lambda: page.evaluate('srv.invokes')
         no_overflow = lambda: page.evaluate("document.documentElement.scrollWidth<=innerWidth+1 && [...document.querySelectorAll('#modalBody *')].every(e=>{const r=e.getBoundingClientRect(),m=document.querySelector('#modalBody').getBoundingClientRect();return r.width===0||r.right<=m.right+1})")
         tag = f'[{width}px] '
+        last_make = lambda: [c for c in invokes() if c['body']['action'] == 'make'][-1]['body']
+        def bp(text):
+            page.locator('#qlGfPaste').wait_for(); page.locator('#qlGfPaste').fill(text); page.locator('#qlBpParse').click()
 
         # 1. toolbar: right after Create Quiz, thin divider, NEW tag (tablet); "+ New" menu (all sizes)
         page.evaluate("render()")
@@ -109,62 +114,129 @@ with sync_playwright() as p:
             shot('0-toolbar')
         ok(tag + 'Toolbar: Make Google Form sits right after Create Quiz with a divider and a NEW tag; also in + New')
 
-        # 2. Make new from pasted questions (Bulk Paste formats + answer key), picture-free text
+        # 2. Make new → Paste questions = the quiz editor's Bulk Paste panel (no Destination / Position)
         page.evaluate("qlOpenGoogleForm()")
         page.locator('#qlGfPaste').wait_for()
         assert 'Forms left today: 4 of 5' in page.locator('#qlGfLeft').inner_text()
-        page.locator('#qlGfPaste').fill(PASTE)
-        page.locator('#qlGfMake summary').click(); page.locator('#qlGfKey').fill('3 A, B')
+        for sel in ('#qlBpUpload', '#qlBpParse', '#qlGfKey', '[data-bp-guide="qlBpBulkGuide"]', '[data-bp-guide="qlBpKeyGuide"]', '[data-bp-guide="qlBpUploadGuide"]'):
+            assert page.locator(sel).is_visible(), sel
+        mk = page.locator('#qlGfSrcPaste').inner_text()
+        assert 'Bulk paste questions' in mk and 'Bulk paste answer key (optional)' in mk and 'Upload file txt' in mk, mk
+        assert 'Destination' not in mk and 'Position' not in mk, mk
+        page.locator('[data-bp-guide="qlBpBulkGuide"]').click(); assert page.locator('#qlBpBulkGuide').is_visible(); page.locator('[data-bp-guide="qlBpBulkGuide"]').click()
+        assert no_overflow(), 'empty paste pane overflows'
+        shot('0b-paste-empty')
+        page.locator('#qlGfPaste').fill(PASTE); page.locator('#qlGfKey').fill('3 A, B')
+        assert page.locator('#qlGfMakeBtn').is_disabled() and 'Apply Answer Key' in page.locator('#qlGfParsed').inner_text()
+        page.locator('#qlBpParse').click()
         page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('4 questions')")
         parsed = page.locator('#qlGfParsed').inner_text()
         assert '1 without an answer' in parsed, parsed  # Q2 true/false has no answer
+        pv = page.locator('#qlBpPreview').inner_text()
+        assert '3/4 questions ready.' in pv and 'Missing answers: 1' in pv and 'Q2' in pv and 'No question-format problems' in pv and 'Parsed Questions Preview' in pv, pv
+        assert page.locator('#qlBpPreview [data-bp-item]').count() == 4
+        # changing the text after the preview: Make waits for Apply again (typing it back un-does that)
+        page.locator('#qlGfPaste').press('End'); page.keyboard.type('x')
+        page.wait_for_function("document.querySelector('#qlBpPreview .qz-bp-stale') && document.getElementById('qlGfMakeBtn').disabled")
+        page.keyboard.press('Backspace')
+        page.wait_for_function("!document.querySelector('#qlBpPreview .qz-bp-stale') && !document.getElementById('qlGfMakeBtn').disabled")
+        # fix the missing answer right in the preview, like in the quiz editor
+        page.locator('[data-bp-tf="1"][data-val="true"]').click()
+        page.wait_for_function("!document.getElementById('qlGfParsed').textContent.includes('without an answer') && document.getElementById('qlBpPreview').textContent.includes('4/4 questions ready.')")
         assert page.locator('#qlGfPics').is_hidden()
+        assert 'Google Drive' in page.locator('.ql-gf-drivenote').inner_text()
         page.locator('#qlGfTitle').fill('Cardio basics'); page.locator('#qlGfEmail').fill('Bona@Gmail.com')
         assert no_overflow(), 'make pane overflows'
         shot('1-make-paste')
+        # progress: a percentage that goes up while Google makes the form
+        page.evaluate("srv.delay=1600")
         page.locator('#qlGfMakeBtn').click()
-        page.locator('.ql-gf-ok').wait_for()
-        body = invokes()[-1]['body']
+        page.locator('#qlGfProgress').wait_for()
+        assert page.locator('#qlGfMakeBtn').is_hidden() and page.locator('#qlGfSrcPaste.ql-gf-busy').count() == 1
+        p1 = int(page.locator('#qlGfPct').inner_text().rstrip('%')); page.wait_for_timeout(700); p2 = int(page.locator('#qlGfPct').inner_text().rstrip('%'))
+        assert 0 < p1 < p2 < 100, (p1, p2)
+        stage = page.locator('#qlGfStage').inner_text()
+        assert 'Adding questions' in stage or 'Checking your daily limit' in stage, stage
+        assert page.locator('#qlGfProgress').get_attribute('aria-valuenow') == str(p2)
+        shot('1b-progress')
+        page.wait_for_function("document.getElementById('qlGfPct')?.textContent==='100%' || document.querySelector('#qlGfDone')")
+        page.evaluate("srv.delay=60")
+        # done: My Google Forms opens with the new form on top, highlighted, with its link
+        page.locator('#qlGfDone').wait_for()
+        assert page.locator('[data-gf-tab="list"].on').count() == 1
+        body = last_make()
         assert body['action'] == 'make' and body['title'] == 'Cardio basics' and body['editor_email'] == 'bona@gmail.com', body
         qs = body['questions']
         assert [q['type'] for q in qs] == ['mcq', 'true_false', 'mcq', 'short_answer'], qs
         assert qs[0]['options'] == ['Mitral', 'Aortic', 'Tricuspid'] and qs[0]['correct'] == [0] and not qs[0]['multi']
+        assert qs[1]['correct'] is True, qs[1]
         assert qs[2]['correct'] == [0, 1] and qs[2]['multi'], qs[2]
         assert qs[3]['answers'] == ['Aorta'], qs[3]
         assert 'image' not in json.dumps(qs)
-        txt = page.locator('#qlGfMake').inner_text()
-        assert 'Your Google Form is ready' in txt and 'bona@gmail.com' in txt and 'short-answer' in txt, txt
-        assert page.locator('#qlGfLink').input_value().startswith('https://forms.gle/')
-        assert page.locator('#qlGfEdit').input_value().endswith('/edit')
-        page.locator('[data-gf-copy="qlGfLink"]').click()
+        txt = page.locator('#qlGfDone').inner_text()
+        assert 'Your Google Form is ready' in txt and 'bona@gmail.com' in txt and 'short-answer' in txt and 'until you remove it' in txt, txt
+        page.wait_for_function("document.querySelector('.ql-gf-card.new')")
+        new = page.locator('.ql-gf-card.new')
+        nt = new.inner_text()
+        assert 'NEW' in nt and 'Cardio basics' in nt and 'forms.gle/' in nt and 'Made ' in nt and 'today' in nt, nt
+        assert new.locator('[data-gf-act="url"]').get_attribute('href').startswith('https://forms.gle/')
+        new.locator('[data-gf-act="copy"]').click()
         page.wait_for_function("document.getElementById('toast').textContent.includes('Link copied')")
         assert page.evaluate('navigator.clipboard.readText()').startswith('https://forms.gle/')
         assert page.evaluate(f"localStorage.getItem('ql_gf_email_11111111-1111-4111-8111-111111111111')") == 'bona@gmail.com'
         assert no_overflow(), 'result overflows'
         shot('2-result')
-        ok(tag + 'Paste (Bulk Paste formats + answer key) makes a form: right types, answers, multi-select, Gmail; result has student + edit links with Copy')
+        ok(tag + 'Paste = Bulk Paste panel (upload, guides, answer key, Apply & Preview, Missing/Problem panels, fix answers in preview; no Destination/Position); progress % while making; then My Google Forms with the new form, its link, date and Copy')
 
         # 3. Use one of my quizzes: pictures counted and warned, text only sent
         page.evaluate("""()=>{state.items.push({id:'q-pic',kind:'quiz',title:'Histology slides',parent_id:null,library_id:LIBRARY_ID,is_trashed:false,quiz_settings:{}});
           service.getQuizQuestionsAdmin=async()=>[{id:'a',type:'mcq',prompt:'Which tissue?',image:'data:image/png;base64,AAA',options:[{text:'Epithelium',image:'data:x'},{text:'Muscle',image:null}],correct_answer:0,points:2,question_position:0},
             {id:'b',type:'true_false',prompt:'',image:'data:image/png;base64,BBB',correct_answer:false,points:1,question_position:1}]}""")
         page.locator('#qlGfAnother').click()
-        page.locator('[data-gf-src="quiz"]').click()
+        page.locator('[data-gf-src="quiz"]').wait_for(); page.locator('[data-gf-src="quiz"]').click()
         page.locator('#qlGfQuiz').select_option('q-pic')
         page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('2 questions')")
         assert page.locator('#qlGfTitle').input_value() == 'Histology slides'
         assert "3 pictures won't be included" in page.locator('#qlGfPics').inner_text()
         assert 'Forms left today: 3 of 5' in page.locator('#qlGfLeft').inner_text()
         shot('3-make-quiz')
-        page.locator('#qlGfMakeBtn').click(); page.locator('.ql-gf-ok').wait_for()
-        qs = invokes()[-1]['body']['questions']
+        assert page.locator('#qlGfRange').inner_text().count('Part') == 0 and page.locator('#qlGfFrom').input_value() == '1' and page.locator('#qlGfTo').input_value() == '2'
+        page.locator('#qlGfMakeBtn').click(); page.locator('#qlGfDone').wait_for()
+        qs = last_make()['questions']
         assert qs[0]['options'] == ['Epithelium', 'Muscle'] and qs[0]['points'] == 2 and qs[1]['prompt'].startswith('(Picture question') and qs[1]['correct'] is False, qs
         assert 'data:' not in json.dumps(qs)
         ok(tag + 'One of my quizzes: title filled in, pictures counted and not sent, picture-only question gets a note')
 
+        # 3b. a quiz longer than one form: From – To and parts of 200
+        page.evaluate("""()=>{state.items.push({id:'q-big',kind:'quiz',title:'Big bank',parent_id:null,library_id:LIBRARY_ID,is_trashed:false,quiz_settings:{}});
+          const prior=service.getQuizQuestionsAdmin;service.getQuizQuestionsAdmin=async id=>id==='q-big'?Array.from({length:450},(_,i)=>({id:'b'+i,type:'mcq',prompt:'Q'+(i+1),options:[{text:'Yes'},{text:'No'}],correct_answer:0,points:1,question_position:i})):prior(id)}""")
+        page.locator('#qlGfAnother').click(); page.locator('#qlGfQuiz').wait_for()
+        page.locator('[data-gf-src="quiz"]').click(); page.locator('#qlGfTitle').fill('')
+        page.locator('#qlGfQuiz').select_option('q-big')
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('200 questions (1–200 of 450)')")
+        assert page.locator('#qlGfTitle').input_value() == 'Big bank (Q1–200)'
+        parts = page.locator('[data-gf-part]').all_inner_texts()
+        assert parts == ['Part 1 · 1–200', 'Part 2 · 201–400', 'Part 3 · 401–450'], parts
+        assert 'a form can have up to 200' in page.locator('#qlGfRange').inner_text()
+        page.locator('[data-gf-part="201-400"]').click()
+        assert page.locator('#qlGfFrom').input_value() == '201' and page.locator('#qlGfTo').input_value() == '400' and page.locator('#qlGfTitle').input_value() == 'Big bank (Q201–400)'
+        page.locator('#qlGfTo').fill('420')
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('you chose 220') && document.getElementById('qlGfMakeBtn').disabled")
+        page.locator('#qlGfFrom').fill('300'); page.locator('#qlGfTo').fill('250')
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('From must not be after To') && document.getElementById('qlGfMakeBtn').disabled")
+        page.locator('[data-gf-part="401-450"]').click()
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('50 questions (401–450 of 450)') && !document.getElementById('qlGfMakeBtn').disabled")
+        assert page.locator('#qlGfTitle').input_value() == 'Big bank (Q401–450)'
+        assert no_overflow(), 'range overflows'
+        shot('3b-range')
+        page.locator('#qlGfMakeBtn').click(); page.locator('#qlGfDone').wait_for()
+        body = last_make()
+        assert len(body['questions']) == 50 and body['questions'][0]['prompt'] == 'Q401' and body['questions'][-1]['prompt'] == 'Q450' and body['title'] == 'Big bank (Q401–450)', (len(body['questions']), body['title'])
+        ok(tag + 'Long quiz: From–To with parts of 200, title follows the range, wrong ranges explained, only the chosen questions are sent')
+
         # 4. My Google Forms: groups, status, search, menu actions, Drive bar
-        page.locator('#qlGfSeeAll').click()
-        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===5")
+        page.locator('#qlGfDoneX').click(); assert page.locator('#qlGfDone').count() == 0
+        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===6")
         page.wait_for_function("document.getElementById('qlGfItems').textContent.includes('12 responses')")
         groups = [g.lower() for g in page.locator('#qlGfItems .ql-sa-gh').all_inner_texts()]
         assert groups == ['today', 'this week', 'older'], groups
@@ -178,7 +250,9 @@ with sync_playwright() as p:
         page.locator('#qlGfSearch').fill('cardio')
         page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===2")
         page.locator('#qlGfSearch').fill('')
-        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===5")
+        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===6")
+        c3 = page.locator('[data-gf-id="r3"]').inner_text()
+        assert 'Made ' in c3 and '20 days ago' in c3 and 'forms.gle/F3' in c3, c3
         page.locator('[data-gf-id="r1"] [data-gf-act="menu"]').click()
         page.locator('.ql-gf-menu').wait_for()
         shot('5-menu')
@@ -199,10 +273,10 @@ with sync_playwright() as p:
         # 5. limits and errors
         page.evaluate("srv.used=5;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
         page.locator('[data-gf-src="paste"]').click()  # the window remembers the last source (a quiz, from step 3)
-        page.locator('#qlGfPaste').wait_for(); page.locator('#qlGfPaste').fill(PASTE)
+        bp(PASTE)
         page.wait_for_function("document.getElementById('qlGfMakeBtn').disabled && document.getElementById('qlGfStatus').textContent.includes('more tomorrow')")
         page.evaluate("srv.used=1;srv.fail='Google did not answer. Please try again.';try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
-        page.locator('#qlGfPaste').wait_for(); page.locator('#qlGfPaste').fill(PASTE); page.locator('#qlGfEmail').fill('not-an-email')
+        bp(PASTE); page.locator('#qlGfEmail').fill('not-an-email')
         page.wait_for_function("!document.getElementById('qlGfMakeBtn').disabled")
         page.locator('#qlGfMakeBtn').click()
         assert "doesn't look right" in page.locator('#qlGfStatus').inner_text()
@@ -211,32 +285,32 @@ with sync_playwright() as p:
         assert not page.locator('#qlGfMakeBtn').is_disabled(), 'can try again'
         # per-person limits set by Admin: Unlimited (safety cap), a custom number, 0 = off
         page.evaluate("srv.fail=null;srv.mode='unlimited';srv.used=3;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
-        page.locator('[data-gf-src="paste"]').click(); page.locator('#qlGfPaste').fill(PASTE)
+        page.locator('[data-gf-src="paste"]').click(); bp(PASTE)
         page.wait_for_function("document.getElementById('qlGfLeft').textContent.includes('Unlimited')")
         assert page.locator('.ql-gf-unl').count() == 1 and page.locator('.ql-gf-dots').count() == 0
         shot('6-unlimited')
-        page.locator('#qlGfMakeBtn').click(); page.locator('.ql-gf-ok').wait_for()
-        assert 'Forms left today: Unlimited' in page.locator('.ql-gf-ok').inner_text()
+        page.locator('#qlGfMakeBtn').click(); page.locator('#qlGfDone .ql-gf-ok').wait_for()
+        assert 'Forms left today: Unlimited' in page.locator('#qlGfDone .ql-gf-ok').inner_text()
         page.evaluate("srv.used=100;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
-        page.locator('#qlGfPaste').fill(PASTE)
+        bp(PASTE)
         page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('100 Google Forms today, the safety limit') && document.getElementById('qlGfMakeBtn').disabled")
         page.evaluate("srv.mode='custom';srv.limit=12;srv.used=2;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
         page.wait_for_function("document.getElementById('qlGfLeft')?.textContent.includes('Forms left today: 10 of 12')")
         # the plan's numbers (Admin → Plans): "3 of 10 (Pro plan)" and questions per form
         page.evaluate("srv.mode='plan';srv.planName='Pro';srv.limit=10;srv.used=7;srv.maxQ=3;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
         page.wait_for_function("document.getElementById('qlGfLeft')?.textContent.includes('Forms left today: 3 of 10 (Pro plan)')")
-        page.locator('[data-gf-src="paste"]').click(); page.locator('#qlGfPaste').fill(PASTE)
+        page.locator('[data-gf-src="paste"]').click(); bp(PASTE)
         page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('Your plan allows 3 questions per form — this list has 4') && document.getElementById('qlGfMakeBtn').disabled")
         shot('7-plan')
-        page.locator('#qlGfPaste').fill(PASTE.split('\n\n4.')[0])
+        bp(PASTE.split('\n\n4.')[0])
         page.wait_for_function("!document.getElementById('qlGfMakeBtn').disabled && document.getElementById('qlGfStatus').classList.contains('hidden')")
         page.evaluate("srv.limit=0;srv.used=0;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
-        page.locator('#qlGfPaste').fill(PASTE)
+        bp(PASTE)
         page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('Your plan does not include Google Forms')")
         page.evaluate("srv.mode='custom';srv.planName=null;srv.maxQ=200")
         ok(tag + 'Plan limits: "3 of 10 (Pro plan)", questions per form blocks with a clear message, plan 0 says the plan has no Google Forms')
         page.evaluate("srv.limit=0;srv.used=0;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
-        page.locator('#qlGfPaste').fill(PASTE)
+        bp(PASTE)
         page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('turned off for your account') && document.getElementById('qlGfMakeBtn').disabled")
         page.evaluate("srv.mode='default';srv.limit=5;srv.used=1")
         ok(tag + 'Per-person limits: Unlimited shows ∞ and the safety cap, a custom number shows X of Y, 0 says it is off')
