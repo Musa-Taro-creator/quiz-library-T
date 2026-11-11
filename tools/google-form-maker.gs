@@ -18,7 +18,9 @@ var ROOT_FOLDER_NAME = 'Quiz Library forms';
 var MAX_QUESTIONS = 200;
 // Version 2: big forms arrive in parts ("make" with more = true, then "add" for each part),
 // so no single request takes long enough to be cut off by Supabase.
-var VERSION = 2;
+// Version 3: exam forms (d.exam): student fields first on their own page, every question
+// required, one answer per Google account, the Gmail recorded, shuffled order, no editing.
+var VERSION = 3;
 
 /* ------------------------------------------------------------------ setup */
 function setup() {
@@ -89,9 +91,11 @@ function make_(d) {
     form.setIsQuiz(true);
     form.setDescription(clean_(d.description, 4000) || 'Made with Quiz Library');
     form.setProgressBar(qs.length > 10);
+    var exam = d.exam && typeof d.exam === 'object' ? d.exam : null;
+    if (exam) examSetup_(form, exam);
     var noAnswer = 0, shortAnswers = 0;
     for (var i = 0; i < qs.length; i++) {
-      var r = addQuestion_(form, qs[i], i);
+      var r = addQuestion_(form, qs[i], i, !!exam);
       if (r.noAnswer) noAnswer++;
       if (r.short) shortAnswers++;
     }
@@ -138,7 +142,7 @@ function add_(d) {
   var start = Math.max(0, Math.round(Number(d.start) || have));
   var noAnswer = 0, shortAnswers = 0;
   for (var i = 0; i < qs.length; i++) {
-    var r = addQuestion_(form, qs[i], start + i);
+    var r = addQuestion_(form, qs[i], start + i, !!d.required);
     if (r.noAnswer) noAnswer++;
     if (r.short) shortAnswers++;
   }
@@ -199,7 +203,30 @@ function share_(d) {
 /* ------------------------------------------------------------------ questions */
 // q = { type: 'mcq' | 'true_false' | 'short_answer', prompt, options: [text], correct: [index] | true/false,
 //       answers: [text], multi: bool, points, explanation }
-function addQuestion_(form, q, i) {
+// Exam: the rules, then the student fields (required) on their own page before the questions.
+function examSetup_(form, ex) {
+  if (ex.collect_email) {
+    try {
+      if (typeof form.setEmailCollectionType === 'function' && FormApp.EmailCollectionType) form.setEmailCollectionType(FormApp.EmailCollectionType.VERIFIED);
+      else form.setCollectEmail(true);
+    } catch (err) { form.setCollectEmail(true); }
+  }
+  if (ex.one_response) form.setLimitOneResponsePerUser(true);
+  if (ex.shuffle) form.setShuffleQuestions(true);
+  if (ex.lock) {
+    form.setAllowResponseEdits(false);
+    form.setShowLinkToRespondAgain(false);
+  }
+  form.setPublishingSummary(false);
+  form.setConfirmationMessage('Your answers were sent. Thank you!');
+  var fields = (ex.fields || []).map(function (t) { return clean_(t, 100); }).filter(String).slice(0, 10);
+  if (fields.length) {
+    for (var k = 0; k < fields.length; k++) form.addTextItem().setTitle(fields[k]).setRequired(true);
+    form.addPageBreakItem().setTitle('Questions');
+  }
+}
+
+function addQuestion_(form, q, i, required) {
   var title = clean_(q.prompt, 4000).replace(/\s*\n+\s*/g, ' ') || ('Question ' + (i + 1));
   var points = Math.max(0, Math.min(1000, Math.round(Number(q.points) || 1)));
   var expl = clean_(q.explanation, 4000);
@@ -211,10 +238,12 @@ function addQuestion_(form, q, i) {
       item.createChoice('False', q.correct === false)
     ]).setPoints(points);
     setChoiceFeedback_(item, expl);
+    if (required) item.setRequired(true);
     noAnswer = q.correct !== true && q.correct !== false;
   } else if (q.type === 'short_answer') {
     item = form.addTextItem();
     item.setTitle(title).setPoints(points);
+    if (required) item.setRequired(true);
     // Google can't take the answer key for short answers from a script, so the
     // accepted answers are shown as feedback and the form owner marks them.
     var answers = (q.answers || []).map(function (a) { return clean_(a, 500); }).filter(String);
@@ -230,6 +259,7 @@ function addQuestion_(form, q, i) {
       return item.createChoice(text, correct.indexOf(k) >= 0);
     })).setPoints(points);
     setChoiceFeedback_(item, expl);
+    if (required) item.setRequired(true);
     noAnswer = !correct.some(function (k) { return k >= 0 && k < opts.length; });
   }
   return { noAnswer: noAnswer };

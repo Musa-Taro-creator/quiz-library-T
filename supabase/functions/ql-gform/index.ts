@@ -19,6 +19,10 @@
 // about a second per question. So "make" with chunked: true makes the form from the first PART
 // questions (when the Apps Script is version 2 or newer) and the app sends the rest with "add",
 // one part at a time. If a part fails, "discard" moves the half-made form to the Trash.
+//
+// Exam forms (body.exam): the student fields (name, ID, ...) come first on their own page, every
+// question is required, and the rules (one answer per Google account, record the Gmail, shuffle,
+// no editing / no "submit another") are set. This needs Apps Script version 3 or newer.
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -98,6 +102,13 @@ export function makeHandler(env, fetchFn) {
     return data;
   }
 
+  // Exam settings: up to 10 student fields (text), and four on/off rules.
+  function cleanExam(x) {
+    if (!x || typeof x !== "object") return null;
+    const fields = (Array.isArray(x.fields) ? x.fields : []).map((t) => String(t == null ? "" : t).trim().slice(0, 100)).filter(Boolean).slice(0, 10);
+    return { fields, one_response: !!x.one_response, collect_email: !!x.collect_email, shuffle: !!x.shuffle, lock: !!x.lock };
+  }
+
   // Only the text of each question goes to Google (no pictures), with sane sizes.
   function cleanQuestions(list) {
     return (Array.isArray(list) ? list : []).slice(0, 200).map((q) => ({
@@ -131,15 +142,23 @@ export function makeHandler(env, fetchFn) {
           const res = await user("ql_gform_reserve", { p_title: title, p_question_count: questions.length, p_source: String(body.source || "paste").slice(0, 20) });
           try {
             const cfg = await asServer("ql_gform__owner", { p_owner_email: null });
-            // in parts only when the app asks for it and the Apps Script knows "add" (version 2+)
+            // in parts only when the app asks for it and the Apps Script knows "add" (version 2+);
+            // exam forms need version 3+
+            const exam = cleanExam(body.exam);
             let parts = false;
-            if (body.chunked && questions.length > PART) {
+            if ((body.chunked && questions.length > PART) || exam) {
               const pong = await script(cfg, { action: "ping" });
-              parts = Number(pong.version || 0) >= 2;
+              const v = Number(pong.version || 0);
+              if (exam && v < 3) {
+                const e = new Error("Exam forms need the new Apps Script (version 3). Please ask the admin to update it, then try again.");
+                e.status = 503;
+                throw e;
+              }
+              parts = body.chunked && questions.length > PART && v >= 2;
             }
             const first = parts ? questions.slice(0, PART) : questions;
             const made = await script(cfg, {
-              action: "make", user_id: res.user_id, user_label: res.user_label, title, more: parts,
+              action: "make", user_id: res.user_id, user_label: res.user_label, title, more: parts, exam,
               description: String(body.description || "").slice(0, 4000), questions: first, editor_email: editor,
             });
             const row = await asServer("ql_gform__finish", { p_id: res.record_id, p_data: { ...made, question_count: questions.length } });
@@ -178,7 +197,7 @@ export function makeHandler(env, fetchFn) {
           const part = cleanQuestions(body.questions).slice(0, PART);
           const done = await script(cfg, {
             action: "add", user_id: rec.user_id, form_id: rec.form_id, questions: part,
-            start: Math.max(0, Math.round(Number(body.start) || 0)), last: !!body.last,
+            start: Math.max(0, Math.round(Number(body.start) || 0)), last: !!body.last, required: !!body.required,
           });
           return reply(200, { ok: true, added: done.added || 0, question_count: done.question_count || 0,
                               no_answer: done.no_answer || 0, short_answers: done.short_answers || 0, last: !!done.last });
