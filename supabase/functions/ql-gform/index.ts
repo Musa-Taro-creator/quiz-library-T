@@ -23,6 +23,8 @@
 // Exam forms (body.exam): the student fields (name, ID, ...) come first on their own page, every
 // question is required, and the rules (one answer per Google account, record the Gmail, shuffle,
 // no editing / no "submit another") are set. This needs Apps Script version 3 or newer.
+// Practice forms (body.practice): optional shuffle (Apps Script version 4+). Version 4 also makes
+// practice forms from a template so students see "View score" after Submit (from_template).
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -146,7 +148,8 @@ export function makeHandler(env, fetchFn) {
             // exam forms need version 3+
             const exam = cleanExam(body.exam);
             let parts = false;
-            if ((body.chunked && questions.length > PART) || exam) {
+            const practice = exam ? null : { shuffle: !!(body.practice && body.practice.shuffle) };
+            if ((body.chunked && questions.length > PART) || exam || (practice && practice.shuffle)) {
               const pong = await script(cfg, { action: "ping" });
               const v = Number(pong.version || 0);
               if (exam && v < 3) {
@@ -154,17 +157,22 @@ export function makeHandler(env, fetchFn) {
                 e.status = 503;
                 throw e;
               }
+              if (practice && practice.shuffle && v < 4) {
+                const e = new Error("Shuffle for practice forms needs the new Apps Script (version 4). Please ask the admin to update it, or turn Shuffle off.");
+                e.status = 503;
+                throw e;
+              }
               parts = body.chunked && questions.length > PART && v >= 2;
             }
             const first = parts ? questions.slice(0, PART) : questions;
             const made = await script(cfg, {
-              action: "make", user_id: res.user_id, user_label: res.user_label, title, more: parts, exam,
+              action: "make", user_id: res.user_id, user_label: res.user_label, title, more: parts, exam, practice,
               description: String(body.description || "").slice(0, 4000), questions: first, editor_email: editor,
             });
             const row = await asServer("ql_gform__finish", { p_id: res.record_id, p_data: { ...made, question_count: questions.length } });
             return reply(200, { ok: true, form: row, left: res.left, limit: res.limit, unlimited: !!res.unlimited, mode: res.mode || "", plan_name: res.plan_name || "", editor_error: made.editor_error || "",
                                 no_answer: made.no_answer || 0, short_answers: made.short_answers || 0,
-                                next: parts ? first.length : null, total: questions.length, part: PART });
+                                next: parts ? first.length : null, total: questions.length, part: PART, from_template: !!made.from_template });
           } catch (e) {
             await asServer("ql_gform__fail", { p_id: res.record_id, p_error: String(e.message || e) }).catch(() => {});
             throw e;
@@ -224,7 +232,7 @@ export function makeHandler(env, fetchFn) {
           const cfg = await asServer("ql_gform__owner", { p_owner_email: null });
           const pong = await script(cfg, { action: "ping" });
           await asServer("ql_gform__checked", { p_script_url: cfg.script_url, p_owner_email: pong.owner });
-          return reply(200, { ok: true, owner: pong.owner });
+          return reply(200, { ok: true, owner: pong.owner, version: Number(pong.version || 1), practice_template: !!pong.practice_template });
         }
         default:
           return reply(400, { ok: false, error: "Unknown action" });

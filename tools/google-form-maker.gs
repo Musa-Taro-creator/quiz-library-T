@@ -20,7 +20,13 @@ var MAX_QUESTIONS = 200;
 // so no single request takes long enough to be cut off by Supabase.
 // Version 3: exam forms (d.exam): student fields first on their own page, every question
 // required, one answer per Google account, the Gmail recorded, shuffled order, no editing.
-var VERSION = 3;
+// Version 4: practice forms are copies of a template form (setupPracticeTemplate) whose
+// "Release marks" Kuza set once to "Immediately" — Google doesn't let a script set it — so
+// students see "View score" after Submit. Practice forms can also be shuffled (d.practice).
+var VERSION = 4;
+var TEMPLATE_KEY = 'PRACTICE_TEMPLATE';
+var TEMPLATE_NAME = 'Quiz Library – practice template (do not delete)';
+var VIEW_SCORE_MESSAGE = 'Your answers were sent. Tap "View score" to see your score and which answers were right or wrong.';
 
 /* ------------------------------------------------------------------ setup */
 function setup() {
@@ -63,7 +69,7 @@ function doPost(e) {
   }
   try {
     switch (body.action) {
-      case 'ping':      return json_({ ok: true, owner: owner_(), version: VERSION });
+      case 'ping':      return json_({ ok: true, owner: owner_(), version: VERSION, practice_template: !!practiceTemplateId_() });
       case 'make':      return json_(make_(body));
       case 'add':       return json_(add_(body));
       case 'discard':   return json_(discard_(body));
@@ -84,7 +90,17 @@ function make_(d) {
   if (!qs.length) throw new Error('No questions to add.');
   if (!d.user_id) throw new Error('Missing student.');
   var title = clean_(d.title, 200) || 'Quiz';
-  var form = FormApp.create(title);
+  // practice: a copy of the template keeps its "Release marks: Immediately"
+  var exam0 = d.exam && typeof d.exam === 'object';
+  var tid = exam0 ? null : practiceTemplateId_();
+  var form;
+  if (tid) {
+    var copy = DriveApp.getFileById(tid).makeCopy(title);
+    form = FormApp.openById(copy.getId());
+    form.setTitle(title);
+  } else {
+    form = FormApp.create(title);
+  }
   var formId = form.getId();
   var folder;
   try {
@@ -93,6 +109,11 @@ function make_(d) {
     form.setProgressBar(qs.length > 10);
     var exam = d.exam && typeof d.exam === 'object' ? d.exam : null;
     if (exam) examSetup_(form, exam);
+    else {
+      var pr = d.practice && typeof d.practice === 'object' ? d.practice : {};
+      if (pr.shuffle) form.setShuffleQuestions(true);
+      if (tid) form.setConfirmationMessage(VIEW_SCORE_MESSAGE);
+    }
     var noAnswer = 0, shortAnswers = 0;
     for (var i = 0; i < qs.length; i++) {
       var r = addQuestion_(form, qs[i], i, !!exam);
@@ -122,6 +143,7 @@ function make_(d) {
     no_answer: noAnswer,
     short_answers: shortAnswers,
     more: !!d.more,
+    from_template: !!tid,
     editor_email: '',
     editor_error: ''
   };
@@ -131,6 +153,34 @@ function make_(d) {
     catch (err) { result.editor_error = 'Could not add ' + email + ' as editor. Is it a Google account?'; }
   }
   return result;
+}
+
+// Run once from the editor (choose setupPracticeTemplate, press Run). It makes an empty quiz
+// form in the "Quiz Library forms" folder and logs its link. Open it → Settings → Release marks →
+// "Immediately after each submission" and tick Missed questions, Correct answers, Point values.
+// Every practice form is then made as a copy of it. Running it again just logs the link.
+function setupPracticeTemplate() {
+  var id = practiceTemplateId_();
+  if (!id) {
+    var form = FormApp.create(TEMPLATE_NAME);
+    form.setIsQuiz(true);
+    form.setDescription('Practice forms are copies of this form. Keep it empty. Settings → Release marks must be "Immediately after each submission".');
+    DriveApp.getFileById(form.getId()).moveTo(rootFolder_());
+    id = form.getId();
+    PropertiesService.getScriptProperties().setProperty(TEMPLATE_KEY, id);
+  }
+  Logger.log('Template: ' + TEMPLATE_NAME);
+  Logger.log('Open it: ' + FormApp.openById(id).getEditUrl());
+  Logger.log('Then: Settings → Release marks → Immediately after each submission (tick Missed questions, Correct answers, Point values).');
+  return id;
+}
+
+// The template's id, or '' when it was never made or has been deleted / trashed.
+function practiceTemplateId_() {
+  var id = PropertiesService.getScriptProperties().getProperty(TEMPLATE_KEY);
+  if (!id) return '';
+  try { if (DriveApp.getFileById(id).isTrashed()) return ''; } catch (err) { return ''; }
+  return id;
 }
 
 // The next part of a big form. The form must already be in this student's folder.

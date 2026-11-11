@@ -32,12 +32,12 @@ const answers={
  ql_gform_remove:a=>{srv.forms=srv.forms.filter(f=>f.id!==a.p_id);return null}
 };
 const fn={
- make:b=>{if(srv.fail)return {ok:false,error:srv.fail};srv.used++;const id='F'+(srv.forms.length+10);const f={id:'r'+id,title:b.title,source:b.source,question_count:b.questions.length,form_id:id,responder_url:'https://forms.gle/'+id,edit_url:'https://docs.google.com/forms/d/'+id+'/edit',folder_url:'https://drive.google.com/drive/folders/D1',owner_email:'quizlibrary.forms@gmail.com',editor_email:b.editor_email||null,accepting:true,created_at:new Date().toISOString()};
+ make:b=>{if(srv.fail)return {ok:false,error:srv.fail};srv.used++;const id='F'+(srv.forms.length+10);const f={id:'r'+id,title:b.title,source:b.source,from_template:!srv.noTpl,question_count:b.questions.length,form_id:id,responder_url:'https://forms.gle/'+id,edit_url:'https://docs.google.com/forms/d/'+id+'/edit',folder_url:'https://drive.google.com/drive/folders/D1',owner_email:'quizlibrary.forms@gmail.com',editor_email:b.editor_email||null,accepting:true,created_at:new Date().toISOString()};
    const unl=srv.mode==='unlimited'||srv.mode==='admin';srv.forms.unshift(f);
    /* like the real Edge Function: chunked + more than 30 questions = only the first 30 now, the rest with "add" */
    const parts=b.chunked&&b.questions.length>30,first=parts?b.questions.slice(0,30):b.questions;
    return {ok:true,form:f,unlimited:unl,left:(unl?srv.cap:srv.limit)-srv.used,limit:unl?null:srv.limit,editor_error:'',no_answer:first.filter(q=>q.type==='mcq'&&q.correct.some(c=>c<0)).length,short_answers:first.filter(q=>q.type==='short_answer').length,
-     next:parts?30:null,total:b.questions.length,part:30}},
+     next:parts?30:null,total:b.questions.length,part:30,from_template:!srv.noTpl}},
  add:b=>{if(srv.failAdd||(srv.failAddAt&&b.questions[0]&&String(b.questions[0].prompt).endsWith(srv.failAddAt)))return {ok:false,error:'Google said no'};return {ok:true,added:b.questions.length,question_count:b.start+b.questions.length,no_answer:0,short_answers:0,last:b.last}},
  discard:b=>{srv.forms=srv.forms.filter(f=>f.id!==b.id);return {ok:true}},
  status:()=>({ok:true,forms:{F1:{accepting:true,responses:12,title:'x'},F2:{accepting:false,responses:31,title:'x'},F3:{missing:true}}}),
@@ -153,6 +153,11 @@ with sync_playwright() as p:
         page.wait_for_function("!document.getElementById('qlGfParsed').textContent.includes('without an answer') && document.getElementById('qlBpPreview').textContent.includes('4/4 questions ready.')")
         assert page.locator('#qlGfPics').is_hidden()
         assert 'Google Drive' in page.locator('.ql-gf-drivenote').inner_text()
+        # Practice settings: Shuffle (off by default) and the View score reminder; numbers + shuffle warns
+        assert page.locator('#qlGfPracOpts').is_visible() and 'View score' in page.locator('#qlGfPracOpts').inner_text()
+        assert page.locator('#qlGfPShuffle').get_attribute('aria-checked') == 'false' and page.locator('#qlGfNumWarn').is_hidden()
+        page.locator('#qlGfPShuffle').click(); assert page.locator('#qlGfNumWarn').is_visible()
+        page.locator('#qlGfPShuffle').click(); assert page.locator('#qlGfNumWarn').is_hidden()
         page.locator('#qlGfTitle').fill('Cardio basics'); page.locator('#qlGfEmail').fill('Bona@Gmail.com')
         assert no_overflow(), 'make pane overflows'
         shot('1-make-paste')
@@ -178,7 +183,8 @@ with sync_playwright() as p:
         assert [q['type'] for q in qs] == ['mcq', 'true_false', 'mcq', 'short_answer'], qs
         assert qs[0]['options'] == ['Mitral', 'Aortic', 'Tricuspid'] and qs[0]['correct'] == [0] and not qs[0]['multi']
         assert qs[0]['prompt'] == '1. Which valve sits between the left atrium and ventricle?' and qs[3]['prompt'] == '4. Largest artery?', 'numbered by default'
-        assert body['source'] == 'paste' and not body.get('exam'), 'a practice form'
+        assert body['source'] == 'paste' and not body.get('exam') and body['practice'] == {'shuffle': False}, 'a practice form'
+        assert "won't see their score" not in page.locator('#qlGfDone').inner_text() if page.locator('#qlGfDone').count() else True
         assert qs[1]['correct'] is True, qs[1]
         assert qs[2]['correct'] == [0, 1] and qs[2]['multi'], qs[2]
         assert qs[3]['answers'] == ['Aorta'], qs[3]
@@ -203,6 +209,7 @@ with sync_playwright() as p:
           service.getQuizQuestionsAdmin=async()=>[{id:'a',type:'mcq',prompt:'Which tissue?',image:'data:image/png;base64,AAA',options:[{text:'Epithelium',image:'data:x'},{text:'Muscle',image:null}],correct_answer:0,points:2,question_position:0},
             {id:'b',type:'true_false',prompt:'',image:'data:image/png;base64,BBB',correct_answer:false,points:1,question_position:1}]}""")
         page.locator('#qlGfAnother').click()
+        page.evaluate("srv.noTpl=true")  # the practice template is missing: the student won't see the score
         page.locator('[data-gf-src="quiz"]').wait_for(); page.locator('[data-gf-src="quiz"]').click()
         page.locator('#qlGfQuiz').select_option('q-pic')
         page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('2 questions')")
@@ -212,6 +219,8 @@ with sync_playwright() as p:
         shot('3-make-quiz')
         assert page.locator('[data-gf-mode="range"].on').count() == 1 and page.locator('#qlGfFrom').input_value() == '1' and page.locator('#qlGfTo').input_value() == '2', 'a short quiz starts as one whole form'
         page.locator('#qlGfMakeBtn').click(); page.locator('#qlGfDone').wait_for()
+        assert "won't see their score" in page.locator('#qlGfDone').inner_text() and 'Release marks' in page.locator('#qlGfDone').inner_text()
+        page.evaluate("srv.noTpl=false")
         qs = last_make()['questions']
         assert qs[0]['options'] == ['Epithelium', 'Muscle'] and qs[0]['points'] == 2 and qs[1]['prompt'].startswith('2. (Picture question') and qs[1]['correct'] is False, qs
         assert 'data:' not in json.dumps(qs)
@@ -303,6 +312,7 @@ with sync_playwright() as p:
         assert page.locator('#qlGfExamOpts').is_hidden()
         page.locator('[data-gf-tab="exam"]').click()
         page.locator('#qlGfExamOpts').wait_for()
+        assert page.locator('#qlGfPracOpts').is_hidden(), 'practice settings only in Practice'
         assert 'students give their name and ID' in page.locator('#qlGfLead').inner_text()
         flds = [t.replace('\n', ' ') for t in page.locator('.ql-gf-fld').all_inner_texts()]
         assert flds == ['✓ Full name REQUIRED', '✓ Student ID REQUIRED', '✓ Class / Group REQUIRED', 'Phone number'], flds
@@ -325,7 +335,7 @@ with sync_playwright() as p:
         shot('3e-exam')
         page.locator('#qlGfMakeBtn').click(); page.locator('#qlGfDone').wait_for()
         body = last_make()
-        assert body['source'] == 'exam_paste' and body['title'] == 'Cardio final exam', body
+        assert body['source'] == 'exam_paste' and body['title'] == 'Cardio final exam' and 'practice' not in body, body
         assert body['exam'] == {'fields': ['Full name', 'Student ID', 'Seat number'], 'one_response': True, 'collect_email': True, 'shuffle': False, 'lock': True}, body['exam']
         assert 'submit only once' in body['description'] and body['questions'][0]['prompt'].startswith('1. ')
         dn = page.locator('#qlGfDone').inner_text()

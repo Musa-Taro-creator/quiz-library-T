@@ -78,6 +78,28 @@ app says "Exam forms need the new Apps Script (version 3)" and nothing is made. 
 keep working either way. Google doesn't let a script hide the score: change it once in Google
 Forms → Settings → Release marks if needed.
 
+## Practice forms: show the score after Submit (template)
+
+Google doesn't let a script set **Release marks**, and forms made by a script start on
+"Later, after manual review", so students only see "Your response has been recorded". From
+**Apps Script version 4** every practice form is made as a **copy of a template form**, and a copy
+keeps the template's settings. Set it up once, signed in as the forms Gmail:
+
+1. Paste the current `tools/google-form-maker.gs`, **Save**, then **Deploy → Manage deployments → ✏️ →
+   Version: New version → Deploy** (same URL). Update `ql-gform` too.
+2. At the top choose **setupPracticeTemplate** and press **Run ▶**. The log shows the link of
+   "Quiz Library – practice template (do not delete)" (in the "Quiz Library forms" folder).
+3. Open that link → **Settings** → **Release marks** → **Immediately after each submission**, and tick
+   **Missed questions**, **Correct answers** and **Point values**. Keep the template empty.
+4. Admin → Settings → Make Google Form → **Check connection** should say
+   "Apps Script version 4 · Practice template: ✓ ready".
+5. Make one small practice form and submit it: you should see **View score**.
+
+Exam forms are not copied from it (they stay on "Later", for the teacher to release). Forms made
+before this keep "Later": change those by hand (Settings → Release marks). If the template is deleted,
+practice forms are still made the old way and Check connection says "Practice template missing".
+The Practice tab's **Shuffle question order** also needs version 4.
+
 ## Switching to another Gmail later
 
 Do part A with the new Gmail, then paste its URL and SECRET in Admin. New forms use the
