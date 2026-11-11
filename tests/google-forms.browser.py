@@ -32,13 +32,13 @@ const answers={
  ql_gform_remove:a=>{srv.forms=srv.forms.filter(f=>f.id!==a.p_id);return null}
 };
 const fn={
- make:b=>{if(srv.fail)return {ok:false,error:srv.fail};srv.used++;const id='F'+(srv.forms.length+10);const f={id:'r'+id,title:b.title,question_count:b.questions.length,form_id:id,responder_url:'https://forms.gle/'+id,edit_url:'https://docs.google.com/forms/d/'+id+'/edit',folder_url:'https://drive.google.com/drive/folders/D1',owner_email:'quizlibrary.forms@gmail.com',editor_email:b.editor_email||null,accepting:true,created_at:new Date().toISOString()};
+ make:b=>{if(srv.fail)return {ok:false,error:srv.fail};srv.used++;const id='F'+(srv.forms.length+10);const f={id:'r'+id,title:b.title,source:b.source,question_count:b.questions.length,form_id:id,responder_url:'https://forms.gle/'+id,edit_url:'https://docs.google.com/forms/d/'+id+'/edit',folder_url:'https://drive.google.com/drive/folders/D1',owner_email:'quizlibrary.forms@gmail.com',editor_email:b.editor_email||null,accepting:true,created_at:new Date().toISOString()};
    const unl=srv.mode==='unlimited'||srv.mode==='admin';srv.forms.unshift(f);
    /* like the real Edge Function: chunked + more than 30 questions = only the first 30 now, the rest with "add" */
    const parts=b.chunked&&b.questions.length>30,first=parts?b.questions.slice(0,30):b.questions;
    return {ok:true,form:f,unlimited:unl,left:(unl?srv.cap:srv.limit)-srv.used,limit:unl?null:srv.limit,editor_error:'',no_answer:first.filter(q=>q.type==='mcq'&&q.correct.some(c=>c<0)).length,short_answers:first.filter(q=>q.type==='short_answer').length,
      next:parts?30:null,total:b.questions.length,part:30}},
- add:b=>{if(srv.failAdd||(srv.failAddAt&&b.questions[0]&&b.questions[0].prompt===srv.failAddAt))return {ok:false,error:'Google said no'};return {ok:true,added:b.questions.length,question_count:b.start+b.questions.length,no_answer:0,short_answers:0,last:b.last}},
+ add:b=>{if(srv.failAdd||(srv.failAddAt&&b.questions[0]&&String(b.questions[0].prompt).endsWith(srv.failAddAt)))return {ok:false,error:'Google said no'};return {ok:true,added:b.questions.length,question_count:b.start+b.questions.length,no_answer:0,short_answers:0,last:b.last}},
  discard:b=>{srv.forms=srv.forms.filter(f=>f.id!==b.id);return {ok:true}},
  status:()=>({ok:true,forms:{F1:{accepting:true,responses:12,title:'x'},F2:{accepting:false,responses:31,title:'x'},F3:{missing:true}}}),
  rename:b=>{const f=srv.forms.find(x=>x.id===b.id);f.title=b.title;return {ok:true,title:b.title}},
@@ -177,6 +177,8 @@ with sync_playwright() as p:
         qs = body['questions']
         assert [q['type'] for q in qs] == ['mcq', 'true_false', 'mcq', 'short_answer'], qs
         assert qs[0]['options'] == ['Mitral', 'Aortic', 'Tricuspid'] and qs[0]['correct'] == [0] and not qs[0]['multi']
+        assert qs[0]['prompt'] == '1. Which valve sits between the left atrium and ventricle?' and qs[3]['prompt'] == '4. Largest artery?', 'numbered by default'
+        assert body['source'] == 'paste' and not body.get('exam'), 'a practice form'
         assert qs[1]['correct'] is True, qs[1]
         assert qs[2]['correct'] == [0, 1] and qs[2]['multi'], qs[2]
         assert qs[3]['answers'] == ['Aorta'], qs[3]
@@ -211,7 +213,7 @@ with sync_playwright() as p:
         assert page.locator('#qlGfRange').inner_text().count('Part') == 0 and page.locator('#qlGfFrom').input_value() == '1' and page.locator('#qlGfTo').input_value() == '2'
         page.locator('#qlGfMakeBtn').click(); page.locator('#qlGfDone').wait_for()
         qs = last_make()['questions']
-        assert qs[0]['options'] == ['Epithelium', 'Muscle'] and qs[0]['points'] == 2 and qs[1]['prompt'].startswith('(Picture question') and qs[1]['correct'] is False, qs
+        assert qs[0]['options'] == ['Epithelium', 'Muscle'] and qs[0]['points'] == 2 and qs[1]['prompt'].startswith('2. (Picture question') and qs[1]['correct'] is False, qs
         assert 'data:' not in json.dumps(qs)
         ok(tag + 'One of my quizzes: title filled in, pictures counted and not sent, picture-only question gets a note')
 
@@ -250,6 +252,9 @@ with sync_playwright() as p:
         page.locator('[data-gf-pt="0"]').click()
         page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('2 forms will be made · 250 questions in total') && !document.getElementById('qlGfMakeBtn').disabled")
         assert 'Make 2 Google Forms' in page.locator('#qlGfMakeBtn').inner_text()
+        # numbers: "Quiz numbers" keeps the quiz's own numbers (201, 202…) instead of starting at 1
+        assert page.locator('#qlGfNumStart').is_visible() and page.locator('#qlGfNum').get_attribute('aria-checked') == 'true'
+        page.locator('[data-gf-ns="quiz"]').click()
         titles = page.locator('#qlGfTitles').inner_text()
         assert 'Big bank (Q201–400)' in titles and 'Big bank (Q401–450)' in titles and 'Q1–200' not in titles, titles
         assert no_overflow(), 'parts overflow'
@@ -265,8 +270,8 @@ with sync_playwright() as p:
         page.locator('#qlGfDone').wait_for(); page.evaluate("srv.delay=60")
         made = [c['body'] for c in invokes()[n0:] if c['body']['action'] in ('make', 'add', 'discard')]
         assert [m['action'] for m in made] == ['make'] + ['add'] * 6 + ['make', 'add'], [m['action'] for m in made]
-        assert made[0]['title'] == 'Big bank (Q201–400)' and made[0]['questions'][0]['prompt'] == 'Q201' and len(made[0]['questions']) == 200 and made[0]['chunked'] is True
-        assert made[7]['title'] == 'Big bank (Q401–450)' and len(made[7]['questions']) == 50 and made[8]['questions'][0]['prompt'] == 'Q431' and made[8]['last'] is True
+        assert made[0]['title'] == 'Big bank (Q201–400)' and made[0]['questions'][0]['prompt'] == '201. Q201' and len(made[0]['questions']) == 200 and made[0]['chunked'] is True
+        assert made[7]['title'] == 'Big bank (Q401–450)' and len(made[7]['questions']) == 50 and made[8]['questions'][0]['prompt'] == '431. Q431' and made[8]['last'] is True
         assert 'part' not in made[0], 'the part number stays in the app'
         assert '2 Google Forms are ready' in page.locator('#qlGfDone').inner_text()
         page.wait_for_function("document.querySelectorAll('.ql-gf-card.new').length===2")
@@ -292,9 +297,55 @@ with sync_playwright() as p:
         page.evaluate("srv.failAddAt=null;srv.limit=5;srv.used=3")
         ok(tag + 'Long quiz: Parts with tick boxes (Select / Clear all, one form each, titles listed, forms-left check) or My own range; several forms made one after another with a line each; a failing form keeps the ones before it and stays ticked to try again')
 
+        # 3e. Exam tab (before My Google Forms): student fields, exam rules, numbering; same questions as Practice
+        tabs = [t.replace('\n', ' ').strip() for t in page.locator('[data-gf-tab]').all_inner_texts()]
+        assert tabs == ['Practice', 'Exam NEW', 'My Google Forms'], tabs
+        assert page.locator('#qlGfExamOpts').is_hidden()
+        page.locator('[data-gf-tab="exam"]').click()
+        page.locator('#qlGfExamOpts').wait_for()
+        assert 'students give their name and ID' in page.locator('#qlGfLead').inner_text()
+        flds = [t.replace('\n', ' ') for t in page.locator('.ql-gf-fld').all_inner_texts()]
+        assert flds == ['✓ Full name REQUIRED', '✓ Student ID REQUIRED', '✓ Class / Group REQUIRED', 'Phone number'], flds
+        assert page.locator('[data-gf-rule][aria-checked="true"]').count() == 4
+        assert page.locator('#qlGfNumWarn').is_visible(), 'numbers + shuffle: warned'
+        page.locator('[data-gf-rule="shuffle"]').click()
+        assert page.locator('#qlGfNumWarn').is_hidden()
+        page.locator('#qlGfNewField').fill('Seat number'); page.locator('#qlGfAddField').click()
+        page.locator('[data-gf-fld="2"]').click()  # Class / Group off
+        page.locator('[data-gf-src="paste"]').click(); bp(PASTE)
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('4 questions')")
+        assert page.locator('#qlGfTitleLbl').inner_text() == 'Exam title' and 'Make exam form' in page.locator('#qlGfMakeBtn').inner_text()
+        assert 'exam' in page.locator('#qlGfMakeBtn').get_attribute('class') and page.locator('#qlGfNumStart').is_hidden(), 'quiz numbers only for quizzes'
+        # Practice and Exam share the questions; only the extras change
+        page.locator('[data-gf-tab="make"]').click(); assert page.locator('#qlGfExamOpts').is_hidden() and page.locator('#qlGfPaste').input_value() == PASTE
+        assert 'Make Google Form' in page.locator('#qlGfMakeBtn').inner_text()
+        page.locator('[data-gf-tab="exam"]').click(); page.locator('#qlGfExamOpts').wait_for()
+        page.locator('#qlGfTitle').fill('Cardio final exam')
+        assert no_overflow(), 'exam pane overflows'
+        shot('3e-exam')
+        page.locator('#qlGfMakeBtn').click(); page.locator('#qlGfDone').wait_for()
+        body = last_make()
+        assert body['source'] == 'exam_paste' and body['title'] == 'Cardio final exam', body
+        assert body['exam'] == {'fields': ['Full name', 'Student ID', 'Seat number'], 'one_response': True, 'collect_email': True, 'shuffle': False, 'lock': True}, body['exam']
+        assert 'submit only once' in body['description'] and body['questions'][0]['prompt'].startswith('1. ')
+        dn = page.locator('#qlGfDone').inner_text()
+        assert 'Your exam form is ready' in dn and 'Stop accepting answers' in dn, dn
+        page.wait_for_function("document.querySelector('.ql-gf-card.new')?.textContent.includes('EXAM')")
+        # filter: All / Practice / Exam
+        page.locator('#qlGfKinds').wait_for()
+        page.locator('[data-gf-lk="exam"]').click()
+        page.wait_for_function("[...document.querySelectorAll('#qlGfItems .ql-gf-card')].every(c=>c.textContent.includes('EXAM')) && document.querySelectorAll('#qlGfItems .ql-gf-card').length===1")
+        page.locator('[data-gf-lk="practice"]').click()
+        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===8 && [...document.querySelectorAll('#qlGfItems .ql-gf-card')].every(c=>c.textContent.includes('PRACTICE'))")
+        page.locator('[data-gf-lk="all"]').click()
+        shot('3f-exam-list')
+        # remembered on this device
+        assert page.evaluate("JSON.parse(localStorage.getItem('ql_gf_exam_11111111-1111-4111-8111-111111111111')).fields.length") == 5
+        ok(tag + 'Exam tab before My Google Forms: student fields (+ own), rules, numbers + shuffle warning; sends the exam settings; EXAM tag and All / Practice / Exam filter')
+
         # 4. My Google Forms: groups, status, search, menu actions, Drive bar
         page.locator('[data-gf-tab="list"]').click()
-        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===8")
+        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===9")
         page.wait_for_function("document.getElementById('qlGfItems').textContent.includes('12 responses')")
         groups = [g.lower() for g in page.locator('#qlGfItems .ql-sa-gh').all_inner_texts()]
         assert groups == ['today', 'this week', 'older'], groups
@@ -306,9 +357,9 @@ with sync_playwright() as p:
         assert no_overflow(), 'list overflows'
         shot('4-list')
         page.locator('#qlGfSearch').fill('cardio')
-        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===2")
+        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===3")
         page.locator('#qlGfSearch').fill('')
-        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===8")
+        page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===9")
         c3 = page.locator('[data-gf-id="r3"]').inner_text()
         assert 'Made ' in c3 and '20 days ago' in c3 and 'forms.gle/F3' in c3, c3
         page.locator('[data-gf-id="r1"] [data-gf-act="menu"]').click()

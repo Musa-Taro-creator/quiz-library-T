@@ -14,11 +14,11 @@ function google(){
  const mkFolder=(name,parent)=>{const id='D'+(++seq);const f={id,name,editors:[],parent,getId:()=>id,getUrl:()=>'https://drive.google.com/drive/folders/'+id,
    createFolder:n=>mkFolder(n,id),addEditor(e){if(/bad/.test(e))throw Error('Invalid email');f.editors.push(e)}};folders.set(id,f);return f};
  const mkItem=(kind)=>{const it={kind,choices:[],points:null,title:'',fb:{}};
-   it.setTitle=t=>{it.title=t;return it};it.createChoice=(text,ok)=>({text,ok});it.setChoices=c=>{if(new Set(c.map(x=>x.text)).size!==c.length||c.some(x=>!x.text))throw Error('Choices must be unique and not empty');it.choices=c;return it};
+   it.setTitle=t=>{it.title=t;return it};it.setRequired=v=>{it.required=v;return it};it.createChoice=(text,ok)=>({text,ok});it.setChoices=c=>{if(new Set(c.map(x=>x.text)).size!==c.length||c.some(x=>!x.text))throw Error('Choices must be unique and not empty');it.choices=c;return it};
    it.setPoints=p=>{if(!Number.isInteger(p))throw Error('points must be whole');it.points=p;return it};
    it.setFeedbackForCorrect=f=>{it.fb.right=f;return it};it.setFeedbackForIncorrect=f=>{it.fb.wrong=f;return it};it.setGeneralFeedback=f=>{it.fb.general=f;return it};return it};
  const FormApp={create(title){const id='F'+(++seq);const form={id,title,items:[],quiz:false,published:false,accepting:false,responses:3,
-   getId:()=>id,getItems:()=>form.items,setIsQuiz:v=>{form.quiz=v},setDescription:v=>{form.description=v},setProgressBar:()=>{},
+   getId:()=>id,getItems:()=>form.items,setIsQuiz:v=>{form.quiz=v},settings:{},setCollectEmail:v=>{form.settings.email=v},setLimitOneResponsePerUser:v=>{form.settings.one=v},setShuffleQuestions:v=>{form.settings.shuffle=v},setAllowResponseEdits:v=>{form.settings.edits=v},setShowLinkToRespondAgain:v=>{form.settings.again=v},setPublishingSummary:v=>{form.settings.summary=v},setConfirmationMessage:v=>{form.settings.confirm=v},addPageBreakItem:()=>{const i=mkItem('page');form.items.push(i);return i},setDescription:v=>{form.description=v},setProgressBar:()=>{},
    addMultipleChoiceItem:()=>{const i=mkItem('radio');form.items.push(i);return i},addCheckboxItem:()=>{const i=mkItem('checkbox');form.items.push(i);return i},addTextItem:()=>{const i=mkItem('text');form.items.push(i);return i},
    setPublished:v=>{form.published=v},setAcceptingResponses:v=>{form.accepting=v},isAcceptingResponses:()=>form.accepting,getResponses:()=>Array(form.responses),
    getTitle:()=>form.title,setTitle:t=>{form.title=t},getPublishedUrl:()=>'https://docs.google.com/forms/d/e/'+id+'/viewform',shortenFormUrl:()=>'https://forms.gle/'+id,getEditUrl:()=>'https://docs.google.com/forms/d/'+id+'/edit'};
@@ -148,7 +148,7 @@ test('Big forms go in parts of 30 (no call long enough for Supabase to cut it of
  const old=await call('user:'+B,{action:'make',title:'Old app',questions:big});
  assert.deepEqual([old.next,g.forms.get(old.form.form_id).items.length,g.forms.get(old.form.form_id).accepting],[null,75,true]);
  // an Apps Script from before this change (no "add"): everything in one call too
- g.ctx.VERSION=1;const oldScript=await call('user:'+B,{action:'make',title:'Old script',questions:big,chunked:true});g.ctx.VERSION=2;
+ g.ctx.VERSION=1;const oldScript=await call('user:'+B,{action:'make',title:'Old script',questions:big,chunked:true});g.ctx.VERSION=3;
  assert.deepEqual([oldScript.next,g.forms.get(oldScript.form.form_id).items.length],[null,75]);
  // a part that keeps failing: the app discards the half-made form (trashed in Drive, gone from the list)
  const half=await call('user:'+B,{action:'make',title:'Half',questions:big,chunked:true});
@@ -156,6 +156,23 @@ test('Big forms go in parts of 30 (no call long enough for Supabase to cut it of
  assert.equal(g.files.get(half.form.form_id).trashed,true);
  await as(B);const mine=(await db.query('select public.ql_gform_mine() v')).rows[0].v;await db.exec('reset role');
  assert.ok(!mine.forms.some(f=>f.id===half.form.id),'removed from the list');assert.ok(mine.forms.some(f=>f.title==='Big'&&f.question_count===75));
+});
+test('Exam forms: settings cleaned and passed to the Apps Script; an older Apps Script (v2) refuses with a clear message and gives the place back',async()=>{
+ const big=Array.from({length:40},(_,i)=>({type:'mcq',prompt:(i+1)+'. Q',options:['Yes','No'],correct:[0]}));
+ const exam={fields:['Full name',' Student ID ','', 'x'.repeat(150)],one_response:1,collect_email:true,shuffle:true,lock:'yes',extra:'ignored'};
+ const r=await call('user:'+ADM,{action:'make',title:'Final exam',questions:big,chunked:true,exam,source:'exam_quiz'});
+ assert.equal(r.ok,true,JSON.stringify(r));assert.equal(r.next,30);
+ assert.deepEqual(g.lastScriptBody.exam,{fields:['Full name','Student ID','x'.repeat(100)],one_response:true,collect_email:true,shuffle:true,lock:true});
+ const form=g.forms.get(r.form.form_id);assert.deepEqual([form.items[0].title,form.items[3].kind,form.settings.one],['Full name','page',true]);
+ const a=await call('user:'+ADM,{action:'add',id:r.form.id,questions:big.slice(30),start:30,last:true,required:true});
+ assert.equal(a.ok,true);assert.equal(g.lastScriptBody.required,true);assert.ok(form.items.slice(-10).every(i=>i.required));
+ await as(ADM);const mine=(await db.query('select public.ql_gform_mine() v')).rows[0].v;await db.exec('reset role');
+ assert.equal(mine.forms.find(f=>f.id===r.form.id).source,'exam_quiz','the list knows it is an exam');
+ g.ctx.VERSION=2;const old=await call('user:'+ADM,{action:'make',title:'Old exam',questions:big.slice(0,5),exam});g.ctx.VERSION=3;
+ assert.deepEqual([old.status,old.ok],[503,false]);assert.match(old.error,/Exam forms need the new Apps Script \(version 3\)/);
+ assert.equal([...g.forms.values()].filter(f=>f.title==='Old exam').length,0,'no form made');
+ await as(ADM);const after=(await db.query('select public.ql_gform_mine() v')).rows[0].v;await db.exec('reset role');
+ assert.ok(!after.forms.some(f=>f.title==='Old exam'));
 });
 test('The daily limit holds through the Edge Function too',async()=>{
  for(let i=0;i<3;i++)assert.equal((await call('user:'+A,{action:'make',title:'Q'+i,questions:QS})).ok,true); // 2 made above + 3 = 5

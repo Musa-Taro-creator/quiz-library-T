@@ -67,6 +67,17 @@ After updating `tools/google-form-maker.gs`: paste it into the Apps Script proje
 After updating `supabase/functions/ql-gform/index.ts`: open the function in Supabase, paste the
 file, **Deploy**.
 
+## Exam forms
+
+The **Exam** tab makes a form that asks each student's details first (name, ID, … on their own
+page, required), makes every question required, and can allow one answer per Google account,
+record the Gmail, shuffle the questions and block editing. This needs **Apps Script version 3**
+(`ping` answers `version: 3`): paste the current `tools/google-form-maker.gs`, Save, then
+Deploy → Manage deployments → ✏️ → Version: New version → Deploy. With an older Apps Script the
+app says "Exam forms need the new Apps Script (version 3)" and nothing is made. Practice forms
+keep working either way. Google doesn't let a script hide the score: change it once in Google
+Forms → Settings → Release marks if needed.
+
 ## Switching to another Gmail later
 
 Do part A with the new Gmail, then paste its URL and SECRET in Admin. New forms use the

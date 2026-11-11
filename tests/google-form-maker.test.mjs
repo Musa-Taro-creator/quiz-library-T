@@ -6,11 +6,11 @@ function google(){
  const mkFolder=(name,parent)=>{const id='D'+(++seq);const f={id,name,editors:[],parent,getId:()=>id,getUrl:()=>'https://drive.google.com/drive/folders/'+id,
    createFolder:n=>mkFolder(n,id),addEditor(e){if(/bad/.test(e))throw Error('Invalid email');f.editors.push(e)}};folders.set(id,f);return f};
  const mkItem=(kind)=>{const it={kind,choices:[],points:null,title:'',fb:{}};
-   it.setTitle=t=>{it.title=t;return it};it.createChoice=(text,ok)=>({text,ok});it.setChoices=c=>{if(new Set(c.map(x=>x.text)).size!==c.length||c.some(x=>!x.text))throw Error('Choices must be unique and not empty');it.choices=c;return it};
+   it.setTitle=t=>{it.title=t;return it};it.setRequired=v=>{it.required=v;return it};it.createChoice=(text,ok)=>({text,ok});it.setChoices=c=>{if(new Set(c.map(x=>x.text)).size!==c.length||c.some(x=>!x.text))throw Error('Choices must be unique and not empty');it.choices=c;return it};
    it.setPoints=p=>{if(!Number.isInteger(p))throw Error('points must be whole');it.points=p;return it};
    it.setFeedbackForCorrect=f=>{it.fb.right=f;return it};it.setFeedbackForIncorrect=f=>{it.fb.wrong=f;return it};it.setGeneralFeedback=f=>{it.fb.general=f;return it};return it};
  const FormApp={create(title){const id='F'+(++seq);const form={id,title,items:[],quiz:false,published:false,accepting:false,responses:3,
-   getId:()=>id,getItems:()=>form.items,setIsQuiz:v=>{form.quiz=v},setDescription:v=>{form.description=v},setProgressBar:()=>{},
+   getId:()=>id,getItems:()=>form.items,setIsQuiz:v=>{form.quiz=v},settings:{},setCollectEmail:v=>{form.settings.email=v},setLimitOneResponsePerUser:v=>{form.settings.one=v},setShuffleQuestions:v=>{form.settings.shuffle=v},setAllowResponseEdits:v=>{form.settings.edits=v},setShowLinkToRespondAgain:v=>{form.settings.again=v},setPublishingSummary:v=>{form.settings.summary=v},setConfirmationMessage:v=>{form.settings.confirm=v},addPageBreakItem:()=>{const i=mkItem('page');form.items.push(i);return i},setDescription:v=>{form.description=v},setProgressBar:()=>{},
    addMultipleChoiceItem:()=>{const i=mkItem('radio');form.items.push(i);return i},addCheckboxItem:()=>{const i=mkItem('checkbox');form.items.push(i);return i},addTextItem:()=>{const i=mkItem('text');form.items.push(i);return i},
    setPublished:v=>{form.published=v},setAcceptingResponses:v=>{form.accepting=v},isAcceptingResponses:()=>form.accepting,getResponses:()=>Array(form.responses),
    getTitle:()=>form.title,setTitle:t=>{form.title=t},getPublishedUrl:()=>'https://docs.google.com/forms/d/e/'+id+'/viewform',shortenFormUrl:()=>'https://forms.gle/'+id,getEditUrl:()=>'https://docs.google.com/forms/d/'+id+'/edit'};
@@ -44,7 +44,7 @@ test('Without the right secret nothing happens',()=>{
  assert.deepEqual(g.post({action:'ping'}),{ok:false,error:'Not allowed'});
  assert.deepEqual(g.post({action:'ping',secret:'x'.repeat(64)}),{ok:false,error:'Not allowed'});
  assert.equal(JSON.parse(g.ctx.doGet().text).ok,true);assert.ok(!g.ctx.doGet().text.includes('@'),'GET does not reveal the Gmail');
- assert.deepEqual(g.post({action:'ping',secret:g.props.get('SECRET')}),{ok:true,owner:'quizlibrary.forms@gmail.com',version:2});
+ assert.deepEqual(g.post({action:'ping',secret:g.props.get('SECRET')}),{ok:true,owner:'quizlibrary.forms@gmail.com',version:3});
 });
 test('make: a quiz with right answers, points, feedback, published, in the student folder, shared',()=>{
  const g=google();g.ctx.setup();const secret=g.props.get('SECRET');
@@ -91,7 +91,7 @@ test('status, rename, open/close and share only touch forms in that student fold
 });
 test('Big forms in parts: make with more keeps it closed, add appends to the same form, discard trashes; only in that student folder',()=>{
  const g=google();g.ctx.setup();const secret=g.props.get('SECRET');
- assert.equal(g.post({action:'ping',secret}).version,2);
+ assert.equal(g.post({action:'ping',secret}).version,3);
  const r=g.post({action:'make',secret,user_id:'u-1',user_label:'Bona',title:'Big',questions:QS,more:true});
  assert.equal(r.ok,true,JSON.stringify(r));assert.equal(r.more,true);const form=g.forms.get(r.form_id);
  assert.deepEqual([form.items.length,form.accepting],[5,false],'closed to answers until the last part');
@@ -107,4 +107,21 @@ test('Big forms in parts: make with more keeps it closed, add appends to the sam
  assert.equal(full.question_count,200,'never more than 200 questions in one form');
  assert.match(g.post({action:'discard',secret,user_id:'u-2',form_id:r.form_id}).error,/not in your folder/);assert.equal(g.files.get(r.form_id).trashed,false);
  assert.deepEqual(g.post({action:'discard',secret,user_id:'u-1',form_id:r.form_id}),{ok:true});assert.equal(g.files.get(r.form_id).trashed,true);
+});
+test('Exam forms: student fields first (required) on their own page, every question required, the exam rules set; practice forms unchanged',()=>{
+ const g=google();g.ctx.setup();const secret=g.props.get('SECRET');
+ const exam={fields:['Full name','Student ID','Class / Group'],one_response:true,collect_email:true,shuffle:true,lock:true};
+ const r=g.post({action:'make',secret,user_id:'u-1',user_label:'Bona',title:'Final',questions:QS,exam,more:true});
+ assert.equal(r.ok,true,JSON.stringify(r));const form=g.forms.get(r.form_id);
+ assert.deepEqual(plain(form.items.slice(0,4).map(i=>[i.kind,i.title,!!i.required])),[['text','Full name',true],['text','Student ID',true],['text','Class / Group',true],['page','Questions',false]]);
+ assert.ok(form.items.slice(4).every(i=>i.required===true),'every question is required');
+ assert.deepEqual(plain(form.settings),{email:true,one:true,shuffle:true,edits:false,again:false,summary:false,confirm:'Your answers were sent. Thank you!'});
+ const a=g.post({action:'add',secret,user_id:'u-1',form_id:r.form_id,questions:QS,start:5,last:true,required:true});
+ assert.equal(a.question_count,14);assert.ok(form.items.slice(9).every(i=>i.required===true),'parts added later are required too');
+ // rules off: nothing forced
+ const loose=g.post({action:'make',secret,user_id:'u-1',user_label:'Bona',title:'Loose',questions:QS,exam:{fields:[],one_response:false,collect_email:false,shuffle:false,lock:false}});
+ const lf=g.forms.get(loose.form_id);assert.deepEqual(plain(lf.settings),{summary:false,confirm:'Your answers were sent. Thank you!'});assert.equal(lf.items[0].kind,'radio','no student page without fields');
+ // practice: no fields, nothing required, no exam settings
+ const p=g.post({action:'make',secret,user_id:'u-1',user_label:'Bona',title:'Practice',questions:QS});
+ const pf=g.forms.get(p.form_id);assert.deepEqual(plain(pf.settings),{});assert.ok(pf.items.every(i=>!i.required));
 });
