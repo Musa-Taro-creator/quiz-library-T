@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-11-v10">
+<meta name="ql-shell-generation" content="reliability-2026-11-11-v11">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -20559,8 +20559,6 @@ body.ql-neon .ql-off-sw.on{background:#00c8a0;box-shadow:0 0 12px rgba(0,229,255
 .ql-gf-div{width:1px;align-self:stretch;margin:6px 2px;background:rgba(100,116,139,.28);flex:none}
 /* Make Google Form looks like the other toolbar buttons in every theme (white / neon / ocean); only its icon is violet */
 #adminQuickActions .ql-gf-btn .quick-icon{color:#8b5cf6}
-#newMenu [data-gform-new]{color:#7c3aed;font-weight:700}
-#newMenu [data-gform-new] em{font-style:normal;margin-left:6px;padding:1px 6px;border-radius:999px;background:#f59e0b;color:#fff;font-size:9.5px;font-weight:900}
 .ql-gf{--gf:#7c3aed}
 .ql-gf .ql-sb-tabs button.on{color:var(--gf);border-bottom-color:var(--gf)}
 body.ql-ocean .ql-gf .ql-sb-tabs button.on,body.ql-neon .ql-gf .ql-sb-tabs button.on{color:#c4b5fd;border-bottom-color:#c4b5fd}
@@ -20790,7 +20788,9 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
       if(quiz){quiz.after(div);div.after(b)}else{bar.appendChild(div);bar.appendChild(b)}
     }
     const menu=document.getElementById("newMenu");
-    if(menu&&!menu.querySelector("[data-gform-new]")){const b=document.createElement("button");b.type="button";b.dataset.gformNew="1";b.textContent="Make Google Form";b.onclick=()=>{try{closeMenus()}catch{}openGform()};menu.appendChild(b)}
+    if(menu&&!menu.querySelector("[data-gform-new]")){const b=document.createElement("button");b.type="button";b.dataset.gformNew="1";b.dataset.qlIcon="1";b.className="ql-mi-row";
+      /* same look as the other "+ New" items: an icon tile (violet form) + the label */
+      b.innerHTML=`<span class="ql-mi" style="--mc:#8b5cf6">${ic("form",18)}</span><span class="ql-mi-label">Make Google Form</span>`;b.onclick=()=>{try{closeMenus()}catch{}openGform()};menu.appendChild(b)}
   }
 
   /* ---- the window ---- */
