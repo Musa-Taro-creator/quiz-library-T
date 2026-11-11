@@ -18,7 +18,7 @@ function google(){
    it.setPoints=p=>{if(!Number.isInteger(p))throw Error('points must be whole');it.points=p;return it};
    it.setFeedbackForCorrect=f=>{it.fb.right=f;return it};it.setFeedbackForIncorrect=f=>{it.fb.wrong=f;return it};it.setGeneralFeedback=f=>{it.fb.general=f;return it};return it};
  const FormApp={create(title){const id='F'+(++seq);const form={id,title,items:[],quiz:false,published:false,accepting:false,responses:3,
-   getId:()=>id,setIsQuiz:v=>{form.quiz=v},setDescription:v=>{form.description=v},setProgressBar:()=>{},
+   getId:()=>id,getItems:()=>form.items,setIsQuiz:v=>{form.quiz=v},setDescription:v=>{form.description=v},setProgressBar:()=>{},
    addMultipleChoiceItem:()=>{const i=mkItem('radio');form.items.push(i);return i},addCheckboxItem:()=>{const i=mkItem('checkbox');form.items.push(i);return i},addTextItem:()=>{const i=mkItem('text');form.items.push(i);return i},
    setPublished:v=>{form.published=v},setAcceptingResponses:v=>{form.accepting=v},isAcceptingResponses:()=>form.accepting,getResponses:()=>Array(form.responses),
    getTitle:()=>form.title,setTitle:t=>{form.title=t},getPublishedUrl:()=>'https://docs.google.com/forms/d/e/'+id+'/viewform',shortenFormUrl:()=>'https://forms.gle/'+id,getEditUrl:()=>'https://docs.google.com/forms/d/'+id+'/edit'};
@@ -128,6 +128,34 @@ test('With the new Supabase keys (sb_publishable / sb_secret) it works the same 
  assert.ok(g.headers.some(h=>h.apikey==='sb_publishable_test'&&h.auth==='Bearer user:'+A),'student calls use the publishable key + the login');
  assert.ok(!g.headers.some(h=>/sb_/.test(h.auth||'')),'no sb_ key in Authorization');
  assert.equal((await call2('sb_publishable_test',{action:'ping'})).status,401);assert.equal((await call2('anon-key',{action:'ping'})).status,401);
+});
+test('Big forms go in parts of 30 (no call long enough for Supabase to cut it off); old app / old Apps Script still work; discard',async()=>{
+ const big=Array.from({length:75},(_,i)=>({type:'mcq',prompt:'Q'+(i+1),options:['Yes','No'],correct:[0]}));
+ const r=await call('user:'+B,{action:'make',title:'Big',questions:big,chunked:true});
+ assert.equal(r.ok,true,JSON.stringify(r));assert.deepEqual([r.next,r.total,r.part,r.form.question_count],[30,75,30,75]);
+ assert.equal(g.lastScriptBody.questions.length,30,'only the first part goes in the first call');
+ const form=g.forms.get(r.form.form_id);assert.deepEqual([form.items.length,form.accepting],[30,false]);
+ const a1=await call('user:'+B,{action:'add',id:r.form.id,questions:big.slice(30,60),start:30,last:false});
+ assert.deepEqual([a1.ok,a1.added,a1.question_count,form.accepting],[true,30,60,false]);
+ const stolen=await call('user:'+A,{action:'add',id:r.form.id,questions:big.slice(0,5),start:60});
+ assert.deepEqual([stolen.status,stolen.ok],[404,false]);assert.equal(form.items.length,60,'someone else cannot add to it');
+ const a2=await call('user:'+B,{action:'add',id:r.form.id,questions:big.slice(60),start:60,last:true});
+ assert.deepEqual([a2.added,a2.question_count,a2.last,form.accepting,form.items[74].title],[15,75,true,true,'Q75']);
+ const tooBig=await call('user:'+B,{action:'add',id:r.form.id,questions:big,start:75,last:true});
+ assert.equal(g.lastScriptBody.questions.length,30,'one add call carries at most one part');
+ assert.equal(tooBig.ok,true);
+ // an app from before this change (no chunked): everything in one call, as before
+ const old=await call('user:'+B,{action:'make',title:'Old app',questions:big});
+ assert.deepEqual([old.next,g.forms.get(old.form.form_id).items.length,g.forms.get(old.form.form_id).accepting],[null,75,true]);
+ // an Apps Script from before this change (no "add"): everything in one call too
+ g.ctx.VERSION=1;const oldScript=await call('user:'+B,{action:'make',title:'Old script',questions:big,chunked:true});g.ctx.VERSION=2;
+ assert.deepEqual([oldScript.next,g.forms.get(oldScript.form.form_id).items.length],[null,75]);
+ // a part that keeps failing: the app discards the half-made form (trashed in Drive, gone from the list)
+ const half=await call('user:'+B,{action:'make',title:'Half',questions:big,chunked:true});
+ const d=await call('user:'+B,{action:'discard',id:half.form.id});assert.equal(d.ok,true);
+ assert.equal(g.files.get(half.form.form_id).trashed,true);
+ await as(B);const mine=(await db.query('select public.ql_gform_mine() v')).rows[0].v;await db.exec('reset role');
+ assert.ok(!mine.forms.some(f=>f.id===half.form.id),'removed from the list');assert.ok(mine.forms.some(f=>f.title==='Big'&&f.question_count===75));
 });
 test('The daily limit holds through the Edge Function too',async()=>{
  for(let i=0;i<3;i++)assert.equal((await call('user:'+A,{action:'make',title:'Q'+i,questions:QS})).ok,true); // 2 made above + 3 = 5

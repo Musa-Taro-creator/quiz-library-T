@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-11-v4">
+<meta name="ql-shell-generation" content="reliability-2026-11-11-v5">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -20705,7 +20705,10 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
   async function call(action,body){
     const c=cli();if(!c||!c.functions||typeof c.functions.invoke!=="function")throw new Error("Please sign in again.");
     const {data,error}=await c.functions.invoke("ql-gform",{body:{action,...(body||{})}});
-    if(error){let msg=error.message;try{const j=error.context&&typeof error.context.json==="function"?await error.context.json():null;if(j&&j.error)msg=j.error}catch{}throw new Error(msg||"Something went wrong")}
+    if(error){let msg="",st=Number(error.context&&error.context.status)||0;try{const j=error.context&&typeof error.context.json==="function"?await error.context.json():null;if(j&&j.error)msg=j.error}catch{}
+      /* no message of ours: Supabase itself answered (time limit, overload, crash) */
+      if(!msg)msg=[504,546,408].includes(st)?"Google took too long to answer, so the server stopped waiting. Please try again.":st===401?"Please sign in again.":st?`The server had a problem (${st}). Please try again.`:(error.message||"Something went wrong");
+      const e=new Error(msg);e.status=st;throw e}
     if(!data||data.ok!==true)throw new Error((data&&data.error)||"Something went wrong");
     return data;
   }
@@ -20865,28 +20868,55 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
   }
 
   /* ---- progress while Google makes the form ----
-     Google builds the whole form in one step and does not report back while it works, so the
-     percentage follows the usual time for this many questions and waits at 99% until it's done. */
+     The questions go in parts of 30 (the Edge Function makes the form from the first part and
+     "add" sends the rest), so no request runs into Supabase's ~150 s limit. The percentage counts
+     the parts that are done, and moves inside a part by the usual time (~0.45 s a question).
+     If a part fails twice, "discard" removes the half-made form. */
   function startJob(body){
-    const n=body.questions.length,est=5000+450*n;
-    job={n,est,started:Date.now(),pct:0,done:false,title:body.title};
-    const tick=()=>{if(!job||job.done)return;const t=Date.now()-job.started;
-      job.pct=t<est?Math.max(2,Math.round(3+87*t/est)):Math.min(99,Math.round(90+9*(1-Math.exp(-(t-est)/(est*.6)))));paintProgress()};
+    const n=body.questions.length;
+    /* timing: about 0.45 s a question plus a few seconds a call; parts of PART questions */
+    job={n,done:0,partLen:Math.min(n,30),partStart:Date.now(),started:Date.now(),pct:0,finished:false,title:body.title,step:"check"};
+    const tick=()=>{if(!job||job.finished)return;const t=Date.now()-job.partStart,est=4000+450*job.partLen;
+      const inPart=t<est?job.partLen*t/est:job.partLen*(.95+.04*(1-Math.exp(-(t-est)/est)));
+      job.pct=Math.max(job.pct,Math.min(99,Math.round(2+96*(job.done+Math.min(job.partLen*.99,inPart))/job.n)));paintProgress()};
     job.timer=setInterval(tick,200);tick();
     const pane=document.getElementById("qlGfMake");if(pane)drawProgress(pane);
-    call("make",body).then(r=>{
-      const j=job;if(!j)return;clearInterval(j.timer);j.done=true;j.pct=100;paintProgress();
+    (async()=>{
+      const j=job;
+      const r=await call("make",{...body,chunked:true});
+      j.step="add";
+      let made=r.form||{};const total=Number(r.total||n),next=Number(r.next||0),part=Number(r.part||30);
+      if(next&&next<total){
+        j.done=next;
+        for(let i=next;i<total;i+=part){
+          const qs=body.questions.slice(i,i+part),last=i+part>=total;
+          j.partLen=qs.length;j.partStart=Date.now();
+          let out=null,err=null;
+          for(let tryNo=0;tryNo<2&&!out;tryNo++){try{out=await call("add",{id:made.id,questions:qs,start:i,last})}catch(e){err=e}}
+          if(!out){
+            try{await call("discard",{id:made.id})}catch{}
+            const e=new Error(`Google stopped after ${i} of ${total} questions, so the half-made form was removed. Please try again. (${errText(err)})`);e.keep=true;throw e;
+          }
+          r.no_answer=(r.no_answer||0)+(out.no_answer||0);r.short_answers=(r.short_answers||0)+(out.short_answers||0);
+          j.done=i+qs.length;
+        }
+      }
+      return r;
+    })().then(r=>{
+      const j=job;if(!j)return;clearInterval(j.timer);j.finished=true;j.done=j.n;j.pct=100;paintProgress();
       rememberEmail(body.editor_email);listCache=null;doneInfo={r,email:body.editor_email};highlight=r.form&&r.form.id||null;
       setTimeout(()=>{job=null;makeStale=true;if(document.getElementById("qlGfList"))showTab("list");else toast("Your Google Form is ready — it's in My Google Forms.")},650);
     }).catch(e=>{
-      const j=job;if(j)clearInterval(j.timer);job=null;const pane=document.getElementById("qlGfMake");
+      const j=job;if(j)clearInterval(j.timer);job=null;listCache=null;const pane=document.getElementById("qlGfMake");const msg=e&&e.keep?e.message:errText(e);
       if(pane&&pane.querySelector("#qlGfMakeBtn")){pane.querySelector("#qlGfProgress")?.remove();pane.querySelectorAll(".ql-gf-busy").forEach(x=>x.classList.remove("ql-gf-busy"));
-        const btn=pane.querySelector("#qlGfMakeBtn"),st=pane.querySelector("#qlGfStatus");btn.disabled=false;btn.classList.remove("hidden");st.className="status error";st.dataset.keep="1";st.textContent=errText(e);setTimeout(()=>{st.dataset.keep=""},50)}
-      else{if(pane)drawMake(true);toast(errText(e))}
+        const btn=pane.querySelector("#qlGfMakeBtn"),st=pane.querySelector("#qlGfStatus");btn.disabled=false;btn.classList.remove("hidden");st.className="status error";st.dataset.keep="1";st.textContent=msg;setTimeout(()=>{st.dataset.keep=""},50)}
+      else{if(pane)drawMake(true);toast(msg)}
     });
   }
-  function stageOf(j){const p=j.pct;if(j.done)return "Done! Opening My Google Forms…";if(p<8)return "Checking your daily limit…";
-    if(p<88)return `Adding questions… ${Math.min(j.n,Math.max(1,Math.round(j.n*(p-8)/80)))} of ${j.n}`;if(p<96)return "Setting answers and points…";return "Saving it to your Google Drive folder…"}
+  function stageOf(j){if(j.finished)return "Done! Opening My Google Forms…";
+    if(j.step==="check"&&Date.now()-j.started<2500)return "Checking your daily limit…";
+    const x=Math.min(j.n,Math.max(1,Math.round(j.n*Math.max(0,j.pct-2)/96)));
+    return x>=j.n?"Saving it to your Google Drive folder…":`Adding questions… ${x} of ${j.n}`}
   function drawProgress(pane){
     let box=pane.querySelector("#qlGfProgress");
     if(!box){
@@ -20903,7 +20933,7 @@ body.ql-ocean .ql-gf .ql-bp .qz-bp-tf-btn:not(.active),body.ql-neon .ql-gf .ql-b
   function paintProgress(){
     const j=job,box=document.getElementById("qlGfProgress");if(!j||!box)return;
     box.setAttribute("aria-valuenow",String(j.pct));box.querySelector("#qlGfPct").textContent=j.pct+"%";box.querySelector("#qlGfBar").style.width=j.pct+"%";box.querySelector("#qlGfStage").textContent=stageOf(j);
-    box.classList.toggle("done",!!j.done);
+    box.classList.toggle("done",!!j.finished);
   }
 
   async function copy(text){try{await navigator.clipboard.writeText(text)}catch{const t=document.createElement("textarea");t.value=text;document.body.appendChild(t);t.select();try{document.execCommand("copy")}catch{}t.remove()}toast("Link copied")}

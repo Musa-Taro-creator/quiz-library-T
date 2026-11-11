@@ -54,6 +54,19 @@ Plans: **Plans & Limits → Edit plan → Make Google Form** has **Google Forms 
 a number, or Unlimited) and **Questions per form** (1–200; Unlimited = 200). Order: admin → the person's own
 setting → the plan → the default. Needs `supabase/google_forms_plan_limits.sql`.
 
+## Big forms (more than 30 questions)
+
+Supabase stops an Edge Function after about 150 seconds, and Google needs about a second per
+question. So the app sends big forms in parts of 30: the first part makes the form, the rest are
+added one part at a time (the progress % counts the parts). This needs **Apps Script version 2**
+(`ping` answers `version: 2`) and the current `ql-gform`. With an older Apps Script everything is
+still sent in one call, as before.
+
+After updating `tools/google-form-maker.gs`: paste it into the Apps Script project, **Save**, then
+**Deploy → Manage deployments → ✏️ → Version: New version → Deploy** (the URL stays the same).
+After updating `supabase/functions/ql-gform/index.ts`: open the function in Supabase, paste the
+file, **Deploy**.
+
 ## Switching to another Gmail later
 
 Do part A with the new Gmail, then paste its URL and SECRET in Admin. New forms use the
@@ -67,5 +80,6 @@ new Gmail; forms made before keep working while the old Apps Script stays deploy
 | "The Edge Function ql-gform is not deployed yet" | Part B step 2. |
 | "The Google Forms secret in Admin does not match the Apps Script" | Copy the SECRET again (run **setup** once more to see it in the log) and paste it in Admin. |
 | "Google sent an unexpected answer…" | The deployment must be **Web app**, **Execute as: Me**, **Who has access: Anyone**. |
+| "Google took too long to answer…" | Supabase stopped the function. Make sure the Apps Script is version 2 and `ql-gform` is up to date (see Big forms). |
 | "Invalid JWT" on Check connection | In the function's settings turn **Verify JWT** off. It is still safe: the function checks the login itself through the database. |
 | "The server key is missing for ql-gform" | The project has no secret key. In Project Settings → API Keys create a **secret key** (named `default`), then redeploy the function. It uses the new keys by itself and falls back to the legacy ones. |
