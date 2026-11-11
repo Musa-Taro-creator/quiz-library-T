@@ -80,10 +80,12 @@ test('"Show on student card" per limit row: saved choice wins, no choice = defau
   assert.deepEqual(lines(card, {limits: L, features: {_card: 'x'}}), ['Results kept per quiz: 5', 'Devices at the same time: 2']);
 });
 
-test('admin Edit plan has a Shown/Hidden choice on every limit row and saves it with the plan', () => {
+test('admin Edit plan has a Show switch on every limit row and saves it with the plan', () => {
   const ed = admin.slice(admin.indexOf('function editPlan('), admin.indexOf('const modeLabel='));
-  assert.match(ed, /const limRow=\(k,l\)=>\{[^\n]*\$\{eye\(k\)\}<\/div>`\}/, 'every limRow (Limits + rows under a feature tick) has the eye');
-  assert.match(ed, /id="pGfDayUnl"><\/button>Unlimited<\/span>\$\{eye\("gform_per_day"\)\}/, 'Google Forms per day row has the eye');
+  assert.match(ed, /const limRow=\(k,l\)=>\{[^\n]*\$\{showSw\(k\)\}<\/div>`\}/, 'every limRow (Limits + rows under a feature tick) has the Show switch');
+  assert.match(ed, /id="pGfDayUnl"><\/button>Unlimited<\/span>\$\{showSw\("gform_per_day"\)\}/, 'Google Forms per day row has the Show switch');
+  assert.match(ed, /const showSw=k=>\{[^\n]*<span class="uu ql-show"><button type="button" class="sw sm \$\{on\?"on":""\}" data-show="\$\{k\}"[^\n]*<\/button>Show<\/span>/, 'same "sw sm" switch as Unlimited, labelled Show');
+  assert.ok(!/👁|class="eye|\.eye\{/.test(admin), 'no eye icon or eye style left in admin.html');
   assert.match(ed, /features\._card=\{\};o\.querySelectorAll\("\[data-show\]"\)\.forEach\(b=>features\._card\[b\.dataset\.show\]=b\.classList\.contains\("on"\)\)/, 'saved in features._card');
 });
 

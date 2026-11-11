@@ -1,5 +1,6 @@
-"""Admin → Plans → Edit plan: every limit row has "👁 Shown / Hidden" (Show on student card).
-Storage is Hidden by default, the other rows Shown; the choice is saved with the plan
+"""Admin → Plans → Edit plan: every limit row has a small "Show" switch (on = shown on the
+student plan card), styled exactly like the row's "Unlimited" switch; no eye icon.
+Storage is off by default, the other rows on; the choice is saved with the plan
 (features._card), a saved choice comes back when the plan is opened again, and the limit
 value itself is saved either way.
 
@@ -55,23 +56,36 @@ with sync_playwright() as p:
         assert all(v for k, v in st.items() if k != 'storage_mb'), st
         for k in ('results_kept', 'devices', 'folders', 'quizzes', 'questions_per_quiz', 'links', 'pdfs', 'gform_questions', 'gform_per_day'):
             assert k in st, (k, st)
-        assert page.locator('[data-show="storage_mb"]').inner_text() == 'Hidden' and page.locator('[data-show="devices"]').inner_text() == '👁 Shown'
+        # the Show switch looks exactly like the Unlimited switch on the same row
+        look = page.evaluate('''(()=>{const css=e=>{const c=getComputedStyle(e),a=getComputedStyle(e,'::after');return [e.className.replace(/\\bon\\b/,'').trim(),c.width,c.height,c.borderRadius,a.width,a.height,a.backgroundColor]};
+            const row=document.querySelector('[data-show="devices"]').closest('.lim'),sh=row.querySelector('[data-show]'),un=row.querySelector('[data-unl]');
+            const offRow=document.querySelector('[data-show="storage_mb"]').closest('.lim'),offU=offRow.querySelector('[data-unl]');
+            return {same:JSON.stringify(css(sh))===JSON.stringify(css(un)),onBg:getComputedStyle(sh).backgroundImage===getComputedStyle(document.querySelector('.sw.sm.on')).backgroundImage,
+              offBg:getComputedStyle(offRow.querySelector('[data-show]')).backgroundColor===getComputedStyle(offU).backgroundColor,
+              label:sh.parentElement.textContent.trim(),role:sh.getAttribute('role'),text:sh.textContent}})()''')
+        assert look['same'] and look['onBg'] and look['offBg'], look
+        assert look['label'] == 'Show' and look['role'] == 'switch' and look['text'] == '', look
+        dlg = page.locator('.ovl .dlg').last.inner_text()
+        assert '👁' not in dlg and 'Shown' not in dlg and page.locator('.ovl .eye').count() == 0, 'no eye icon left'
+        # inputs line up: every number box in the Limits section starts at the same x
+        xs = page.evaluate("[...document.querySelectorAll('.ovl .dlg .lim [data-lim=\"storage_mb\"],.ovl .dlg .lim [data-lim=\"results_kept\"],.ovl .dlg .lim [data-lim=\"devices\"]')].map(i=>Math.round(i.getBoundingClientRect().left))")
+        assert len(set(xs)) == 1, xs
         assert 'still applies' in page.locator('.ovl .dlg').last.inner_text()
         assert page.evaluate("document.documentElement.scrollWidth<=innerWidth+1")
         fit = page.evaluate("(()=>{const d=[...document.querySelectorAll('.ovl .dlg')].at(-1).getBoundingClientRect();return [...document.querySelectorAll('.ovl .dlg .lim')].filter(e=>e.offsetParent).every(e=>{const r=e.getBoundingClientRect();return r.right<=d.right+1&&r.left>=d.left-1})})()")
-        assert fit, 'every limit row (with its eye) fits inside the window'
+        assert fit, 'every limit row (with its Show switch) fits inside the window'
         if SHOTS: page.locator('[data-show="storage_mb"]').scroll_into_view_if_needed(); page.screenshot(path=f'{SHOTS}/adm-card-show-{width}.png')
-        ok(tag + 'Edit plan Free (no saved choice): Storage Hidden, Results kept / Devices / rows under features Shown')
+        ok(tag + 'Edit plan Free (no saved choice): Storage Show off, Results kept / Devices / rows under features on; switch looks like Unlimited, no eye, inputs lined up')
 
         # 2. toggle and save: the choice goes with the plan, the limits are saved either way
         page.locator('[data-show="storage_mb"]').click(); page.locator('[data-show="devices"]').click()
-        assert page.locator('[data-show="storage_mb"]').get_attribute('aria-pressed') == 'true'
+        assert page.locator('[data-show="storage_mb"]').get_attribute('aria-checked') == 'true'
         page.locator('#pSave').click(); page.wait_for_function('pc.saves.length===1')
         sv = page.evaluate('pc.saves.at(-1)')
         assert sv['features']['_card']['storage_mb'] is True and sv['features']['_card']['devices'] is False and sv['features']['_card']['results_kept'] is True, sv['features']
         assert sv['limits']['storage_mb'] == 100 and sv['limits']['devices'] == 1, sv['limits']
         assert sv['features']['new_folder'] is True
-        ok(tag + 'Toggling Storage on / Devices off saves features._card with the plan; the limits themselves are still saved')
+        ok(tag + 'Switching Storage on / Devices off saves features._card with the plan; the limits themselves are still saved')
 
         # 3. a saved choice comes back when the plan is opened again
         page.locator('[data-edit="pro"]').click(); page.locator('[data-show="storage_mb"]').wait_for()
@@ -80,7 +94,7 @@ with sync_playwright() as p:
         page.locator('#pSave').click(); page.wait_for_function('pc.saves.length===2')
         assert page.evaluate('pc.saves.at(-1).features._card.gform_per_day') is False
         assert page.evaluate('pc.saves.at(-1).limits.gform_per_day') == 5
-        ok(tag + "Edit plan Pro: the saved Shown/Hidden choices come back (incl. Google Forms per day) and save again unchanged")
+        ok(tag + "Edit plan Pro: the saved Show choices come back (incl. Google Forms per day) and save again unchanged")
         assert not errors, errors
         context.close()
     browser.close()
