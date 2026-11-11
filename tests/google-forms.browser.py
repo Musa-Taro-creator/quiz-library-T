@@ -33,7 +33,13 @@ const answers={
 };
 const fn={
  make:b=>{if(srv.fail)return {ok:false,error:srv.fail};srv.used++;const id='F'+(srv.forms.length+10);const f={id:'r'+id,title:b.title,question_count:b.questions.length,form_id:id,responder_url:'https://forms.gle/'+id,edit_url:'https://docs.google.com/forms/d/'+id+'/edit',folder_url:'https://drive.google.com/drive/folders/D1',owner_email:'quizlibrary.forms@gmail.com',editor_email:b.editor_email||null,accepting:true,created_at:new Date().toISOString()};
-   const unl=srv.mode==='unlimited'||srv.mode==='admin';srv.forms.unshift(f);return {ok:true,form:f,unlimited:unl,left:(unl?srv.cap:srv.limit)-srv.used,limit:unl?null:srv.limit,editor_error:'',no_answer:b.questions.filter(q=>q.type==='mcq'&&q.correct.some(c=>c<0)).length,short_answers:b.questions.filter(q=>q.type==='short_answer').length}},
+   const unl=srv.mode==='unlimited'||srv.mode==='admin';srv.forms.unshift(f);
+   /* like the real Edge Function: chunked + more than 30 questions = only the first 30 now, the rest with "add" */
+   const parts=b.chunked&&b.questions.length>30,first=parts?b.questions.slice(0,30):b.questions;
+   return {ok:true,form:f,unlimited:unl,left:(unl?srv.cap:srv.limit)-srv.used,limit:unl?null:srv.limit,editor_error:'',no_answer:first.filter(q=>q.type==='mcq'&&q.correct.some(c=>c<0)).length,short_answers:first.filter(q=>q.type==='short_answer').length,
+     next:parts?30:null,total:b.questions.length,part:30}},
+ add:b=>{if(srv.failAdd)return {ok:false,error:'Google said no'};return {ok:true,added:b.questions.length,question_count:b.start+b.questions.length,no_answer:0,short_answers:0,last:b.last}},
+ discard:b=>{srv.forms=srv.forms.filter(f=>f.id!==b.id);return {ok:true}},
  status:()=>({ok:true,forms:{F1:{accepting:true,responses:12,title:'x'},F2:{accepting:false,responses:31,title:'x'},F3:{missing:true}}}),
  rename:b=>{const f=srv.forms.find(x=>x.id===b.id);f.title=b.title;return {ok:true,title:b.title}},
  accepting:b=>({ok:true,accepting:b.accepting}),share:b=>({ok:true,editor_email:b.email,folder_url:'https://drive.google.com/drive/folders/D1'})
@@ -42,7 +48,9 @@ const realFactory=window.supabase.createClient;
 window.supabase.createClient=(...a)=>{const c=realFactory(...a),rpc=c.rpc;
  c.rpc=async(name,args)=>{srv.calls.push({name,args:JSON.parse(JSON.stringify(args||{}))});
   if(name in answers)return {data:answers[name](args||{}),error:null};return rpc(name,args)};
- c.functions={invoke:async(name,o)=>{srv.invokes.push({name,body:JSON.parse(JSON.stringify(o.body))});await new Promise(r=>setTimeout(r,o.body.action==='make'?(srv.delay||60):60));return {data:fn[o.body.action](o.body),error:null}}};
+ c.functions={invoke:async(name,o)=>{srv.invokes.push({name,body:JSON.parse(JSON.stringify(o.body))});
+   /* Supabase itself answering (time limit): supabase-js only says "non-2xx" and the body is not ours */
+   if(srv.httpFail&&o.body.action==='make')return {data:null,error:{message:'Edge Function returned a non-2xx status code',context:new Response('{"code":"WORKER_LIMIT","message":"Wall clock limit reached"}',{status:srv.httpFail})}};await new Promise(r=>setTimeout(r,o.body.action==='make'?(srv.delay||60):60));return {data:fn[o.body.action](o.body),error:null}}};
  return c};
 '''
 PASTE = """1. Which valve sits between the left atrium and ventricle?
@@ -232,10 +240,28 @@ with sync_playwright() as p:
         page.locator('#qlGfMakeBtn').click(); page.locator('#qlGfDone').wait_for()
         body = last_make()
         assert len(body['questions']) == 50 and body['questions'][0]['prompt'] == 'Q401' and body['questions'][-1]['prompt'] == 'Q450' and body['title'] == 'Big bank (Q401–450)', (len(body['questions']), body['title'])
-        ok(tag + 'Long quiz: From–To with parts of 200, title follows the range, wrong ranges explained, only the chosen questions are sent')
+        # sent in parts of 30: make (first 30) then add (the last 20, last part)
+        acts = [c['body'] for c in invokes() if c['body']['action'] in ('make', 'add', 'discard')]
+        assert body['chunked'] is True and acts[-1]['action'] == 'add', acts[-2:]
+        add = acts[-1]
+        assert add['start'] == 30 and add['last'] is True and len(add['questions']) == 20 and add['questions'][0]['prompt'] == 'Q431', add
+        # a part that fails twice: the half-made form is discarded and the student is told
+        page.locator('#qlGfDoneX').click(); assert page.locator('#qlGfDone').count() == 0, 'the ready banner can be closed'
+        page.evaluate("srv.failAdd=true")
+        page.locator('[data-gf-tab="make"]').click(); page.locator('#qlGfQuiz').wait_for(); page.locator('[data-gf-src="quiz"]').click()
+        page.locator('#qlGfQuiz').select_option('q-big')
+        page.wait_for_function("document.getElementById('qlGfParsed').textContent.includes('200 questions (1–200 of 450)')")
+        page.locator('#qlGfMakeBtn').click()
+        page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('Google stopped after 30 of 200 questions')")
+        assert 'half-made form was removed' in page.locator('#qlGfStatus').inner_text()
+        tail = [c['body']['action'] for c in invokes() if c['body']['action'] in ('make', 'add', 'discard')][-4:]
+        assert tail == ['make', 'add', 'add', 'discard'], tail
+        assert not page.locator('#qlGfMakeBtn').is_disabled(), 'can try again'
+        page.evaluate("srv.failAdd=false")
+        ok(tag + 'Long quiz: From–To with parts of 200, title follows the range, wrong ranges explained, only the chosen questions are sent, in parts of 30; a failing part is retried, then the half-made form is discarded')
 
         # 4. My Google Forms: groups, status, search, menu actions, Drive bar
-        page.locator('#qlGfDoneX').click(); assert page.locator('#qlGfDone').count() == 0
+        page.locator('[data-gf-tab="list"]').click()
         page.wait_for_function("document.querySelectorAll('#qlGfItems .ql-gf-card').length===6")
         page.wait_for_function("document.getElementById('qlGfItems').textContent.includes('12 responses')")
         groups = [g.lower() for g in page.locator('#qlGfItems .ql-sa-gh').all_inner_texts()]
@@ -283,6 +309,11 @@ with sync_playwright() as p:
         page.locator('#qlGfEmail').fill(''); page.locator('#qlGfMakeBtn').click()
         page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('Google did not answer')")
         assert not page.locator('#qlGfMakeBtn').is_disabled(), 'can try again'
+        # Supabase's own time limit: a plain sentence instead of "Edge Function returned a non-2xx status code"
+        page.evaluate("srv.fail=null;srv.httpFail=546"); page.locator('#qlGfMakeBtn').click()
+        page.wait_for_function("document.getElementById('qlGfStatus').textContent.includes('took too long')")
+        assert 'non-2xx' not in page.locator('#qlGfStatus').inner_text()
+        page.evaluate("srv.httpFail=0")
         # per-person limits set by Admin: Unlimited (safety cap), a custom number, 0 = off
         page.evaluate("srv.fail=null;srv.mode='unlimited';srv.used=3;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
         page.locator('[data-gf-src="paste"]').click(); bp(PASTE)
@@ -317,7 +348,7 @@ with sync_playwright() as p:
         page.evaluate("srv.fail=null;srv.setUp=false;try{closeModal()}catch(e){}"); page.evaluate("qlOpenGoogleForm()")
         page.wait_for_function("document.getElementById('qlGfMake').textContent.includes(\"isn't ready yet\")")
         page.evaluate("srv.setUp=true;try{closeModal()}catch(e){}")
-        ok(tag + 'Daily limit reached, bad Gmail, Google error (can retry) and not-set-up all say what to do')
+        ok(tag + 'Daily limit reached, bad Gmail, Google error (can retry), Supabase time limit and not-set-up all say what to do')
         assert not errors, errors
         context.close()
     browser.close()

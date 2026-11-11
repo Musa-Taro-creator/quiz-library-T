@@ -14,12 +14,19 @@
 // SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY). It uses the new keys when they are there.
 //
 // Written without imports or types so the same file is tested in Node (tests/google-forms-edge.test.mjs).
+//
+// Big forms come in parts: Supabase stops a function after about 150 seconds, and Google needs
+// about a second per question. So "make" with chunked: true makes the form from the first PART
+// questions (when the Apps Script is version 2 or newer) and the app sends the rest with "add",
+// one part at a time. If a part fails, "discard" moves the half-made form to the Trash.
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+export const PART = 30;
 
 export function makeHandler(env, fetchFn) {
   const base = String(env.SUPABASE_URL || "").replace(/\/$/, "");
@@ -124,13 +131,21 @@ export function makeHandler(env, fetchFn) {
           const res = await user("ql_gform_reserve", { p_title: title, p_question_count: questions.length, p_source: String(body.source || "paste").slice(0, 20) });
           try {
             const cfg = await asServer("ql_gform__owner", { p_owner_email: null });
+            // in parts only when the app asks for it and the Apps Script knows "add" (version 2+)
+            let parts = false;
+            if (body.chunked && questions.length > PART) {
+              const pong = await script(cfg, { action: "ping" });
+              parts = Number(pong.version || 0) >= 2;
+            }
+            const first = parts ? questions.slice(0, PART) : questions;
             const made = await script(cfg, {
-              action: "make", user_id: res.user_id, user_label: res.user_label, title,
-              description: String(body.description || "").slice(0, 4000), questions, editor_email: editor,
+              action: "make", user_id: res.user_id, user_label: res.user_label, title, more: parts,
+              description: String(body.description || "").slice(0, 4000), questions: first, editor_email: editor,
             });
-            const row = await asServer("ql_gform__finish", { p_id: res.record_id, p_data: made });
+            const row = await asServer("ql_gform__finish", { p_id: res.record_id, p_data: { ...made, question_count: questions.length } });
             return reply(200, { ok: true, form: row, left: res.left, limit: res.limit, unlimited: !!res.unlimited, mode: res.mode || "", plan_name: res.plan_name || "", editor_error: made.editor_error || "",
-                                no_answer: made.no_answer || 0, short_answers: made.short_answers || 0 });
+                                no_answer: made.no_answer || 0, short_answers: made.short_answers || 0,
+                                next: parts ? first.length : null, total: questions.length, part: PART });
           } catch (e) {
             await asServer("ql_gform__fail", { p_id: res.record_id, p_error: String(e.message || e) }).catch(() => {});
             throw e;
@@ -149,6 +164,24 @@ export function makeHandler(env, fetchFn) {
             } catch { /* that Gmail is gone or busy: show the list without numbers */ }
           }
           return reply(200, { ok: true, forms: out });
+        }
+        case "add":
+        case "discard": {
+          const rec = await user("ql_gform_get", { p_id: body.id });
+          if (!rec) return reply(404, { ok: false, error: "That form is not in your list." });
+          const cfg = await asServer("ql_gform__owner", { p_owner_email: rec.owner_email || null });
+          if (body.action === "discard") {
+            await script(cfg, { action: "discard", user_id: rec.user_id, form_id: rec.form_id }).catch(() => {});
+            await user("ql_gform_remove", { p_id: rec.id });
+            return reply(200, { ok: true });
+          }
+          const part = cleanQuestions(body.questions).slice(0, PART);
+          const done = await script(cfg, {
+            action: "add", user_id: rec.user_id, form_id: rec.form_id, questions: part,
+            start: Math.max(0, Math.round(Number(body.start) || 0)), last: !!body.last,
+          });
+          return reply(200, { ok: true, added: done.added || 0, question_count: done.question_count || 0,
+                              no_answer: done.no_answer || 0, short_answers: done.short_answers || 0, last: !!done.last });
         }
         case "rename":
         case "accepting":

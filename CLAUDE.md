@@ -11,7 +11,7 @@ the full details. This file is the short version.
 - Every release of the student app changes the version name in **both**
   `index.html` (`<meta name="ql-shell-generation">`, line ~20) and `sw.js`
   (`APP_CACHE` + `SHELL_GENERATION`). Use the form `reliability-YYYY-MM-DD-vN`.
-  The version in the repo on 2026-11-11 is `reliability-2026-11-11-v4` (not live until merged to main; v3 is live).
+  The version in the repo on 2026-11-11 is `reliability-2026-11-11-v5` (not live until merged to main; v4 is live).
 - CDN libraries stay pinned (supabase-js 2.118.0, tus 4.3.1, pdf-lib 1.17.1). If you
   change one, change it in index.html, admin.html, sw.js and the offline tests.
 - A new picture in `assets/` must also be added to `SHELL` in `sw.js` (a test checks this).
@@ -61,8 +61,10 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
 - `qlGoogleForms` (before `qlRoomsLoader`): Make Google Form button (after Create Quiz), window with Make new
   and My Google Forms. Paste = `window.qlBulkPastePanel` (end of `quizFeatureScript`): the quiz editor's Bulk Paste
   panel (upload, guides, answer key, Apply & Preview, Missing/Problem panels, editable preview), no Destination/Position.
-  One of my quizzes = From–To + parts of the per-form max. While making: an estimated % (Google makes the form in
-  one call). Then My Google Forms opens with a "ready" banner and the new form highlighted (link, made date, days ago).
+  One of my quizzes = From–To + parts of the per-form max. Forms over 30 questions are sent in parts of 30
+  (`make` with chunked → first 30, then `add` per part, `discard` if a part fails twice) so no call hits
+  Supabase's ~150 s limit; needs Apps Script version 2 (older script = one call). The % counts the parts.
+  Then My Google Forms opens with a "ready" banner and the new form highlighted (link, made date, days ago).
   Feature key `gform` (Website Control). Admin → Settings card `gfCard()` stores the Apps Script URL + secret
   and the safety cap; Admin → Users → Manage sets one person's Google Forms per day (badge in the list);
   Edit plan → Make Google Form: limits.gform_per_day (number / "unlimited" / absent = global) and limits.gform_questions (1–200).

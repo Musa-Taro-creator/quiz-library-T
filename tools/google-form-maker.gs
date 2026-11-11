@@ -16,6 +16,9 @@
 
 var ROOT_FOLDER_NAME = 'Quiz Library forms';
 var MAX_QUESTIONS = 200;
+// Version 2: big forms arrive in parts ("make" with more = true, then "add" for each part),
+// so no single request takes long enough to be cut off by Supabase.
+var VERSION = 2;
 
 /* ------------------------------------------------------------------ setup */
 function setup() {
@@ -58,8 +61,10 @@ function doPost(e) {
   }
   try {
     switch (body.action) {
-      case 'ping':      return json_({ ok: true, owner: owner_() });
+      case 'ping':      return json_({ ok: true, owner: owner_(), version: VERSION });
       case 'make':      return json_(make_(body));
+      case 'add':       return json_(add_(body));
+      case 'discard':   return json_(discard_(body));
       case 'status':    return json_(status_(body));
       case 'rename':    return json_(rename_(body));
       case 'accepting': return json_(accepting_(body));
@@ -93,7 +98,8 @@ function make_(d) {
     if (typeof form.setPublished === 'function') {
       try { form.setPublished(true); } catch (ignore) { /* older form type */ }
     }
-    form.setAcceptingResponses(true);
+    // more parts follow: keep it closed to answers until the last part is in (add_ opens it)
+    form.setAcceptingResponses(!d.more);
     folder = studentFolder_(d.user_id, d.user_label);
     DriveApp.getFileById(formId).moveTo(folder);
   } catch (err) {
@@ -111,6 +117,7 @@ function make_(d) {
     owner: owner_(),
     no_answer: noAnswer,
     short_answers: shortAnswers,
+    more: !!d.more,
     editor_email: '',
     editor_error: ''
   };
@@ -120,6 +127,36 @@ function make_(d) {
     catch (err) { result.editor_error = 'Could not add ' + email + ' as editor. Is it a Google account?'; }
   }
   return result;
+}
+
+// The next part of a big form. The form must already be in this student's folder.
+function add_(d) {
+  var form = ownedForm_(d);
+  var have = form.getItems().length;
+  var qs = (d.questions || []).slice(0, Math.max(0, MAX_QUESTIONS - have));
+  if (!qs.length && !(d.questions || []).length) throw new Error('No questions to add.');
+  var start = Math.max(0, Math.round(Number(d.start) || have));
+  var noAnswer = 0, shortAnswers = 0;
+  for (var i = 0; i < qs.length; i++) {
+    var r = addQuestion_(form, qs[i], start + i);
+    if (r.noAnswer) noAnswer++;
+    if (r.short) shortAnswers++;
+  }
+  if (d.last) {
+    form.setProgressBar(have + qs.length > 10);
+    if (typeof form.setPublished === 'function') {
+      try { form.setPublished(true); } catch (ignore) {}
+    }
+    form.setAcceptingResponses(true);
+  }
+  return { ok: true, added: qs.length, question_count: have + qs.length, no_answer: noAnswer, short_answers: shortAnswers, last: !!d.last };
+}
+
+// A big form that could not be finished goes to the Trash (only forms in this student's folder).
+function discard_(d) {
+  var form = ownedForm_(d);
+  DriveApp.getFileById(form.getId()).setTrashed(true);
+  return { ok: true };
 }
 
 function status_(d) {

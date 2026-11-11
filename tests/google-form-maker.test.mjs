@@ -10,7 +10,7 @@ function google(){
    it.setPoints=p=>{if(!Number.isInteger(p))throw Error('points must be whole');it.points=p;return it};
    it.setFeedbackForCorrect=f=>{it.fb.right=f;return it};it.setFeedbackForIncorrect=f=>{it.fb.wrong=f;return it};it.setGeneralFeedback=f=>{it.fb.general=f;return it};return it};
  const FormApp={create(title){const id='F'+(++seq);const form={id,title,items:[],quiz:false,published:false,accepting:false,responses:3,
-   getId:()=>id,setIsQuiz:v=>{form.quiz=v},setDescription:v=>{form.description=v},setProgressBar:()=>{},
+   getId:()=>id,getItems:()=>form.items,setIsQuiz:v=>{form.quiz=v},setDescription:v=>{form.description=v},setProgressBar:()=>{},
    addMultipleChoiceItem:()=>{const i=mkItem('radio');form.items.push(i);return i},addCheckboxItem:()=>{const i=mkItem('checkbox');form.items.push(i);return i},addTextItem:()=>{const i=mkItem('text');form.items.push(i);return i},
    setPublished:v=>{form.published=v},setAcceptingResponses:v=>{form.accepting=v},isAcceptingResponses:()=>form.accepting,getResponses:()=>Array(form.responses),
    getTitle:()=>form.title,setTitle:t=>{form.title=t},getPublishedUrl:()=>'https://docs.google.com/forms/d/e/'+id+'/viewform',shortenFormUrl:()=>'https://forms.gle/'+id,getEditUrl:()=>'https://docs.google.com/forms/d/'+id+'/edit'};
@@ -44,7 +44,7 @@ test('Without the right secret nothing happens',()=>{
  assert.deepEqual(g.post({action:'ping'}),{ok:false,error:'Not allowed'});
  assert.deepEqual(g.post({action:'ping',secret:'x'.repeat(64)}),{ok:false,error:'Not allowed'});
  assert.equal(JSON.parse(g.ctx.doGet().text).ok,true);assert.ok(!g.ctx.doGet().text.includes('@'),'GET does not reveal the Gmail');
- assert.deepEqual(g.post({action:'ping',secret:g.props.get('SECRET')}),{ok:true,owner:'quizlibrary.forms@gmail.com'});
+ assert.deepEqual(g.post({action:'ping',secret:g.props.get('SECRET')}),{ok:true,owner:'quizlibrary.forms@gmail.com',version:2});
 });
 test('make: a quiz with right answers, points, feedback, published, in the student folder, shared',()=>{
  const g=google();g.ctx.setup();const secret=g.props.get('SECRET');
@@ -88,4 +88,23 @@ test('status, rename, open/close and share only touch forms in that student fold
  assert.equal(g.forms.get(b.form_id).title,'B');
  const sh=g.post({action:'share',secret,user_id:'u-1',user_label:'Bona',email:'bona@gmail.com'});assert.equal(sh.editor_email,'bona@gmail.com');
  assert.match(g.post({action:'share',secret,user_id:'u-1',email:'not an email'}).error,/Type a Gmail/);
+});
+test('Big forms in parts: make with more keeps it closed, add appends to the same form, discard trashes; only in that student folder',()=>{
+ const g=google();g.ctx.setup();const secret=g.props.get('SECRET');
+ assert.equal(g.post({action:'ping',secret}).version,2);
+ const r=g.post({action:'make',secret,user_id:'u-1',user_label:'Bona',title:'Big',questions:QS,more:true});
+ assert.equal(r.ok,true,JSON.stringify(r));assert.equal(r.more,true);const form=g.forms.get(r.form_id);
+ assert.deepEqual([form.items.length,form.accepting],[5,false],'closed to answers until the last part');
+ const a=g.post({action:'add',secret,user_id:'u-1',form_id:r.form_id,questions:QS,start:5});
+ assert.deepEqual([a.ok,a.added,a.question_count,a.no_answer,a.short_answers,form.accepting],[true,5,10,1,1,false]);
+ const b=g.post({action:'add',secret,user_id:'u-1',form_id:r.form_id,questions:[{type:'true_false',prompt:'',correct:true}],start:10,last:true});
+ assert.deepEqual([b.question_count,form.accepting,form.published],[11,true,true]);
+ assert.equal(form.items[10].title,'Question 11','numbering continues across parts');
+ const other=g.post({action:'make',secret,user_id:'u-2',user_label:'Chea',title:'Theirs',questions:QS});
+ assert.match(g.post({action:'add',secret,user_id:'u-1',form_id:other.form_id,questions:QS}).error,/not in your folder/);
+ assert.equal(g.forms.get(other.form_id).items.length,5,'nothing added to someone else\'s form');
+ const full=g.post({action:'add',secret,user_id:'u-1',form_id:r.form_id,questions:Array.from({length:250},(_,i)=>({type:'true_false',prompt:'X'+i,correct:true}))});
+ assert.equal(full.question_count,200,'never more than 200 questions in one form');
+ assert.match(g.post({action:'discard',secret,user_id:'u-2',form_id:r.form_id}).error,/not in your folder/);assert.equal(g.files.get(r.form_id).trashed,false);
+ assert.deepEqual(g.post({action:'discard',secret,user_id:'u-1',form_id:r.form_id}),{ok:true});assert.equal(g.files.get(r.form_id).trashed,true);
 });
