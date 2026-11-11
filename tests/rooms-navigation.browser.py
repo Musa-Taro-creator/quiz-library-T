@@ -84,8 +84,10 @@ try:
     page.locator('[data-rm-back]').click();page.locator('[data-rm-heading]',has_text='Room library').wait_for()
     assert abs(page.locator('#qlRooms').evaluate('(e)=>e.scrollTop')-saved)<8
     assert page.locator(f'[data-rm-item="{folder["id"]}"]').evaluate('(e)=>e===document.activeElement')
-    # Header stays reachable while deep in a long folder listing.
-    box=page.locator('[data-rm-back]').bounding_box();assert 0<=box['y']<150
+    # The top bar is not pinned: it scrolls away with the page (Kuza), and comes back at the top.
+    assert page.locator('.rm-top').evaluate('(e)=>getComputedStyle(e).position')!='sticky'
+    page.locator('#qlRooms').evaluate('(e)=>e.scrollTop=e.scrollHeight');page.wait_for_timeout(50);box=page.locator('[data-rm-back]').bounding_box();assert box['y']<0,box
+    page.locator('#qlRooms').evaluate('(e)=>e.scrollTop=0');page.wait_for_timeout(50)
     page.locator('[data-rm-back]').click();page.locator('[data-rm-open]').first.wait_for()
     assert page.locator(f'[data-rm-open="{rid}"]').evaluate('(e)=>e===document.activeElement')
     page.locator(f'[data-rm-open="{rid}"]').click();page.locator('[data-rm-add]').wait_for();page.evaluate('history.back()');page.locator('[data-rm-open]').first.wait_for()
