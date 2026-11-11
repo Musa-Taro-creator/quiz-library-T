@@ -159,8 +159,8 @@ try:
   for mode in ['off','lock','plan','on']:
    row.locator(f'[data-m="{mode}"]').click();ap.wait_for_function("(mode)=>adminFixture.settings.find(x=>x.key==='features').value.nav_rooms===mode",arg=mode)
   assert ap.evaluate("adminFixture.settings.find(x=>x.key==='features').value.other_feature")=='lock'
-  ap.locator('[data-gall="Left menu & tabs"][data-m="off"]').click();ap.wait_for_function("adminFixture.settings.find(x=>x.key==='features').value.nav_rooms==='off'")
-  ap.locator('[data-gall="Left menu & tabs"][data-m="on"]').click();ap.wait_for_function("adminFixture.settings.find(x=>x.key==='features').value.nav_rooms==='on'")
+  ap.locator('[data-gall="Rooms"][data-m="off"]').click();ap.wait_for_function("adminFixture.settings.find(x=>x.key==='features').value.nav_rooms==='off'")
+  ap.locator('[data-gall="Rooms"][data-m="on"]').click();ap.wait_for_function("adminFixture.settings.find(x=>x.key==='features').value.nav_rooms==='on'")
   ap.screenshot(path='/tmp/rooms-website-control.png')
   ap.locator('.nav[data-v="plans"]').click();ap.locator('[data-edit="free"]').click();ap.locator('[data-feat="nav_rooms"]').check();ap.locator('#pSave').click();ap.wait_for_function('adminFixture.plan.features.nav_rooms===true')
   ap.locator('[data-edit="free"]').click();ap.locator('[data-feat="nav_rooms"]').uncheck();ap.locator('#pSave').click();ap.wait_for_function('!adminFixture.plan.features.nav_rooms')
