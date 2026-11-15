@@ -38,6 +38,17 @@ with sync_playwright() as p:
         page.evaluate("()=>{const d=document.createElement('div');d.id='tallTest';d.style.height='4000px';document.querySelector('.main').append(d);scrollTo(0,300)}")
         page.wait_for_function('scrollY===300')
         assert not page.evaluate("document.documentElement.classList.contains('ql-scroll-locked')")
+        # v17 bug: the library's quiz cards have an icon shape with class "ql-gp" (also the gift window's class),
+        # which locked scrolling on every page with quizzes (Kuza's Recent page on iPad). Cards must not lock it.
+        page.evaluate("""()=>{const now=new Date().toISOString();for(let i=0;i<30;i++)state.items.push({id:'quiz-'+i,library_id:LIBRARY_ID,parent_id:null,kind:'quiz',title:'Quiz '+i,position:i,is_trashed:false,created_at:now,updated_at:now,quiz_settings:{question_count:10}});render()}""")
+        page.wait_for_function("document.querySelectorAll('path.ql-gp').length>0")
+        page.wait_for_timeout(200)
+        assert not page.evaluate("document.documentElement.classList.contains('ql-scroll-locked')"), 'quiz cards must not lock the page'
+        page.evaluate('scrollTo(0,300)'); page.wait_for_function('scrollY===300')
+        page.mouse.move(width // 2, height // 2); page.mouse.wheel(0, 200); page.wait_for_function('scrollY>300')
+        assert page.evaluate(SWIPE, ['#tallTest', 200]) is False
+        page.evaluate('scrollTo(0,300)'); page.wait_for_function('scrollY===300')
+        ok(tag + 'A library full of quiz cards still scrolls (no false lock from the card icons)')
         page.evaluate('qlOpenUpgrade()'); page.wait_for_selector('.modal .qu-p')
         page.wait_for_function("document.documentElement.classList.contains('ql-scroll-locked')")
         page.mouse.move(5, height - 5); page.mouse.wheel(0, 900); page.wait_for_timeout(250)
