@@ -91,7 +91,7 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
   viewer, Rooms, Dashboard, …) `html.ql-scroll-locked` stops the page behind from scrolling, and on touch screens a swipe that is
   not inside something scrollable in the layer is stopped (iPad). A new full-screen layer must be added to `LAYERS`.
   admin.html has the same lock for its windows (`.ovl`). Only page elements covering at least half the screen count (an SVG icon
-  shape has class `ql-gp`, the gift window`s old class: use ids like `#qlGiftPop` in `LAYERS`).
+  shape has class `ql-gp`, the gift window's old class: use ids like `#qlGiftPop` in `LAYERS`).
 - Hidden tabs pause polling: look for `visibilityState` checks (devices, update checker,
   plans, support).
 
