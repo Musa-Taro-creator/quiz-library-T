@@ -1146,7 +1146,7 @@ addEventListener("hashchange",()=>{const v=location.hash.slice(1);if(v&&v!==cur&
    inside something scrollable in the open layer is stopped, so iPad Safari cannot scroll the page. */
 (function(){
   const LAYERS='.ovl'; /* every admin window (modal()) is an .ovl */
-  const shown=e=>{if(!e.isConnected||!e.getClientRects().length)return false;const c=getComputedStyle(e);return c.display!=="none"&&c.visibility!=="hidden"&&Number(c.opacity)!==0};
+  const shown=e=>{if(!(e instanceof HTMLElement)||!e.isConnected)return false;const r=e.getBoundingClientRect();if(r.width<innerWidth*.5||r.height<innerHeight*.5)return false;const c=getComputedStyle(e);return c.display!=="none"&&c.visibility!=="hidden"&&Number(c.opacity)!==0};
   const openLayers=()=>[...document.querySelectorAll(LAYERS)].filter(shown);
   let raf=0;
   function update(){raf=0;document.documentElement.classList.toggle("ql-scroll-locked",openLayers().length>0)}

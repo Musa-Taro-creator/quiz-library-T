@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-11-v17">
+<meta name="ql-shell-generation" content="reliability-2026-11-15-v18">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -21254,8 +21254,11 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
    (overflow hidden, which keeps the page where it was), and on touch screens a swipe that is not
    inside something scrollable in the open layer is stopped, so iPad Safari cannot scroll the page. */
 (function(){
-  const LAYERS='.overlay.show,.qz-page-overlay.show,.qz-subdialog-overlay.show,.qz-tools-overlay.show,.viewer.show,#qlRooms,#qlDash,#qlItemViewer,#qlOffPdf,.ql-gp,.ql-kick-ov,.ql-loc-ov,.qz-aa2-overlay,.sidebar-shade.show,.profile-strong-backdrop,.ql-strong-password-backdrop,.qz-navdrawer-backdrop';
-  const shown=e=>{if(!e.isConnected||!e.getClientRects().length)return false;const c=getComputedStyle(e);return c.display!=="none"&&c.visibility!=="hidden"&&Number(c.opacity)!==0};
+  const LAYERS='.overlay.show,.qz-page-overlay.show,.qz-subdialog-overlay.show,.qz-tools-overlay.show,.viewer.show,#qlRooms,#qlDash,#qlItemViewer,#qlOffPdf,#qlGiftPop,.ql-kick-ov,.ql-loc-ov,.qz-aa2-overlay,.sidebar-shade.show,.profile-strong-backdrop,.ql-strong-password-backdrop,.qz-navdrawer-backdrop';
+  /* a layer counts only if it is a page element covering at least half the screen: the quiz/PDF card icons
+     have an SVG shape with class "ql-gp" (also the gift window's class), which locked scrolling on every
+     library page with quizzes (v17 bug) */
+  const shown=e=>{if(!(e instanceof HTMLElement)||!e.isConnected)return false;const r=e.getBoundingClientRect();if(r.width<innerWidth*.5||r.height<innerHeight*.5)return false;const c=getComputedStyle(e);return c.display!=="none"&&c.visibility!=="hidden"&&Number(c.opacity)!==0};
   const openLayers=()=>[...document.querySelectorAll(LAYERS)].filter(shown);
   let raf=0;
   function update(){raf=0;document.documentElement.classList.toggle("ql-scroll-locked",openLayers().length>0)}
