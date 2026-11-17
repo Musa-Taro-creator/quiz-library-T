@@ -96,6 +96,7 @@ try:
   assert dp.locator('.rm-locked-action').count()==3 and 'Only Room Member' in dp.locator('.rm-item-menu').inner_text();assert dp.locator('[data-room-action="copy"]').is_disabled()
   dp.screenshot(path='/tmp/rooms-locked-menu.png')
   dp.evaluate('closeModal()');assert 'Only Room Member' in rpc(D,'patch',rid,{'id':link['id'],'patch':{'title':'x'}},fail=True)
+  assert dp.evaluate("(i)=>window.qlDragMove.start(document.querySelector(`[data-rm-item=\"${i}\"]`),10,10)",link['id']) is False and dp.locator('.ql-dd-ghost').count()==0,'a member who cannot change it cannot drag it'
   ok('Other members see "Only Room Member", greyed Edit/Move/Trash and no copy; the server refuses their edit')
   # Me and people I choose → Dara can edit; the owner can always edit.
   mp.locator(f'[data-rm-more="{link["id"]}"]').click();mp.locator('[data-room-action="access"]').click();mp.locator('.rm-acc').wait_for()

@@ -77,6 +77,15 @@ try:
   op.locator('.rm-cover .rm-hero-symbol',has_text='🫀').wait_for();r=rpc(A,'open',rid)['room'];assert r['theme']=='sunset' and r['emoji']=='🫀'
   assert '#f97316' in op.locator('.rm-room-hero').get_attribute('style')
   op.locator(f'[data-rm-more="{quiz["id"]}"]').click();op.locator('[data-room-action="pin"]',has_text='Pin to top').click();op.locator('.rm-pins',has_text='Heart sounds practice').wait_for()
+  # Drag to move inside the room (owner): the link onto the Cardiology folder card, then back up via the room in the path
+  def ctr(sel):return op.evaluate("(s)=>{const e=document.querySelector(s);e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]}",sel)
+  x1,y1=ctr(f'[data-rm-item="{link["id"]}"]');x2,y2=ctr(f'[data-rm-item="{folder["id"]}"]');x1,y1=ctr(f'[data-rm-item="{link["id"]}"]')
+  op.mouse.move(x1,y1);op.mouse.down();op.mouse.move(x1+20,y1+5,steps=3);op.locator('.ql-dd-ghost').wait_for(state='attached')
+  x2,y2=op.evaluate("(s)=>{const r=document.querySelector(s).getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]}",f'[data-rm-item="{folder["id"]}"]')
+  op.mouse.move(x2,y2,steps=8);op.locator(f'[data-rm-item="{folder["id"]}"].ql-dd-over').wait_for();op.mouse.up()
+  op.wait_for_function("(i)=>state.items.find(x=>x.id===i)?.parent_id",arg=link['id']);assert rpc(A,'item_get',rid,{'id':link['id']})['parent_id']==folder['id']
+  op.locator('#qlDdUndo button').click();op.wait_for_timeout(500);assert rpc(A,'item_get',rid,{'id':link['id']})['parent_id'] is None
+  ok('Drag to move works inside a room (onto a folder card) and Undo puts it back, saved on the server')
   op.locator('[data-rm-close]').click();op.locator('#qlRoomsNav').click();op.locator(f'[data-rm-open="{rid}"] .rm-room-symbol',has_text='🫀').wait_for()
   ok('Owner sets the cover colour and emoji (also on the room list) and pins a quiz')
 
