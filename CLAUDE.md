@@ -11,7 +11,7 @@ the full details. This file is the short version.
 - Every release of the student app changes the version name in **both**
   `index.html` (`<meta name="ql-shell-generation">`, line ~20) and `sw.js`
   (`APP_CACHE` + `SHELL_GENERATION`). Use the form `reliability-YYYY-MM-DD-vN`.
-  The version in the repo on 2026-11-15 is `reliability-2026-11-15-v18` (scroll-lock fix: quiz card icons no longer lock the page, on branch `claude/peaceful-keller-drbzyi`; not live until merged to main; v17 is live).
+  The version in the repo on 2026-11-17 is `reliability-2026-11-17-v19` (drag to move, on branch `claude/peaceful-keller-drbzyi`; not live until merged to main; v18 is live).
 - CDN libraries stay pinned (supabase-js 2.118.0, tus 4.3.1, pdf-lib 1.17.1). If you
   change one, change it in index.html, admin.html, sw.js and the offline tests.
 - A new picture in `assets/` must also be added to `SHELL` in `sw.js` (a test checks this).
@@ -92,6 +92,10 @@ Find a block with `grep -n '<script id="NAME"' index.html`.
   not inside something scrollable in the layer is stopped (iPad). A new full-screen layer must be added to `LAYERS`.
   admin.html has the same lock for its windows (`.ovl`). Only page elements covering at least half the screen count (an SVG icon
   shape has class `ql-gp`, the gift window's old class: use ids like `#qlGiftPop` in `LAYERS`).
+- `qlDragMove` (before `qlScrollLock`): drag to move. Press and hold a card 0.5 s (touch) or click and drag (mouse), drop on a
+  folder card, the ‹ Back button (folder above), Documents in the side menu / Library tab (top level) or `#breadcrumbs` where shown;
+  in Rooms on room folder cards and `.rm-crumbs`. Several selected items move together. Uses `service.updateMany` (room rules
+  apply; `qlRooms.canEdit`, Website Control `item_move`), then "Moved … · Undo" (`#qlDdUndo`). Rooms skips its refresh while `qlDragging`.
 - Hidden tabs pause polling: look for `visibilityState` checks (devices, update checker,
   plans, support).
 

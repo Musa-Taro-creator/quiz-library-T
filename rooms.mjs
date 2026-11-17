@@ -327,4 +327,4 @@ async function copyToLibrary(x){
  finally{busy=false;copying=false;if(who()===owner){state.items=roomItems;state.folderId=folder;state.selected=selection;ctx=source;drawRoom()}else{restore();close()}}
 }
 install();window.qlRooms={canEdit,active:()=>ctx?.room.id||null,capturePersonalRefresh:rows=>{if(ctx&&backup?.user===who()&&!copying){backup.items=rows;return true}return false},refresh,openRooms};
-setInterval(()=>{if(ctx&&backup?.user!==who()){close();return}if(ctx&&document.visibilityState==='visible'&&!document.querySelector('#qzPageOverlay.show,#modalOverlay.show')&&!busy)refresh()},30000);
+setInterval(()=>{if(ctx&&backup?.user!==who()){close();return}if(ctx&&document.visibilityState==='visible'&&!document.querySelector('#qzPageOverlay.show,#modalOverlay.show')&&!busy&&!window.qlDragging)refresh()},30000);

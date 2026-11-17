@@ -17,7 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
 <link rel="stylesheet" href="rooms.css">
-<meta name="ql-shell-generation" content="reliability-2026-11-15-v18">
+<meta name="ql-shell-generation" content="reliability-2026-11-17-v19">
 <script>
 window.qlLoadPdfJs=()=>window.qlPdfJsReady||(window.qlPdfJsReady=import(new URL("vendor/pdfjs-6.4.299/legacy/build/pdf.min.mjs",document.baseURI).href).then(lib=>{window.pdfjsLib=lib;return lib}).catch(error=>{window.qlPdfJsReady=null;throw error}));
 window.qlLoadPdfJs().catch(()=>{});
@@ -21248,6 +21248,172 @@ body.ql-ocean .ql-gf-pq.ok b,body.ql-neon .ql-gf-pq.ok b{color:#6ee7b7}body.ql-o
  const prior=render;render=function(){const out=prior.apply(this,arguments);place();return out};setTimeout(place,900);
 })();
 </script>
+<script id="qlDragMove">
+/* Drag to move (Kuza): press and hold a card (0.5 s) on iPad / phone, or click and drag with a mouse,
+   then drop it on a folder card or on the folder path at the top (to move it up). My Library and Rooms.
+   With several items selected, dragging one of them moves them all. A quick tap still opens the item and
+   a normal swipe still scrolls. Moving uses service.updateMany (the same as ⋮ → Move), so in a room the
+   room rules ("Who can change this?", Website Control) still apply. After a move: "Moved to … · Undo". */
+(function(){
+  const HOLD=500,SLOP=10,EDGE=72;
+  let press=null,drag=null,suppressUntil=0,raf=0,last={x:0,y:0};
+  const room=()=>!!(document.getElementById("qlRooms")&&window.qlRooms?.active?.());
+  const mode=k=>(typeof window.qlFeatureMode==="function"?window.qlFeatureMode(k):"on");
+  function cardAt(el){
+    if(!(el instanceof Element)||el.closest("button,input,select,textarea,a,label,[contenteditable]"))return null;
+    if(room())return el.closest("#qlRooms [data-rm-item]");
+    return el.closest("#content [data-id]");
+  }
+  const idOf=c=>c&&(c.dataset.rmItem||c.dataset.id);
+  function canDrag(id){
+    const x=typeof itemById==="function"&&itemById(id);if(!x||x.is_trashed)return false;
+    if(room())return !!window.qlRooms?.canEdit?.(x);
+    return typeof qlCanMutate==="function"&&qlCanMutate()&&state.section!=="trash"&&mode("item_move")==="on";
+  }
+  function dragIds(id){
+    if(!room()&&state.selection&&state.selected?.has(id))return (typeof rootIds==="function"?rootIds([...state.selected]):[...state.selected]).filter(i=>itemById(i)&&!itemById(i).is_trashed);
+    return [id];
+  }
+  /* folder cards + the folder path at the top (not the folder you are in, not anything being moved) */
+  function findTargets(blocked){
+    const out=[];
+    if(room()){
+      document.querySelectorAll("#qlRooms [data-rm-item]").forEach(e=>{const x=itemById(e.dataset.rmItem);if(x&&x.kind==="folder"&&!blocked.has(x.id))out.push({el:e,folder:x.id,card:true})});
+      document.querySelectorAll("#qlRooms .rm-crumbs [data-rm-path]").forEach(e=>{const f=e.dataset.rmPath||null;if(e.getAttribute("aria-current")==="page"||(f&&blocked.has(f)))return;out.push({el:e,folder:f})});
+    }else{
+      document.querySelectorAll("#content [data-id]").forEach(e=>{const x=itemById(e.dataset.id);if(x&&x.kind==="folder"&&!x.is_trashed&&!blocked.has(x.id))out.push({el:e,folder:x.id,card:true})});
+      if(state.section==="documents"&&state.folderId){
+        /* students: the ‹ Back button (= the folder above) and Documents in the side menu (= top level);
+           the folder path (#breadcrumbs) where it is shown */
+        const path=[null,...(typeof pathFor==="function"?pathFor(state.folderId).map(f=>f.id):[])],up=path.length>1?path[path.length-2]:null;
+        const vis=e=>e&&e.getClientRects().length&&e.getBoundingClientRect().width>0;
+        const back=document.getElementById("backBtn");if(vis(back)&&!(up&&blocked.has(up)))out.push({el:back,folder:up});
+        document.querySelectorAll('.sidebar [data-section="documents"],#qlTabbar [data-tab="documents"]').forEach(e=>{if(vis(e))out.push({el:e,folder:null})});
+        const btns=[...document.querySelectorAll("#breadcrumbs button")].filter(vis);
+        btns.forEach((b,i)=>{const f=path[i];if(i===btns.length-1||f===undefined||(f&&blocked.has(f)))return;out.push({el:b,folder:f})});
+      }
+    }
+    return out;
+  }
+  const folderName=f=>f?(itemById(f)?.title||"folder"):room()?(document.querySelector("#qlRooms .rm-crumbs [data-rm-path='']")?.textContent||"the room"):"Documents";
+  function start(card,x,y){
+    const id=idOf(card);if(!canDrag(id))return false;
+    const ids=dragIds(id);if(!ids.length)return false;
+    const blocked=new Set(ids.flatMap(i=>[i,...(typeof descendants==="function"?descendants(i):[])]));
+    const r=card.getBoundingClientRect(),cs=getComputedStyle(card),g=card.cloneNode(true);
+    g.removeAttribute("id");g.className+=" ql-dd-ghost";g.setAttribute("aria-hidden","true");
+    g.style.width=r.width+"px";g.style.height=r.height+"px";
+    g.style.background=cs.backgroundColor==="rgba(0, 0, 0, 0)"?"var(--sk-canvas,#fff)":cs.backgroundColor;
+    document.body.appendChild(g);
+    const tip=document.createElement("div");tip.id="qlDdTip";tip.setAttribute("role","status");
+    const t=ids.length>1?`${ids.length} items`:(itemById(ids[0])?.title||"item");
+    tip.innerHTML=`Moving <b></b><span> · drop on a folder · drag to the edge to scroll</span>`;tip.querySelector("b").textContent=t;
+    document.body.appendChild(tip);
+    const srcEls=ids.map(i=>document.querySelector(room()?`#qlRooms [data-rm-item="${CSS.escape(i)}"]`:`#content [data-id="${CSS.escape(i)}"]`)).filter(Boolean);
+    srcEls.forEach(e=>e.classList.add("ql-dd-src"));
+    drag={ids,blocked,ghost:g,tip,srcEls,targets:findTargets(blocked),over:null,gh:r.height*.6};
+    drag.targets.forEach(tg=>tg.el.classList.add("ql-dd-can"));
+    document.documentElement.classList.add("ql-dragging");window.qlDragging=true;
+    try{navigator.vibrate?.(12)}catch{}
+    move(x,y);loop();return true;
+  }
+  function setOver(tg){
+    if(drag.over===tg)return;
+    if(drag.over){drag.over.el.classList.remove("ql-dd-over");drag.over.el.querySelector(":scope>.ql-dd-drop")?.remove()}
+    drag.over=tg;
+    if(tg){tg.el.classList.add("ql-dd-over");if(tg.card){const b=document.createElement("span");b.className="ql-dd-drop";b.textContent="Drop to move here";tg.el.appendChild(b)}}
+  }
+  function move(x,y){
+    if(!drag)return;last={x,y};
+    /* the small copy floats above-right of the finger, so the folder under it (and its label) stays visible */
+    drag.ghost.style.transform=`translate(${Math.min(x+18,innerWidth-40)}px,${Math.max(4,y-drag.gh-12)}px) rotate(-5deg) scale(.6)`;
+    if(drag.targets.some(tg=>!tg.el.isConnected)){setOver(null);drag.targets.forEach(tg=>tg.el.classList.remove("ql-dd-can"));drag.targets=findTargets(drag.blocked);drag.targets.forEach(tg=>tg.el.classList.add("ql-dd-can"))}
+    const hit=document.elementFromPoint(x,y);
+    setOver(hit&&drag.targets.find(tg=>tg.el===hit||tg.el.contains(hit))||null);
+  }
+  /* near the top / bottom edge: scroll the page (or the room) */
+  function loop(){
+    cancelAnimationFrame(raf);
+    raf=requestAnimationFrame(function step(){
+      if(!drag)return;
+      const sc=room()?document.getElementById("qlRooms"):document.scrollingElement,h=innerHeight;
+      const d=last.y<EDGE?-(EDGE-last.y)/4:last.y>h-EDGE?(last.y-(h-EDGE))/4:0;
+      if(d&&sc){const before=sc.scrollTop;sc.scrollTop+=Math.max(-24,Math.min(24,d));if(sc.scrollTop!==before)move(last.x,last.y)}
+      raf=requestAnimationFrame(step);
+    });
+  }
+  function cleanup(){
+    cancelAnimationFrame(raf);
+    if(!drag)return;
+    setOver(null);drag.targets.forEach(tg=>tg.el.classList.remove("ql-dd-can"));drag.srcEls.forEach(e=>e.classList.remove("ql-dd-src"));
+    drag.ghost.remove();drag.tip.remove();drag=null;
+    document.documentElement.classList.remove("ql-dragging");window.qlDragging=false;
+  }
+  async function finish(){
+    const d=drag;if(!d)return;const tg=d.over;cleanup();suppressUntil=Date.now()+450;
+    if(!tg)return;
+    const ids=d.ids.filter(i=>(itemById(i)?.parent_id??null)!==tg.folder);if(!ids.length)return;
+    const before=ids.map(i=>[i,itemById(i)?.parent_id??null]);
+    try{
+      const rows=await service.updateMany(ids,{parent_id:tg.folder});(rows||[]).forEach(r=>r&&replaceLocal(r));
+      if(!room()&&state.selection)exitSelection();else render();
+      undoToast(`Moved ${ids.length>1?ids.length+" items":"“"+(itemById(ids[0])?.title||"item")+"”"} to ${folderName(tg.folder)}`,async()=>{
+        const groups=new Map();before.forEach(([i,p])=>{if(!groups.has(p))groups.set(p,[]);groups.get(p).push(i)});
+        for(const [p,list] of groups){const rs=await service.updateMany(list,{parent_id:p});(rs||[]).forEach(r=>r&&replaceLocal(r))}
+        render();
+      });
+    }catch(e){alert(typeof friendlyError==="function"?friendlyError(e):String(e?.message||e))}
+  }
+  function undoToast(text,undo){
+    document.getElementById("qlDdUndo")?.remove();
+    const t=document.createElement("div");t.id="qlDdUndo";t.setAttribute("role","status");
+    t.innerHTML=`<span></span><button type="button">Undo</button>`;t.querySelector("span").textContent=text;
+    const timer=setTimeout(()=>t.remove(),6000);
+    t.querySelector("button").onclick=async()=>{clearTimeout(timer);t.remove();try{await undo();toast("Move undone")}catch(e){alert(typeof friendlyError==="function"?friendlyError(e):String(e?.message||e))}};
+    document.body.appendChild(t);
+  }
+  /* mouse: click and drag (after a few pixels) */
+  document.addEventListener("mousedown",e=>{if(e.button!==0||drag)return;const c=cardAt(e.target);if(c)press={x:e.clientX,y:e.clientY,card:c,mouse:true}},true);
+  document.addEventListener("mousemove",e=>{
+    if(drag){e.preventDefault();move(e.clientX,e.clientY);return}
+    if(press?.mouse&&Math.hypot(e.clientX-press.x,e.clientY-press.y)>6){const p=press;press=null;if(start(p.card,e.clientX,e.clientY))e.preventDefault()}
+  },true);
+  document.addEventListener("mouseup",()=>{press=null;if(drag)finish()},true);
+  /* touch: press and hold, then drag; moving before the hold = a normal scroll */
+  document.addEventListener("touchstart",e=>{
+    if(drag||e.touches.length!==1){press&&clearTimeout(press.timer);press=null;return}
+    const c=cardAt(e.target);if(!c)return;const t=e.touches[0];
+    press={x:t.clientX,y:t.clientY,card:c,timer:setTimeout(()=>{if(press&&press.card===c){const p=press;press=null;start(p.card,p.x,p.y)}},HOLD)};
+  },{passive:true,capture:true});
+  document.addEventListener("touchmove",e=>{
+    const t=e.touches[0];if(!t)return;
+    if(drag){if(e.cancelable)e.preventDefault();move(t.clientX,t.clientY);return}
+    if(press&&!press.mouse&&Math.hypot(t.clientX-press.x,t.clientY-press.y)>SLOP){clearTimeout(press.timer);press=null}
+  },{passive:false,capture:true});
+  const touchEnd=e=>{if(press&&!press.mouse){clearTimeout(press.timer);press=null}if(drag){if(e.cancelable)e.preventDefault();e.type==="touchcancel"?(cleanup(),suppressUntil=Date.now()+450):finish()}};
+  document.addEventListener("touchend",touchEnd,{passive:false,capture:true});
+  document.addEventListener("touchcancel",touchEnd,{passive:false,capture:true});
+  /* after a drag, the click that follows must not open the item */
+  document.addEventListener("click",e=>{if(Date.now()<suppressUntil&&e.target instanceof Element&&e.target.closest("#content [data-id],#qlRooms [data-rm-item],#breadcrumbs,#qlRooms .rm-crumbs")){e.preventDefault();e.stopImmediatePropagation()}},true);
+  document.addEventListener("contextmenu",e=>{if(drag||cardAt(e.target)&&press)e.preventDefault()},true);
+  document.addEventListener("dragstart",e=>{if(cardAt(e.target))e.preventDefault()},true);
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&drag){cleanup();suppressUntil=Date.now()+300}},true);
+  window.qlDragMove={start:(card,x,y)=>start(card,x,y),move,finish,cancel:cleanup,active:()=>!!drag};
+})();
+</script>
+<style id="qlDragMoveCss">
+#content [data-id],#qlRooms [data-rm-item]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+html.ql-dragging,html.ql-dragging *{cursor:grabbing!important}
+.ql-dd-src{opacity:.35!important;outline:2px dashed #94a3b8!important;outline-offset:-2px}
+.ql-dd-can{outline:2px dashed rgba(34,197,94,.75)!important;outline-offset:2px}
+.ql-dd-over{outline:3px solid #22c55e!important;outline-offset:2px;box-shadow:0 0 0 8px rgba(34,197,94,.18)!important;position:relative}
+.ql-dd-drop{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:5;background:#16a34a;color:#fff;font:700 12px/1.2 Inter,system-ui,sans-serif;padding:6px 11px;border-radius:999px;white-space:nowrap;pointer-events:none}
+.ql-dd-ghost{position:fixed!important;left:0!important;top:0!important;margin:0!important;z-index:2147483600!important;pointer-events:none!important;transform-origin:top left;opacity:.95;box-shadow:0 22px 44px rgba(0,0,0,.35)!important;border-radius:18px;transition:none!important;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+#qlDdTip{position:fixed;z-index:2147483601;left:50%;top:max(14px,env(safe-area-inset-top));transform:translateX(-50%);max-width:calc(100vw - 32px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#111827;color:#fff;padding:10px 16px;border-radius:999px;font:600 14px Inter,system-ui,sans-serif;box-shadow:0 10px 24px rgba(0,0,0,.25);pointer-events:none}
+#qlDdTip b{color:#86efac}#qlDdTip span{opacity:.75;font-weight:500}@media(max-width:700px){#qlDdTip span{display:none}}
+#qlDdUndo{position:fixed;z-index:2147483601;left:50%;bottom:max(24px,calc(env(safe-area-inset-bottom) + 84px));transform:translateX(-50%);display:flex;align-items:center;gap:14px;max-width:calc(100vw - 32px);background:#111827;color:#fff;padding:10px 10px 10px 18px;border-radius:999px;font:600 14px Inter,system-ui,sans-serif;box-shadow:0 10px 24px rgba(0,0,0,.25)}
+#qlDdUndo span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#qlDdUndo button{flex-shrink:0;border:0;border-radius:999px;padding:8px 14px;background:#86efac;color:#052e16;font:800 13px Inter,system-ui,sans-serif;cursor:pointer;min-height:36px}
+</style>
 <script id="qlScrollLock">
 /* While a window or full-screen layer is open, the page behind it must not scroll (Kuza: on iPad
    "Choose your plan" and other windows let the background scroll). html gets .ql-scroll-locked
